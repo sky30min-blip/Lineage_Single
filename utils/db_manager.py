@@ -1,0 +1,159 @@
+"""
+리니지 싱글 서버 GM 툴 - 데이터베이스 관리자
+"""
+
+import pymysql
+from typing import List, Dict, Any, Optional
+import config
+
+
+class DBManager:
+    """데이터베이스 연결 및 쿼리 실행 관리"""
+    
+    def __init__(self):
+        self.connection = None
+        self.config = config.DB_CONFIG
+    
+    def connect(self) -> bool:
+        """DB 연결"""
+        try:
+            self.connection = pymysql.connect(
+                host=self.config['host'],
+                port=self.config['port'],
+                user=self.config['user'],
+                password=self.config['password'],
+                database=self.config['database'],
+                charset=self.config['charset'],
+                cursorclass=pymysql.cursors.DictCursor
+            )
+            return True
+        except Exception as e:
+            print(f"DB 연결 실패: {e}")
+            return False
+    
+    def close(self):
+        """DB 연결 종료"""
+        if self.connection:
+            self.connection.close()
+    
+    def execute_query(self, sql: str, params: tuple = None) -> bool:
+        """
+        INSERT, UPDATE, DELETE 등 실행
+        
+        Args:
+            sql: 실행할 SQL 쿼리
+            params: 쿼리 파라미터 (튜플)
+        
+        Returns:
+            성공 여부
+        """
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute(sql, params)
+                self.connection.commit()
+                return True
+        except Exception as e:
+            self.connection.rollback()
+            print(f"쿼리 실행 실패: {e}")
+            print(f"SQL: {sql}")
+            print(f"Params: {params}")
+            return False
+    
+    def fetch_all(self, sql: str, params: tuple = None) -> List[Dict[str, Any]]:
+        """
+        SELECT 쿼리 실행 (여러 행)
+        
+        Args:
+            sql: 실행할 SQL 쿼리
+            params: 쿼리 파라미터 (튜플)
+        
+        Returns:
+            결과 리스트 (딕셔너리 리스트)
+        """
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute(sql, params)
+                return cursor.fetchall()
+        except Exception as e:
+            print(f"쿼리 실행 실패: {e}")
+            print(f"SQL: {sql}")
+            return []
+    
+    def fetch_one(self, sql: str, params: tuple = None) -> Optional[Dict[str, Any]]:
+        """
+        SELECT 쿼리 실행 (단일 행)
+        
+        Args:
+            sql: 실행할 SQL 쿼리
+            params: 쿼리 파라미터 (튜플)
+        
+        Returns:
+            결과 딕셔너리 또는 None
+        """
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute(sql, params)
+                return cursor.fetchone()
+        except Exception as e:
+            print(f"쿼리 실행 실패: {e}")
+            print(f"SQL: {sql}")
+            return None
+    
+    def test_connection(self) -> tuple[bool, str]:
+        """
+        DB 연결 테스트
+        
+        Returns:
+            (성공 여부, 메시지)
+        """
+        try:
+            if not self.connect():
+                return False, "연결 실패"
+            
+            result = self.fetch_one("SELECT VERSION() as version")
+            if result:
+                version = result.get('version', 'Unknown')
+                return True, f"MariaDB {version}"
+            else:
+                return False, "버전 확인 실패"
+        except Exception as e:
+            return False, str(e)
+    
+    def get_all_tables(self) -> List[str]:
+        """전체 테이블 목록 조회"""
+        sql = """
+        SELECT TABLE_NAME 
+        FROM information_schema.TABLES 
+        WHERE TABLE_SCHEMA = %s
+        ORDER BY TABLE_NAME
+        """
+        results = self.fetch_all(sql, (self.config['database'],))
+        return [row['TABLE_NAME'] for row in results]
+    
+    def table_exists(self, table_name: str) -> bool:
+        """테이블 존재 여부 확인"""
+        tables = self.get_all_tables()
+        return table_name in tables
+    
+    def get_table_structure(self, table_name: str) -> List[Dict[str, Any]]:
+        """테이블 구조 조회"""
+        sql = f"DESCRIBE {table_name}"
+        return self.fetch_all(sql)
+    
+    def get_table_count(self, table_name: str) -> int:
+        """테이블 레코드 개수"""
+        sql = f"SELECT COUNT(*) as count FROM {table_name}"
+        result = self.fetch_one(sql)
+        return result['count'] if result else 0
+
+
+# 전역 DB 매니저 인스턴스 (싱글톤)
+_db_instance = None
+
+def get_db() -> DBManager:
+    """DB 매니저 인스턴스 가져오기 (싱글톤 패턴)"""
+    global _db_instance
+    if _db_instance is None:
+        _db_instance = DBManager()
+        _db_instance.connect()
+    return _db_instance
