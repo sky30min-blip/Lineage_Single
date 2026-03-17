@@ -1,0 +1,9 @@
+<?php
+/**
+ * GM 툴 DB 설정 예시
+ * 이 파일을 config.php 로 복사한 뒤 값 수정
+ */
+$db_host = 'localhost';
+$db_name = 'l1jdb';
+$db_user = 'root';
+$db_pass = '1307';

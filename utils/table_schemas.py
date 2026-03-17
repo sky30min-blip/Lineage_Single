@@ -10,6 +10,8 @@ REQUIRED_TABLES = [
     'gm_location_delivery',
     'gm_chat_log',
     'gm_chat_send',
+    'gm_server_command',
+    'gm_npc_despawned',
 ]
 
 # 누락 테이블 생성 SQL
@@ -79,6 +81,26 @@ TABLE_CREATION_SQLS = {
           KEY `idx_sent` (`sent`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         COMMENT='GM 툴에서 전송할 전체 채팅(서버가 폴링 후 브로드캐스트)';
+    """,
+    'gm_server_command': """
+        CREATE TABLE IF NOT EXISTS `gm_server_command` (
+          `id` INT NOT NULL AUTO_INCREMENT,
+          `command` VARCHAR(64) NOT NULL COMMENT 'server_open_wait, server_open, world_clear, character_save, kingdom_war, all_buff, robot_on, robot_off, event_poly, event_rank_poly, npc_despawn, npc_respawn',
+          `param` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '0/1 등, npc_despawn/npc_respawn 시 스폰 name',
+          `executed` TINYINT NOT NULL DEFAULT 0,
+          `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+          PRIMARY KEY (`id`),
+          KEY `idx_executed` (`executed`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        COMMENT='웹 GM 툴에서 서버 명령 요청(서버가 폴링 후 실행)';
+    """,
+    'gm_npc_despawned': """
+        CREATE TABLE IF NOT EXISTS `gm_npc_despawned` (
+          `spawn_name` VARCHAR(64) NOT NULL COMMENT 'npc_spawnlist.name',
+          `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+          PRIMARY KEY (`spawn_name`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        COMMENT='GM 툴에서 월드에서 제거한 NPC 스폰 목록(복구 드롭다운용)';
     """,
 }
 

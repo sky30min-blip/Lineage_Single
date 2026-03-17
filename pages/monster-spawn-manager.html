@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>몬스터 스폰 관리</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            background: white; 
+            border-radius: 12px; 
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            color: white; 
+            padding: 24px; 
+            text-align: center;
+        }
+        .header h1 { font-size: 28px; margin-bottom: 8px; }
+        .header p { opacity: 0.9; font-size: 14px; }
+        
+        .content { padding: 24px; }
+        
+        .section { 
+            background: #f8f9fa; 
+            border-radius: 8px; 
+            padding: 20px; 
+            margin-bottom: 20px;
+        }
+        .section-title { 
+            font-size: 18px; 
+            font-weight: 600; 
+            margin-bottom: 16px; 
+            color: #333;
+            border-left: 4px solid #667eea;
+            padding-left: 12px;
+        }
+        
+        .form-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); 
+            gap: 16px; 
+        }
+        .form-group { margin-bottom: 16px; }
+        .form-group label { 
+            display: block; 
+            margin-bottom: 6px; 
+            font-weight: 500; 
+            color: #555;
+            font-size: 14px;
+        }
+        .form-group input, 
+        .form-group select { 
+            width: 100%; 
+            padding: 10px 12px; 
+            border: 2px solid #e0e0e0; 
+            border-radius: 6px; 
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        .form-group input:focus, 
+        .form-group select:focus { 
+            outline: none; 
+            border-color: #667eea; 
+        }
+        
+        .monster-list { 
+            max-height: 300px; 
+            overflow-y: auto; 
+            border: 2px solid #e0e0e0; 
+            border-radius: 6px;
+            background: white;
+        }
+        .monster-item { 
+            padding: 12px; 
+            border-bottom: 1px solid #eee; 
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .monster-item:hover { background: #f0f0f0; }
+        .monster-item.selected { background: #e3f2fd; border-left: 4px solid #667eea; }
+        .monster-item-name { font-weight: 500; color: #333; }
+        .monster-item-id { color: #999; font-size: 12px; }
+        
+        .btn { 
+            padding: 12px 24px; 
+            border: none; 
+            border-radius: 6px; 
+            font-size: 15px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            transition: all 0.3s;
+        }
+        .btn-primary { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            color: white; 
+        }
+        .btn-primary:hover { 
+            transform: translateY(-2px); 
+            box-shadow: 0 6px 20px rgba(102,126,234,0.4); 
+        }
+        .btn-success { background: #28a745; color: white; }
+        .btn-success:hover { background: #218838; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-danger:hover { background: #c82333; }
+        
+        .btn-group { 
+            display: flex; 
+            gap: 12px; 
+            margin-top: 20px; 
+        }
+        
+        .preview { 
+            background: #263238; 
+            color: #aed581; 
+            padding: 16px; 
+            border-radius: 6px; 
+            font-family: 'Courier New', monospace; 
+            font-size: 13px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .preview-title { 
+            color: #81c784; 
+            margin-bottom: 8px; 
+            font-weight: 600;
+        }
+        
+        .spawn-table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 16px;
+        }
+        .spawn-table th, 
+        .spawn-table td { 
+            padding: 10px; 
+            text-align: left; 
+            border-bottom: 1px solid #ddd;
+            font-size: 13px;
+        }
+        .spawn-table th { 
+            background: #f5f5f5; 
+            font-weight: 600; 
+            color: #555;
+        }
+        .spawn-table tr:hover { background: #f9f9f9; }
+        
+        .delete-btn { 
+            background: #dc3545; 
+            color: white; 
+            border: none; 
+            padding: 6px 12px; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            font-size: 12px;
+        }
+        .delete-btn:hover { background: #c82333; }
+        
+        .search-box { 
+            padding: 10px 12px; 
+            border: 2px solid #e0e0e0; 
+            border-radius: 6px; 
+            width: 100%; 
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+        .search-box:focus { 
+            outline: none; 
+            border-color: #667eea; 
+        }
+        
+        .coord-inputs { 
+            display: grid; 
+            grid-template-columns: repeat(4, 1fr); 
+            gap: 12px; 
+        }
+        .gm-menu {
+            background: #5a67d8;
+            padding: 10px 20px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .gm-menu a {
+            color: white;
+            text-decoration: none;
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: 6px;
+            background: rgba(255,255,255,0.15);
+        }
+        .gm-menu a:hover { background: rgba(255,255,255,0.3); }
+        .gm-menu .here { background: rgba(255,255,255,0.4); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav class="gm-menu">
+            <a href="../index.html">GM 툴 메인</a>
+            <a href="monster-spawn-manager.html" class="here">몬스터 스폰 관리</a>
+        </nav>
+        <div class="header">
+            <h1>🎮 몬스터 스폰 관리</h1>
+            <p>사냥터/던전별 몬스터 배치를 쉽게 관리하세요</p>
+        </div>
+        
+        <div class="content">
+            <!-- 1. 맵 선택 -->
+            <div class="section">
+                <div class="section-title">1️⃣ 사냥터/던전 선택</div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>맵 선택</label>
+                        <select id="mapSelect" onchange="loadMapSpawns()">
+                            <option value="">맵을 선택하세요</option>
+                            <optgroup label="마을">
+                                <option value="0">말하는 섬</option>
+                                <option value="4">기란 마을</option>
+                                <option value="16">은기사 마을</option>
+                            </optgroup>
+                            <optgroup label="던전">
+                                <option value="30">기란 던전 1층</option>
+                                <option value="31">기란 던전 2층</option>
+                                <option value="32">기란 던전 3층</option>
+                                <option value="50">오림 던전 1층</option>
+                                <option value="51">오림 던전 2층</option>
+                            </optgroup>
+                            <optgroup label="사냥터">
+                                <option value="400">개미굴 1층</option>
+                                <option value="401">개미굴 2층</option>
+                                <option value="777">파워볼 게임장</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>스폰 위치 설명</label>
+                        <input type="text" id="locationName" placeholder="예: 기란 던전 입구">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 2. 몬스터 선택 -->
+            <div class="section">
+                <div class="section-title">2️⃣ 몬스터 선택</div>
+                <input type="text" class="search-box" id="monsterSearch" placeholder="몬스터 이름 검색..." onkeyup="filterMonsters()">
+                <div class="monster-list" id="monsterList">
+                    <!-- 몬스터 목록이 여기 표시됨 -->
+                </div>
+            </div>
+            
+            <!-- 3. 스폰 설정 -->
+            <div class="section">
+                <div class="section-title">3️⃣ 스폰 설정</div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>개체수</label>
+                        <input type="number" id="spawnCount" value="10" min="1" max="100">
+                    </div>
+                    <div class="form-group">
+                        <label>리스폰 시간 (초)</label>
+                        <input type="number" id="respawnTime" value="300" min="0" max="7200">
+                    </div>
+                    <div class="form-group">
+                        <label>이동 반경 (칸)</label>
+                        <input type="number" id="moveDistance" value="10" min="0" max="50">
+                    </div>
+                    <div class="form-group">
+                        <label>방향 (0~7)</label>
+                        <input type="number" id="heading" value="0" min="0" max="7">
+                    </div>
+                </div>
+                
+                <div class="form-group" style="margin-top: 16px;">
+                    <label>스폰 좌표 (중심점)</label>
+                    <div class="coord-inputs">
+                        <div>
+                            <label style="font-size: 12px; color: #999;">X</label>
+                            <input type="number" id="spawnX" value="33000" min="30000" max="35000">
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; color: #999;">Y</label>
+                            <input type="number" id="spawnY" value="33000" min="30000" max="35000">
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; color: #999;">X 범위</label>
+                            <input type="number" id="spawnRangeX" value="20" min="0" max="100">
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; color: #999;">Y 범위</label>
+                            <input type="number" id="spawnRangeY" value="20" min="0" max="100">
+                        </div>
+                    </div>
+                    <p style="font-size: 12px; color: #999; margin-top: 8px;">
+                        💡 범위 설정 시 개체수만큼 자동으로 좌표 분산 배치됩니다
+                    </p>
+                </div>
+            </div>
+            
+            <!-- 4. SQL 미리보기 -->
+            <div class="section">
+                <div class="section-title">4️⃣ SQL 쿼리 미리보기</div>
+                <div class="preview" id="sqlPreview">
+                    <div class="preview-title">-- SQL 쿼리가 여기에 표시됩니다</div>
+                    위에서 설정을 완료하면 실행될 쿼리가 표시됩니다.
+                </div>
+                
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="generateSQL()">🔍 쿼리 생성</button>
+                    <button class="btn btn-success" onclick="executeSQL()">✅ DB에 추가하기</button>
+                    <button class="btn btn-danger" onclick="clearForm()">🗑️ 초기화</button>
+                </div>
+            </div>
+            
+            <!-- 5. 현재 스폰 목록 -->
+            <div class="section">
+                <div class="section-title">5️⃣ 현재 맵의 스폰 목록</div>
+                <table class="spawn-table" id="spawnTable">
+                    <thead>
+                        <tr>
+                            <th>위치</th>
+                            <th>몬스터 ID</th>
+                            <th>개수</th>
+                            <th>좌표</th>
+                            <th>리스폰</th>
+                            <th>작업</th>
+                        </tr>
+                    </thead>
+                    <tbody id="spawnTableBody">
+                        <tr>
+                            <td colspan="6" style="text-align: center; color: #999;">맵을 선택하면 스폰 목록이 표시됩니다</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <script>window.GM_TOOL_BASE = '..';</script>
+    <script src="../js/monster-data.js"></script>
+    <script src="../js/spawn-manager.js"></script>
+</body>
+</html>

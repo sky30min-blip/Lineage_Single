@@ -10,7 +10,7 @@ tab1, tab2, tab3 = st.tabs(["🔍 아이템 조회", "✏️ 아이템 수정", 
 
 with tab1:
     st.subheader("🔍 아이템 검색")
-    
+
     # 연결·테이블 확인용 (에러 시 원인 파악)
     with st.expander("🔧 DB 연결 및 item 테이블 확인"):
         try:
@@ -56,7 +56,7 @@ with tab1:
         if 결과 and len(결과) > 0:
             선택 = st.selectbox("수정할 아이템 선택", 결과, format_func=lambda x: f"{x.get('아이템이름', x)}")
             
-            with st.expander("📋 상세 정보"):
+            with st.expander("📋 상세 정보", expanded=True):
                 col1, col2, col3 = st.columns(3)
                 with col1:
                     st.write(f"**이름**: {선택.get('아이템이름', '-')}")

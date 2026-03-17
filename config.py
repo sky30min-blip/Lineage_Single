@@ -15,6 +15,10 @@ DB_CONFIG = {
 # 서버 경로
 SERVER_PATH = r"D:\Lineage_Single\2.싱글리니지 팩\서버스타트.bat"
 CLIENT_PATH = r"D:\Lineage_Single\3.싱글리니지 클라이언트\접속.bat"
+# 아이템 이미지 검색 경로 (여러 폴더 순서대로 찾음). GM툴 페이지에서 gm_tool/images/item 을 앞에 붙여 사용
+ITEM_IMAGE_DIRS_EXTRA = [
+    r"D:\Lineage_Single\2.싱글리니지 팩\images\item",
+]
 
 # Docker 컨테이너 정보
 DOCKER_CONTAINER = "l1j-db"

@@ -1,0 +1,986 @@
+[
+{
+"inv_id": 1,
+"name": "0-1.spr",
+"offset": 909260081,
+"size": 1075059326
+},
+{
+"inv_id": 2,
+"name": "0-2.spr",
+"offset": 926496049,
+"size": 1064070841
+},
+{
+"inv_id": 4,
+"name": "0-4.spr",
+"offset": 926496049,
+"size": 1064162658
+},
+{
+"inv_id": 5,
+"name": "0-5.spr",
+"offset": 825504561,
+"size": 824703869
+},
+{
+"inv_id": 7,
+"name": "0-7.spr",
+"offset": 842412593,
+"size": 1047738046
+},
+{
+"inv_id": 9,
+"name": "0-9.spr",
+"offset": 909260081,
+"size": 1075402933
+},
+{
+"inv_id": 10,
+"name": "0-10.spr",
+"offset": 875967537,
+"size": 998428430
+},
+{
+"inv_id": 11,
+"name": "0-11.spr",
+"offset": 943273265,
+"size": 1066884994
+},
+{
+"inv_id": 13,
+"name": "1012-13.spr",
+"offset": 3272274,
+"size": 2907
+},
+{
+"inv_id": 18,
+"name": "0-18.spr",
+"offset": 875967537,
+"size": 998429678
+},
+{
+"inv_id": 20,
+"name": "1012-20.spr",
+"offset": 3299199,
+"size": 2082
+},
+{
+"inv_id": 21,
+"name": "1001-21.spr",
+"offset": 2178144,
+"size": 127
+},
+{
+"inv_id": 22,
+"name": "1000-22.spr",
+"offset": 2150045,
+"size": 234
+},
+{
+"inv_id": 24,
+"name": "0-24.spr",
+"offset": 909260081,
+"size": 1075209070
+},
+{
+"inv_id": 25,
+"name": "0-25.spr",
+"offset": 875967537,
+"size": 998434490
+},
+{
+"inv_id": 27,
+"name": "0-27.spr",
+"offset": 926496049,
+"size": 1064096955
+},
+{
+"inv_id": 28,
+"name": "1012-28.spr",
+"offset": 3336738,
+"size": 5698
+},
+{
+"inv_id": 29,
+"name": "1001-29.spr",
+"offset": 2180941,
+"size": 483
+},
+{
+"inv_id": 30,
+"name": "0-30.spr",
+"offset": 943010609,
+"size": 1058573170
+},
+{
+"inv_id": 31,
+"name": "0-31.spr",
+"offset": 909260081,
+"size": 1075286214
+},
+{
+"inv_id": 32,
+"name": "0-32.spr",
+"offset": 875901489,
+"size": 1045961100
+},
+{
+"inv_id": 33,
+"name": "0-33.spr",
+"offset": 943273265,
+"size": 1067352444
+},
+{
+"inv_id": 34,
+"name": "0-34.spr",
+"offset": 488608040,
+"size": 9083
+},
+{
+"inv_id": 38,
+"name": "0-38.spr",
+"offset": 943010609,
+"size": 1058574362
+},
+{
+"inv_id": 40,
+"name": "1023-40.spr",
+"offset": 5710553,
+"size": 1699
+},
+{
+"inv_id": 41,
+"name": "0-41.spr",
+"offset": 488693467,
+"size": 16997
+},
+{
+"inv_id": 43,
+"name": "1011-43.spr",
+"offset": 3102938,
+"size": 10483
+},
+{
+"inv_id": 45,
+"name": "1006-45.spr",
+"offset": 2462067,
+"size": 6831
+},
+{
+"inv_id": 48,
+"name": "1180-48.spr",
+"offset": 39344510,
+"size": 7454
+},
+{
+"inv_id": 50,
+"name": "1011-50.spr",
+"offset": 3175950,
+"size": 5593
+},
+{
+"inv_id": 51,
+"name": "1128-51.spr",
+"offset": 524755628,
+"size": 63299
+},
+{
+"inv_id": 52,
+"name": "1006-52.spr",
+"offset": 2503624,
+"size": 4026
+},
+{
+"inv_id": 53,
+"name": "1025-53.spr",
+"offset": 7233281,
+"size": 5257
+},
+{
+"inv_id": 54,
+"name": "1-54.spr",
+"offset": 489857690,
+"size": 6280
+},
+{
+"inv_id": 55,
+"name": "1180-55.spr",
+"offset": 39701361,
+"size": 46251
+},
+{
+"inv_id": 56,
+"name": "0-56.spr",
+"offset": 488813194,
+"size": 2807
+},
+{
+"inv_id": 58,
+"name": "1246-58.spr",
+"offset": 80671907,
+"size": 69895
+},
+{
+"inv_id": 59,
+"name": "1187-59.spr",
+"offset": 43836873,
+"size": 2676
+},
+{
+"inv_id": 60,
+"name": "1025-60.spr",
+"offset": 7296923,
+"size": 8962
+},
+{
+"inv_id": 61,
+"name": "1-61.spr",
+"offset": 489923628,
+"size": 9059
+},
+{
+"inv_id": 63,
+"name": "0-63.spr",
+"offset": 488883967,
+"size": 8867
+},
+{
+"inv_id": 65,
+"name": "1246-65.spr",
+"offset": 81364831,
+"size": 96158
+},
+{
+"inv_id": 66,
+"name": "1187-66.spr",
+"offset": 43859063,
+"size": 3215
+},
+{
+"inv_id": 68,
+"name": "1025-68.spr",
+"offset": 7357503,
+"size": 5684
+},
+{
+"inv_id": 69,
+"name": "1-69.spr",
+"offset": 489961704,
+"size": 1854
+},
+{
+"inv_id": 71,
+"name": "1247-71.spr",
+"offset": 84380949,
+"size": 13841
+},
+{
+"inv_id": 72,
+"name": "1188-72.spr",
+"offset": 44005884,
+"size": 2291
+},
+{
+"inv_id": 73,
+"name": "1187-73.spr",
+"offset": 43881745,
+"size": 1740
+},
+{
+"inv_id": 75,
+"name": "1025-75.spr",
+"offset": 7417668,
+"size": 7661
+},
+{
+"inv_id": 76,
+"name": "1-76.spr",
+"offset": 490000540,
+"size": 7016
+},
+{
+"inv_id": 77,
+"name": "1193-77.spr",
+"offset": 44502339,
+"size": 660
+},
+{
+"inv_id": 78,
+"name": "0-78.spr",
+"offset": 489086524,
+"size": 12283
+},
+{
+"inv_id": 79,
+"name": "1247-79.spr",
+"offset": 84423984,
+"size": 4816
+},
+{
+"inv_id": 80,
+"name": "1187-80.spr",
+"offset": 43895040,
+"size": 1160
+},
+{
+"inv_id": 81,
+"name": "1186-81.spr",
+"offset": 43377870,
+"size": 5282
+},
+{
+"inv_id": 82,
+"name": "1063-82.spr",
+"offset": 20761701,
+"size": 16775
+},
+{
+"inv_id": 83,
+"name": "1-83.spr",
+"offset": 490050464,
+"size": 6800
+},
+{
+"inv_id": 86,
+"name": "1247-86.spr",
+"offset": 84476982,
+"size": 4415
+},
+{
+"inv_id": 89,
+"name": "1186-89.spr",
+"offset": 43419750,
+"size": 6324
+},
+{
+"inv_id": 90,
+"name": "1-90.spr",
+"offset": 490096878,
+"size": 1438
+},
+{
+"inv_id": 91,
+"name": "1193-91.spr",
+"offset": 44509374,
+"size": 615
+},
+{
+"inv_id": 92,
+"name": "0-92.spr",
+"offset": 489198777,
+"size": 8974
+},
+{
+"inv_id": 95,
+"name": "1187-95.spr",
+"offset": 43919876,
+"size": 1946
+},
+{
+"inv_id": 96,
+"name": "1186-96.spr",
+"offset": 43466927,
+"size": 6517
+},
+{
+"inv_id": 97,
+"name": "3226-97.spr",
+"offset": 856290565,
+"size": 5724
+},
+{
+"inv_id": 99,
+"name": "13214-99.spr",
+"offset": 7538,
+"size": 0
+},
+{
+"inv_id": 100,
+"name": "1187-100.spr",
+"offset": 43508567,
+"size": 1329
+},
+{
+"inv_id": 101,
+"name": "1186-101.spr",
+"offset": 42074406,
+"size": 10167
+},
+{
+"inv_id": 102,
+"name": "323225-102.spr",
+"offset": 14189,
+"size": 0
+},
+{
+"inv_id": 103,
+"name": "1-103.spr",
+"offset": 489295110,
+"size": 2260
+},
+{
+"inv_id": 104,
+"name": "1193-104.spr",
+"offset": 44486101,
+"size": 631
+},
+{
+"inv_id": 105,
+"name": "0-105.spr",
+"offset": 487532600,
+"size": 10423
+},
+{
+"inv_id": 106,
+"name": "3222-106.spr",
+"offset": 849438613,
+"size": 3502
+},
+{
+"inv_id": 109,
+"name": "1186-109.spr",
+"offset": 42115152,
+"size": 3230
+},
+{
+"inv_id": 110,
+"name": "1-110.spr",
+"offset": 489339810,
+"size": 1443
+},
+{
+"inv_id": 111,
+"name": "1193-111.spr",
+"offset": 44488431,
+"size": 264
+},
+{
+"inv_id": 112,
+"name": "0-112.spr",
+"offset": 487617960,
+"size": 11485
+},
+{
+"inv_id": 113,
+"name": "3222-113.spr",
+"offset": 849470580,
+"size": 2079
+},
+{
+"inv_id": 114,
+"name": "138-114.spr",
+"offset": 490282993,
+"size": 7960
+},
+{
+"inv_id": 116,
+"name": "1186-116.spr",
+"offset": 42158838,
+"size": 7700
+},
+{
+"inv_id": 117,
+"name": "1189-117.spr",
+"offset": 44083145,
+"size": 1979
+},
+{
+"inv_id": 118,
+"name": "1-118.spr",
+"offset": 489389796,
+"size": 5003
+},
+{
+"inv_id": 119,
+"name": "13215-119.spr",
+"offset": 28131,
+"size": 0
+},
+{
+"inv_id": 123,
+"name": "1186-123.spr",
+"offset": 42208851,
+"size": 4773
+},
+{
+"inv_id": 124,
+"name": "1189-124.spr",
+"offset": 44096984,
+"size": 2056
+},
+{
+"inv_id": 125,
+"name": "1-125.spr",
+"offset": 489438963,
+"size": 6993
+},
+{
+"inv_id": 126,
+"name": "13214-126.spr",
+"offset": 4408,
+"size": 0
+},
+{
+"inv_id": 127,
+"name": "0-127.spr",
+"offset": 487719621,
+"size": 8428
+},
+{
+"inv_id": 130,
+"name": "1186-130.spr",
+"offset": 42256772,
+"size": 5062
+},
+{
+"inv_id": 137,
+"name": "1187-137.spr",
+"offset": 43580218,
+"size": 979
+},
+{
+"inv_id": 138,
+"name": "1186-138.spr",
+"offset": 42315777,
+"size": 2661
+},
+{
+"inv_id": 139,
+"name": "1189-139.spr",
+"offset": 44123897,
+"size": 1170
+},
+{
+"inv_id": 140,
+"name": "13215-140.spr",
+"offset": 22882,
+"size": 0
+},
+{
+"inv_id": 141,
+"name": "0-141.spr",
+"offset": 487882051,
+"size": 9568
+},
+{
+"inv_id": 142,
+"name": "3222-142.spr",
+"offset": 849568725,
+"size": 2081
+},
+{
+"inv_id": 143,
+"name": "138-143.spr",
+"offset": 490676466,
+"size": 9497
+},
+{
+"inv_id": 144,
+"name": "1187-144.spr",
+"offset": 43588008,
+"size": 940
+},
+{
+"inv_id": 151,
+"name": "1187-151.spr",
+"offset": 43600712,
+"size": 2072
+},
+{
+"inv_id": 156,
+"name": "0-156.spr",
+"offset": 488047481,
+"size": 2616
+},
+{
+"inv_id": 163,
+"name": "0-163.spr",
+"offset": 488098042,
+"size": 9002
+},
+{
+"inv_id": 166,
+"name": "1187-166.spr",
+"offset": 43633091,
+"size": 2827
+},
+{
+"inv_id": 167,
+"name": "1186-167.spr",
+"offset": 42513238,
+"size": 7693
+},
+{
+"inv_id": 168,
+"name": "1195-168.spr",
+"offset": 44680186,
+"size": 2255
+},
+{
+"inv_id": 170,
+"name": "0-170.spr",
+"offset": 488171586,
+"size": 7138
+},
+{
+"inv_id": 171,
+"name": "3222-171.spr",
+"offset": 849651609,
+"size": 2822
+},
+{
+"inv_id": 172,
+"name": "1190-172.spr",
+"offset": 44273686,
+"size": 954
+},
+{
+"inv_id": 177,
+"name": "13215-177.spr",
+"offset": 7144,
+"size": 0
+},
+{
+"inv_id": 184,
+"name": "3218-184.spr",
+"offset": 844066410,
+"size": 3109
+},
+{
+"inv_id": 235,
+"name": "3213-235.spr",
+"offset": 828370027,
+"size": 5393
+},
+{
+"inv_id": 236,
+"name": "3222-236.spr",
+"offset": 849898955,
+"size": 2318
+},
+{
+"inv_id": 237,
+"name": "3221-237.spr",
+"offset": 846740227,
+"size": 15731
+},
+{
+"inv_id": 238,
+"name": "3228-238.spr",
+"offset": 871389570,
+"size": 1070
+},
+{
+"inv_id": 239,
+"name": "3227-239.spr",
+"offset": 857964771,
+"size": 2793
+},
+{
+"inv_id": 240,
+"name": "3225-240.spr",
+"offset": 852625205,
+"size": 3191
+},
+{
+"inv_id": 241,
+"name": "13214-241.spr",
+"offset": 4653,
+"size": 0
+},
+{
+"inv_id": 242,
+"name": "3213-242.spr",
+"offset": 828478849,
+"size": 19843
+},
+{
+"inv_id": 243,
+"name": "3222-243.spr",
+"offset": 849921350,
+"size": 1529
+},
+{
+"inv_id": 244,
+"name": "3221-244.spr",
+"offset": 846837782,
+"size": 6866
+},
+{
+"inv_id": 245,
+"name": "3228-245.spr",
+"offset": 871400019,
+"size": 1326
+},
+{
+"inv_id": 246,
+"name": "3227-246.spr",
+"offset": 858015472,
+"size": 4893
+},
+{
+"inv_id": 247,
+"name": "23225-247.spr",
+"offset": 16398,
+"size": 0
+},
+{
+"inv_id": 249,
+"name": "13214-249.spr",
+"offset": 5258,
+"size": 0
+},
+{
+"inv_id": 250,
+"name": "3222-250.spr",
+"offset": 849950153,
+"size": 642
+},
+{
+"inv_id": 251,
+"name": "3221-251.spr",
+"offset": 846963497,
+"size": 17379
+},
+{
+"inv_id": 252,
+"name": "3228-252.spr",
+"offset": 871420345,
+"size": 4133
+},
+{
+"inv_id": 254,
+"name": "523225-254.spr",
+"offset": 6720,
+"size": 0
+},
+{
+"inv_id": 255,
+"name": "3225-255.spr",
+"offset": 852911340,
+"size": 8119
+},
+{
+"inv_id": 256,
+"name": "13214-256.spr",
+"offset": 5610,
+"size": 0
+},
+{
+"inv_id": 257,
+"name": "3213-257.spr",
+"offset": 828848767,
+"size": 3461
+},
+{
+"inv_id": 258,
+"name": "3222-258.spr",
+"offset": 849995613,
+"size": 811
+},
+{
+"inv_id": 259,
+"name": "3221-259.spr",
+"offset": 847112885,
+"size": 3368
+},
+{
+"inv_id": 260,
+"name": "3227-260.spr",
+"offset": 858259636,
+"size": 2541
+},
+{
+"inv_id": 261,
+"name": "23225-261.spr",
+"offset": 3409,
+"size": 0
+},
+{
+"inv_id": 262,
+"name": "3225-262.spr",
+"offset": 852958499,
+"size": 3330
+},
+{
+"inv_id": 265,
+"name": "3222-265.spr",
+"offset": 850005247,
+"size": 2169
+},
+{
+"inv_id": 267,
+"name": "3228-267.spr",
+"offset": 871464168,
+"size": 792
+},
+{
+"inv_id": 272,
+"name": "3222-272.spr",
+"offset": 850027966,
+"size": 2358
+},
+{
+"inv_id": 275,
+"name": "3227-275.spr",
+"offset": 858366710,
+"size": 4152
+},
+{
+"inv_id": 276,
+"name": "23225-276.spr",
+"offset": 15516,
+"size": 0
+},
+{
+"inv_id": 278,
+"name": "813214-278.spr",
+"offset": 5350,
+"size": 0
+},
+{
+"inv_id": 279,
+"name": "3213-279.spr",
+"offset": 829205141,
+"size": 21264
+},
+{
+"inv_id": 281,
+"name": "3228-281.spr",
+"offset": 871485463,
+"size": 3399
+},
+{
+"inv_id": 283,
+"name": "3226-283.spr",
+"offset": 855805656,
+"size": 3635
+},
+{
+"inv_id": 286,
+"name": "3213-286.spr",
+"offset": 829339175,
+"size": 8244
+},
+{
+"inv_id": 287,
+"name": "3222-287.spr",
+"offset": 850073252,
+"size": 3437
+},
+{
+"inv_id": 288,
+"name": "3221-288.spr",
+"offset": 847479125,
+"size": 11895
+},
+{
+"inv_id": 291,
+"name": "3225-291.spr",
+"offset": 853410676,
+"size": 3519
+},
+{
+"inv_id": 293,
+"name": "3213-293.spr",
+"offset": 829402117,
+"size": 3919
+},
+{
+"inv_id": 294,
+"name": "3222-294.spr",
+"offset": 850084601,
+"size": 728
+},
+{
+"inv_id": 297,
+"name": "3227-297.spr",
+"offset": 858701797,
+"size": 2896
+},
+{
+"inv_id": 298,
+"name": "23225-298.spr",
+"offset": 9234,
+"size": 0
+},
+{
+"inv_id": 299,
+"name": "3225-299.spr",
+"offset": 853477781,
+"size": 9547
+},
+{
+"inv_id": 302,
+"name": "3228-302.spr",
+"offset": 871550177,
+"size": 884
+},
+{
+"inv_id": 303,
+"name": "3227-303.spr",
+"offset": 858731710,
+"size": 2892
+},
+{
+"inv_id": 305,
+"name": "3225-305.spr",
+"offset": 853590792,
+"size": 18886
+},
+{
+"inv_id": 306,
+"name": "13214-306.spr",
+"offset": 6990,
+"size": 0
+},
+{
+"inv_id": 307,
+"name": "3213-307.spr",
+"offset": 829640842,
+"size": 17686
+},
+{
+"inv_id": 308,
+"name": "3222-308.spr",
+"offset": 850176322,
+"size": 4061
+},
+{
+"inv_id": 309,
+"name": "3221-309.spr",
+"offset": 847907284,
+"size": 15358
+},
+{
+"inv_id": 311,
+"name": "3226-311.spr",
+"offset": 855957755,
+"size": 6100
+},
+{
+"inv_id": 314,
+"name": "3213-314.spr",
+"offset": 829822836,
+"size": 18910
+},
+{
+"inv_id": 315,
+"name": "6255-315.spr",
+"offset": 945743419,
+"size": 4171
+},
+{
+"inv_id": 321,
+"name": "6258-321.spr",
+"offset": 945884097,
+"size": 121
+},
+{
+"inv_id": 329,
+"name": "6258-329.spr",
+"offset": 945885065,
+"size": 121
+}
+]

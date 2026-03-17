@@ -1,10 +1,11 @@
 """
 서버 관리 - 원본 서버 관리 툴의 설정 > 명령어/이벤트 기능.
-DB로 실행 가능한 것만 실행하고, 서버 메모리 조작이 필요한 것은 안내.
+웹에서 누르면 gm_server_command 테이블에 요청을 넣고, 게임 서버가 폴링해 실행합니다.
 """
 import os
 import streamlit as st
 from utils.db_manager import get_db
+from utils.table_schemas import get_create_sql
 
 db = get_db()
 is_connected, msg = db.test_connection()
@@ -12,8 +13,14 @@ if not is_connected:
     st.error(f"❌ DB 연결 실패: {msg}")
     st.stop()
 
+# gm_server_command 테이블 없으면 생성
+if not db.table_exists("gm_server_command"):
+    sql = get_create_sql("gm_server_command")
+    if sql:
+        db.execute_query(sql)
+
 st.subheader("⚙️ 서버 관리")
-st.caption("원본 서버 관리 툴(설정 > 명령어/이벤트) 기능. DB로 처리 가능한 항목만 실행됩니다.")
+st.caption("버튼을 누르면 DB에 명령이 저장되고, **게임 서버**가 주기적으로 읽어 실행합니다. 서버 재시작 후 적용됩니다.")
 
 # 서버 루트 경로 (lineage.conf 등)
 def _server_base():
@@ -36,26 +43,46 @@ def _read_conf_int(key: str, default: int) -> int:
         pass
     return default
 
+def _send_server_command(command: str, param: str = ""):
+    """gm_server_command 테이블에 명령 삽입. 서버가 폴링해 실행."""
+    ok = db.execute_query("INSERT INTO gm_server_command (command, param, executed) VALUES (%s, %s, 0)", (command, param or ""))
+    return (True, None) if ok else (False, "명령 등록 실패 (gm_server_command 테이블 확인)")
+
 # ---------- 탭 1: 서버 제어 ----------
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["🖥️ 서버 제어", "👥 플레이어 관리", "🎭 이벤트 관리", "🔄 사용 제한 초기화", "📝 SQL 생성"])
 
 with tab1:
-    st.write("**서버/월드 조작** (원본 툴은 서버 프로세스 내에서 실행)")
-    st.info("서버 오픈대기, 서버 오픈, 월드맵 청소, 캐릭터 저장은 **게임 서버 메모리**를 바꾸므로 원본 서버 관리 툴(같은 프로세스)에서만 실행 가능합니다. GM 툴에서는 DB만 접근할 수 있습니다.")
-    for label, desc in [
-        ("🔓 서버 오픈대기", "배율 제한·레벨 제한 등. 서버에서 실행 필요."),
-        ("✅ 서버 오픈", "오픈대기 해제. 서버에서 실행 필요."),
-        ("🧹 월드맵 청소", "바닥 아이템 제거. 서버에서 실행 필요."),
-        ("💾 캐릭터 저장", "접속 중인 캐릭터 즉시 저장. 서버에서 실행 필요."),
-        ("⚔️ 공성전", "공성전 시작/종료 토글. 서버에서 실행 필요."),
-    ]:
-        st.button(label, key=f"sv_{label}", disabled=True, help=desc)
+    st.write("**서버/월드 조작** — 버튼 누르면 서버가 곧 실행합니다 (폴링 간격 내).")
+    c_wait = st.checkbox("서버 오픈대기 실행 확인", key="c_sv_wait", help="배율·레벨 제한 적용됨")
+    if st.button("🔓 서버 오픈대기", key="sv_wait", disabled=not c_wait):
+        ok, err = _send_server_command("server_open_wait")
+        if ok: st.success("명령 등록됨. 서버가 처리할 때까지 잠시 기다리세요."); st.rerun()
+        else: st.error(err)
+    if st.button("✅ 서버 오픈", key="sv_open"):
+        ok, err = _send_server_command("server_open")
+        if ok: st.success("명령 등록됨."); st.rerun()
+        else: st.error(err)
+    if st.button("🧹 월드맵 청소", key="sv_clear"):
+        ok, err = _send_server_command("world_clear")
+        if ok: st.success("명령 등록됨."); st.rerun()
+        else: st.error(err)
+    if st.button("💾 캐릭터 저장", key="sv_save"):
+        ok, err = _send_server_command("character_save")
+        if ok: st.success("명령 등록됨."); st.rerun()
+        else: st.error(err)
+    if st.button("⚔️ 공성전", key="sv_war"):
+        ok, err = _send_server_command("kingdom_war")
+        if ok: st.success("명령 등록됨."); st.rerun()
+        else: st.error(err)
 
 # ---------- 탭 2: 플레이어 관리 ----------
 with tab2:
     st.write("**올버프**")
-    st.button("⚡ 올버프", key="buf_all", disabled=True, help="접속 중인 전체 캐릭터에게 버프. 서버에서만 실행 가능.")
-    st.write("**전체 밴 해제** (DB에서 실행 가능)")
+    if st.button("⚡ 올버프", key="buf_all"):
+        ok, err = _send_server_command("all_buff")
+        if ok: st.success("명령 등록됨."); st.rerun()
+        else: st.error(err)
+    st.write("**전체 밴 해제** (DB에서 즉시 실행)")
     confirm_ban = st.checkbox("전체 밴 해제 실행 확인", key="confirm_ban")
     if st.button("🔓 전체 밴 해제", key="ban_remove", disabled=not confirm_ban, help="계정·캐릭터 block_date 초기화, bad_ip 테이블 비우기"):
         try:
@@ -83,14 +110,34 @@ with tab2:
         except Exception as e:
             st.error(str(e))
     st.write("**로봇**")
-    st.button("🤖 로봇 전체 사용", key="robot_on", disabled=True, help="서버에서만 실행 가능.")
-    st.button("로봇 전체 사용 안함", key="robot_off", disabled=True, help="서버에서만 실행 가능.")
+    if st.button("🤖 로봇 전체 사용", key="robot_on"):
+        ok, err = _send_server_command("robot_on")
+        if ok: st.success("명령 등록됨."); st.rerun()
+        else: st.error(err)
+    if st.button("로봇 전체 사용 안함", key="robot_off"):
+        ok, err = _send_server_command("robot_off")
+        if ok: st.success("명령 등록됨."); st.rerun()
+        else: st.error(err)
 
 # ---------- 탭 3: 이벤트 관리 ----------
 with tab3:
-    st.write("변신 이벤트·랭킹 변신 이벤트는 서버 메모리 플래그(Lineage.event_poly 등)를 바꾸므로 **원본 툴**에서 실행하세요.")
-    st.button("🎭 변신 이벤트", key="ev_poly", disabled=True, help="서버에서만 토글 가능.")
-    st.button("🏆 랭킹 변신 이벤트", key="ev_rank_poly", disabled=True, help="서버에서만 토글 가능.")
+    st.write("**변신 이벤트** · **랭킹 변신 이벤트** — 켜기/끄기를 서버에 요청합니다.")
+    if st.button("🎭 변신 이벤트 켜기", key="ev_poly_on"):
+        ok, err = _send_server_command("event_poly", "1")
+        if ok: st.success("명령 등록됨."); st.rerun()
+        else: st.error(err)
+    if st.button("🎭 변신 이벤트 끄기", key="ev_poly_off"):
+        ok, err = _send_server_command("event_poly", "0")
+        if ok: st.success("명령 등록됨."); st.rerun()
+        else: st.error(err)
+    if st.button("🏆 랭킹 변신 이벤트 켜기", key="ev_rank_on"):
+        ok, err = _send_server_command("event_rank_poly", "1")
+        if ok: st.success("명령 등록됨."); st.rerun()
+        else: st.error(err)
+    if st.button("🏆 랭킹 변신 이벤트 끄기", key="ev_rank_off"):
+        ok, err = _send_server_command("event_rank_poly", "0")
+        if ok: st.success("명령 등록됨."); st.rerun()
+        else: st.error(err)
 
 # ---------- 탭 4: 사용 제한 초기화 ----------
 with tab4:
@@ -267,10 +314,15 @@ with tab5:
                 st.success("생성 완료. 위에서 다운로드하세요.")
         st.caption("spr_action.sql(spr_frame)은 서버의 sql/list.spr 파일을 읽어 생성하므로, 원본 툴에서 실행하세요.")
 
-with st.expander("❓ 서버 전용 기능이 비활성화된 이유"):
+with st.expander("❓ 웹 GM 툴에서 서버 명령이 동작하는 방법"):
     st.markdown("""
-    - **서버 오픈대기/오픈, 월드맵 청소, 캐릭터 저장, 올버프, 로봇, 변신 이벤트, 공성전** 등은 게임 서버 **프로세스 안의 메모리/객체**를 바꿉니다.
-    - GM 툴(Streamlit)은 서버와 **별도 프로세스**라서 이 메모리에 직접 접근할 수 없습니다.
-    - 따라서 이런 기능은 **원본 서버 관리 툴**(서버와 같은 프로세스에서 실행되는 Java GUI)에서만 사용할 수 있습니다.
-    - **DB만 수정하면 되는 기능**(전체 밴 해제, 기란감옥/경험치 구슬/자동 사냥 초기화)과 **DB에서 읽어 SQL 파일을 만드는 기능**은 이 페이지에서 실행할 수 있습니다.
+    1. **gm_server_command 테이블**  
+       웹에서 버튼을 누르면 이 테이블에 `(command, param, executed=0)` 행이 INSERT 됩니다.
+    2. **게임 서버 폴링**  
+       `GmDeliveryController.toTimer()` 가 주기적으로 `gm_server_command` 에서 `executed=0` 인 명령을 읽고,  
+       `server_open_wait`, `server_open`, `world_clear`, `character_save`, `kingdom_war`, `all_buff`, `robot_on`, `robot_off`, `event_poly`, `event_rank_poly` 에 맞춰 실행한 뒤 `executed=1` 로 갱신합니다.
+    3. **필수 조건**  
+       - **게임 서버를 한 번 재시작**해서 수정된 `GmDeliveryController.java` 가 반영되어 있어야 합니다.  
+       - GM 툴과 게임 서버가 **같은 DB**를 사용해야 합니다.  
+       - **DB 관리** 페이지에서 누락 테이블 생성 시 `gm_server_command` 가 없으면 생성해 두세요.
     """)
