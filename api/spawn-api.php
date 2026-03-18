@@ -32,13 +32,24 @@ function jsonFail($error) {
 
 function getPdo($config) {
     global $dsn;
+    $pass = $config['password'] ?? '';
+    if ($pass === '') {
+        jsonFail('DB 비밀번호가 비어 있습니다. gm_tool/api/config.php 를 열어서 \'password\' => \'MySQL비밀번호\' 로 수정하세요.');
+        exit;
+    }
     try {
-        $pdo = new PDO($dsn, $config['user'], $config['password'], [
+        $pdo = new PDO($dsn, $config['user'], $pass, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         ]);
         return $pdo;
     } catch (PDOException $e) {
-        jsonFail('DB 연결 실패: ' . $e->getMessage());
+        $msg = $e->getMessage();
+        if (strpos($msg, '1045') !== false || strpos($msg, 'using password: NO') !== false) {
+            $msg = 'root 비밀번호가 필요합니다. gm_tool/api/config.php 에서 \'password\' => \'MySQL비밀번호\' 로 수정 후 저장하세요.';
+        } else {
+            $msg = 'DB 연결 실패: ' . $msg;
+        }
+        jsonFail($msg);
         exit;
     }
 }

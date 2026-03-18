@@ -86,6 +86,11 @@
         .main .section h2 { font-size: 16px; margin-bottom: 12px; color: #333; }
         .main .section .ok { color: #2e7d32; font-weight: 500; padding: 8px 0; }
         .main .section .link { font-size: 14px; color: #1976d2; cursor: pointer; margin-top: 8px; }
+        .main .menu-placeholder { background: #fff3e0; border-left: 4px solid #ff9800; padding: 20px; border-radius: 8px; margin-top: 20px; }
+        .main .menu-placeholder h2 { color: #e65100; margin-bottom: 8px; }
+        .main .menu-placeholder p { color: #666; font-size: 14px; }
+        .main .menu-placeholder .back { display: inline-block; margin-top: 12px; color: #1976d2; cursor: pointer; font-size: 14px; }
+        .main .menu-placeholder .back:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -93,22 +98,22 @@
         <aside class="sidebar">
             <div class="app-title">APP</div>
             <nav>
-                <a href="#">계정관리</a>
-                <a href="#">캐릭터관리</a>
-                <a href="#">아이템지급</a>
-                <a href="#">NPC 관리</a>
-                <a href="#">DB관리</a>
-                <a href="#">아이템 관리</a>
-                <a href="#">통계분석</a>
-                <a href="#">서버모니터링</a>
-                <a href="#">채팅모니터링</a>
-                <a href="#">접속로그</a>
-                <a href="#">창고로그</a>
-                <a href="#">거래로그</a>
-                <a href="#">인챈트로그</a>
-                <a href="#">드롭로그</a>
-                <a href="#">명령어로그</a>
-                <a href="#">서버관리</a>
+                <a href="http://localhost:8501" target="_blank">계정관리</a>
+                <a href="http://localhost:8501" target="_blank">캐릭터관리</a>
+                <a href="http://localhost:8501" target="_blank">아이템지급</a>
+                <a href="http://localhost:8501" target="_blank">NPC 관리</a>
+                <a href="http://localhost:8501" target="_blank">DB관리</a>
+                <a href="http://localhost:8501" target="_blank">아이템 관리</a>
+                <a href="http://localhost:8501" target="_blank">통계분석</a>
+                <a href="http://localhost:8501" target="_blank">서버모니터링</a>
+                <a href="http://localhost:8501" target="_blank">채팅모니터링</a>
+                <a href="http://localhost:8501" target="_blank">접속로그</a>
+                <a href="http://localhost:8501" target="_blank">창고로그</a>
+                <a href="http://localhost:8501" target="_blank">거래로그</a>
+                <a href="http://localhost:8501" target="_blank">인챈트로그</a>
+                <a href="http://localhost:8501" target="_blank">드롭로그</a>
+                <a href="http://localhost:8501" target="_blank">명령어로그</a>
+                <a href="http://localhost:8501" target="_blank">서버관리</a>
                 <a href="pages/monster-spawn-manager.html">몬스터 스폰 관리</a>
             </nav>
             <div class="view-less">View less</div>
@@ -119,6 +124,7 @@
         </aside>
         <main class="main">
             <h1>🎮 리니지 싱글 서버 GM 툴</h1>
+            <div id="mainContent">
             <div class="stats">
                 <div class="stat-card">
                     <div class="label">전체 테이블</div>
@@ -142,7 +148,46 @@
                 <h2>서버 상태</h2>
                 <div class="ok">DB 연결됨</div>
             </div>
+            <div class="section">
+                <h2>메뉴 사용</h2>
+                <p style="color:#666;font-size:14px;margin-bottom:6px;">계정관리·아이템지급·NPC관리 등 → 메뉴 클릭 시 <strong>Streamlit</strong>이 새 탭에서 열립니다. 왼쪽 사이드바에서 원하는 메뉴를 선택하세요.</p>
+                <p style="color:#888;font-size:12px;">연결할 수 없으면 <strong>Streamlit</strong> 창(검은 창)이 완전히 뜬 뒤 5~10초 기다렸다가 다시 클릭하세요.</p>
+            </div>
+            </div>
         </main>
     </div>
+    <div id="fileOpenWarning" style="display:none; position:fixed; top:0; left:0; right:0; background:#e65100; color:white; padding:12px; text-align:center; z-index:9999;">
+        ⚠️ 파일로 열리셨습니다. <strong>run-gm-tool.bat</strong>을 실행한 뒤 브라우저에서 <strong>http://localhost:8765/</strong> 로 접속하세요.
+    </div>
+    <script>
+    (function() {
+        if (window.location.protocol === 'file:') {
+            document.getElementById('fileOpenWarning').style.display = 'block';
+            return;
+        }
+        var api = window.location.origin + '/api/gm-api.php';
+        fetch(api + '?action=list_tables').then(function(r) { return r.json(); })
+            .then(function(d) {
+                if (d.success && d.tables) {
+                    var el = document.getElementById('totalTables');
+                    if (el) el.textContent = d.tables.length;
+                }
+            }).catch(function() {});
+        fetch(api + '?action=list_accounts').then(function(r) { return r.json(); })
+            .then(function(d) {
+                if (d.success && d.list) {
+                    var el = document.getElementById('accountCount');
+                    if (el) el.textContent = d.list.length;
+                }
+            }).catch(function() {});
+        fetch(api + '?action=list_characters').then(function(r) { return r.json(); })
+            .then(function(d) {
+                if (d.success && d.list) {
+                    var el = document.getElementById('charCount');
+                    if (el) el.textContent = d.list.length;
+                }
+            }).catch(function() {});
+    })();
+    </script>
 </body>
 </html>

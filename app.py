@@ -32,6 +32,9 @@ with st.sidebar:
         st.error(f"❌ DB 연결 실패")
         st.caption(message)
         st.stop()
+    st.divider()
+    st.caption("몬스터 스폰(웹):")
+    st.link_button("몬스터 스폰 관리 (웹)", "http://localhost:8765/pages/monster-spawn-manager.html", type="secondary")
 
 # 메인 영역
 col1, col2, col3 = st.columns(3)
@@ -52,6 +55,21 @@ with col3:
     except Exception:
         char_count = 0
     st.metric("🎮 캐릭터 수", char_count)
+
+st.divider()
+
+with st.expander("🔄 GM 툴에서 수정한 내용이 게임에 언제 반영되나요?", expanded=True):
+    st.markdown("""
+    **즉시 반영 (접속 중인 캐릭터에게)**  
+    - **아이템 지급**, **아데나 변경**, **위치 이동** → 서버가 주기적으로 DB를 확인해 **접속 중인 캐릭터에게 곧바로** 적용합니다.
+
+    **서버 재시작 또는 리로드 후 반영**  
+    - **아이템 추가/수정** (item 테이블), **몬스터 추가/수정** (monster 테이블), **NPC 추가/수정/배치** (npc, npc_spawnlist)  
+    → 서버는 이 데이터를 **시작할 때만** 메모리로 읽어옵니다.  
+    → **서버를 재시작**하거나, 서버 프로그램 메뉴 **리로드 → item 테이블 리로드 / monster 테이블 리로드 / npc 리로드** 등을 실행해야 게임에 반영됩니다.
+
+    **정리**: GM 툴에서 저장하면 **DB에는 바로 저장**되지만, **아이템/몬스터/NPC 정의**는 서버가 다시 읽어야 하므로 **리로드 또는 재시작**이 필요합니다.
+    """)
 
 st.divider()
 

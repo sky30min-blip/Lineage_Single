@@ -5,7 +5,11 @@
  */
 let selectedMonster = null;
 const UID_BASE = 900000; // 생성되는 INSERT의 uid 시작값 (기존 데이터와 겹치지 않게 조정 가능)
-function getApiBase() { return (typeof window !== 'undefined' && window.GM_TOOL_BASE) ? (window.GM_TOOL_BASE + '/').replace(/\/+$/, '/') : ''; }
+function getApiBase() {
+    if (typeof window === 'undefined') return '';
+    if (window.location.protocol === 'http:' || window.location.protocol === 'https:') return window.location.origin + '/';
+    return (window.GM_TOOL_BASE ? (window.GM_TOOL_BASE + '/').replace(/\/+$/, '/') : '');
+}
 
 // API에서 불러온 몬스터 또는 기본 목록
 function getMonsterList() { return window.effectiveMonsterData || (typeof monsterData !== 'undefined' ? monsterData : []); }

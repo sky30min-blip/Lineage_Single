@@ -88,6 +88,31 @@ def _fix_garbled_time(line: str) -> str:
     return line
 
 
+def clear_log_file(subdir: str, date_str: Optional[str] = None) -> tuple:
+    """
+    해당 로그 폴더의 파일 내용을 비웁니다. (파일은 유지, 서버가 계속 쓸 수 있음)
+    date_str=None이면 최신 날짜 파일을 비움.
+    반환: (성공 여부, 메시지)
+    """
+    folder = get_manager_log_dir(subdir)
+    if not os.path.isdir(folder):
+        return False, "로그 폴더가 없습니다."
+    if date_str is None:
+        dates = list_log_dates(subdir)
+        if not dates:
+            return False, "비울 로그 파일이 없습니다."
+        date_str = dates[0]
+    path = os.path.join(folder, f"{date_str}.log")
+    if not os.path.isfile(path):
+        return False, f"해당 날짜 파일이 없습니다: {date_str}.log"
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            pass
+        return True, f"{date_str}.log 내용을 비웠습니다."
+    except Exception as e:
+        return False, str(e)
+
+
 def read_log_lines(subdir: str, date_str: Optional[str] = None, max_lines: int = 5000) -> List[str]:
     """
     로그 폴더에서 한 줄씩 읽어 리스트로 반환.
