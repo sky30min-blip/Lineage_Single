@@ -202,6 +202,47 @@
         }
         .gm-menu a:hover { background: rgba(255,255,255,0.3); }
         .gm-menu .here { background: rgba(255,255,255,0.4); }
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top:0; left:0; right:0; bottom:0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal-box {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 520px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .modal-box h3 { margin-bottom: 16px; color: #333; }
+        .modal-box .form-group { margin-bottom: 14px; }
+        .modal-box .btn-group { margin-top: 20px; }
+        .field-desc {
+            display: block;
+            font-size: 11px;
+            color: #666;
+            margin-top: 4px;
+            margin-bottom: 6px;
+            line-height: 1.4;
+        }
+        .field-desc a { color: #667eea; }
+        .help-section {
+            background: #f0f4ff;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 16px;
+            font-size: 12px;
+            color: #444;
+        }
+        .help-section summary { cursor: pointer; font-weight: 600; color: #333; }
     </style>
 </head>
 <body>
@@ -222,25 +263,9 @@
                 <div class="form-grid">
                     <div class="form-group">
                         <label>맵 선택</label>
-                        <select id="mapSelect" onchange="loadMapSpawns()">
+                        <select id="mapSelect">
                             <option value="">맵을 선택하세요</option>
-                            <optgroup label="마을">
-                                <option value="0">말하는 섬</option>
-                                <option value="4">기란 마을</option>
-                                <option value="16">은기사 마을</option>
-                            </optgroup>
-                            <optgroup label="던전">
-                                <option value="30">기란 던전 1층</option>
-                                <option value="31">기란 던전 2층</option>
-                                <option value="32">기란 던전 3층</option>
-                                <option value="50">오림 던전 1층</option>
-                                <option value="51">오림 던전 2층</option>
-                            </optgroup>
-                            <optgroup label="사냥터">
-                                <option value="400">개미굴 1층</option>
-                                <option value="401">개미굴 2층</option>
-                                <option value="777">파워볼 게임장</option>
-                            </optgroup>
+                            <!-- 옵션은 maps-data.js + spawn-manager.js에서 채움 -->
                         </select>
                     </div>
                     <div class="form-group">
@@ -252,10 +277,13 @@
             
             <!-- 2. 몬스터 선택 -->
             <div class="section">
-                <div class="section-title">2️⃣ 몬스터 선택</div>
-                <input type="text" class="search-box" id="monsterSearch" placeholder="몬스터 이름 검색..." onkeyup="filterMonsters()">
+                <div class="section-title">2️⃣ 몬스터 선택 <small style="color:#666;">(검색창에 입력 시 해당 단어로 필터)</small></div>
+                <div style="display:flex; gap:12px; align-items:center; margin-bottom:12px;">
+                    <input type="text" class="search-box" id="monsterSearch" placeholder="몬스터 이름 검색..." onkeyup="filterMonsters()" style="flex:1; margin-bottom:0;">
+                    <button type="button" class="btn btn-primary" onclick="openCustomMonsterModal()">➕ 커스텀 몬스터 추가</button>
+                </div>
                 <div class="monster-list" id="monsterList">
-                    <!-- 몬스터 목록이 여기 표시됨 -->
+                    <!-- 몬스터 목록이 여기 표시됨 (API 연동 시 DB 전체 목록) -->
                 </div>
             </div>
             
@@ -345,9 +373,69 @@
             </div>
         </div>
     </div>
+
+    <!-- 커스텀 몬스터 추가 모달 -->
+    <div class="modal-overlay" id="customMonsterModal">
+        <div class="modal-box">
+            <h3>➕ 커스텀 몬스터 추가</h3>
+            <details class="help-section">
+                <summary>📖 항목 설명 보기 (클릭하여 펼치기)</summary>
+                <ul style="margin:8px 0 0 16px; padding:0;">
+                    <li><strong>이름</strong>: 게임에 표시되는 몬스터 이름. 스폰 시 이 이름으로 지정됩니다.</li>
+                    <li><strong>name_id</strong>: 클라이언트용 이름/메시지 ID. $0 또는 $숫자 형태. 비우면 자동 생성.</li>
+                    <li><strong>gfx</strong>: 몬스터 외형 ID. 0=기본. 클라이언트 npc/몬스터 gfx와 맞추세요.</li>
+                    <li><strong>level</strong>: 레벨. 전투·경험치 계산에 사용.</li>
+                    <li><strong>hp / mp</strong>: 최대 체력·마나. 서버 밸런스 배율이 적용될 수 있음.</li>
+                    <li><strong>exp</strong>: 처치 시 주는 경험치.</li>
+                    <li>str, dex, ac, mr, 보스 여부, 속성 저항 등은 DB에서 추가 수정 가능합니다.</li>
+                </ul>
+            </details>
+            <div class="form-group">
+                <label>이름 (필수)</label>
+                <span class="field-desc">게임 내에 표시되는 몬스터 이름. monster 테이블 name 컬럼이며, 스폰 시 이 이름으로 등록됩니다.</span>
+                <input type="text" id="customName" placeholder="몬스터 이름">
+            </div>
+            <div class="form-group">
+                <label>name_id</label>
+                <span class="field-desc">클라이언트에서 쓰는 이름/메시지 ID. 보통 $0 또는 $숫자. 비워두면 이름 기준으로 자동 생성됩니다.</span>
+                <input type="text" id="customNameId" value="$0" placeholder="$0">
+            </div>
+            <div class="form-group">
+                <label>gfx</label>
+                <span class="field-desc">몬스터 그래픽(외형) ID. 0이면 기본 외형. 클라이언트 npc/몬스터 gfx 목록과 맞추면 됩니다.</span>
+                <input type="number" id="customGfx" value="0" min="0">
+            </div>
+            <div class="form-group">
+                <label>level</label>
+                <span class="field-desc">몬스터 레벨. 전투·명중·경험치 계산 등에 사용됩니다.</span>
+                <input type="number" id="customLevel" value="1" min="1">
+            </div>
+            <div class="form-group">
+                <label>hp</label>
+                <span class="field-desc">최대 체력(HP). 실제 적용 시 서버 밸런스(monster_hp_rate)가 곱해질 수 있습니다.</span>
+                <input type="number" id="customHp" value="50" min="1">
+            </div>
+            <div class="form-group">
+                <label>mp</label>
+                <span class="field-desc">최대 마나(MP). 스킬 사용 등에 사용됩니다. 서버 밸런스(monster_mp_rate) 적용 가능.</span>
+                <input type="number" id="customMp" value="10" min="0">
+            </div>
+            <div class="form-group">
+                <label>exp</label>
+                <span class="field-desc">플레이어가 이 몬스터를 처치했을 때 얻는 경험치입니다.</span>
+                <input type="number" id="customExp" value="0" min="0">
+            </div>
+            <p class="field-desc" style="margin-top:8px;">※ 힘(str)·민첩(dex)·방어(ac)·마방(mr)·보스 여부·크기(size)·속성 저항 등은 DB monster 테이블에서 추가로 수정할 수 있습니다.</p>
+            <div class="btn-group">
+                <button type="button" class="btn btn-success" onclick="submitCustomMonster()">추가</button>
+                <button type="button" class="btn btn-danger" onclick="closeCustomMonsterModal()">취소</button>
+            </div>
+        </div>
+    </div>
     
     <script>window.GM_TOOL_BASE = '..';</script>
     <script src="../js/monster-data.js"></script>
+    <script src="../js/maps-data.js"></script>
     <script src="../js/spawn-manager.js"></script>
 </body>
 </html>
