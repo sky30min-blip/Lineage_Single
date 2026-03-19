@@ -37,6 +37,8 @@ function buildMapSelect() {
             var opt = document.createElement('option');
             opt.value = m[0];
             opt.textContent = m[1];
+            if (m[2] && Array.isArray(m[2]) && m[2].length >= 4)
+                opt.dataset.bounds = m[2].join(',');
             og.appendChild(opt);
         });
         sel.appendChild(og);
@@ -234,12 +236,26 @@ function showSqlFallback(allQueries) {
 }
 
 function loadMapSpawns() {
-    const mapId = document.getElementById('mapSelect').value;
+    const mapSel = document.getElementById('mapSelect');
+    const mapId = mapSel ? mapSel.value : '';
     const tbody = document.getElementById('spawnTableBody');
 
     if (!mapId) {
         tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #999;">맵을 선택하면 스폰 목록이 표시됩니다</td></tr>';
         return;
+    }
+
+    // 맵4 마을 선택 시 좌표 범위 (data-bounds) — 해당 구역 스폰만 표시
+    var boundsStr = mapSel && mapSel.selectedIndex >= 0 ? (mapSel.options[mapSel.selectedIndex].dataset || {}).bounds : null;
+    var xMin, xMax, yMin, yMax;
+    if (boundsStr) {
+        var parts = boundsStr.split(',');
+        if (parts.length >= 4) {
+            xMin = parseInt(parts[0], 10);
+            xMax = parseInt(parts[1], 10);
+            yMin = parseInt(parts[2], 10);
+            yMax = parseInt(parts[3], 10);
+        }
     }
 
     const apiUrl = getApiBase() + 'api/spawn-api.php';
@@ -261,8 +277,16 @@ function loadMapSpawns() {
                 '<tr><td colspan="6" style="text-align: center; font-size: 11px; color: #999;">PHP 서버로 이 페이지를 연 뒤 gm_tool/api/config.php 에 DB 정보를 설정하세요.</td></tr>';
             return;
         }
-        if (data.spawns && data.spawns.length > 0) {
-            tbody.innerHTML = data.spawns.map(function(s) {
+        var spawns = data.spawns || [];
+        if (xMin != null && xMax != null && yMin != null && yMax != null) {
+            spawns = spawns.filter(function(s) {
+                var x = s.spawn_x != null ? parseInt(s.spawn_x, 10) : NaN;
+                var y = s.spawn_y != null ? parseInt(s.spawn_y, 10) : NaN;
+                return !isNaN(x) && !isNaN(y) && x >= xMin && x <= xMax && y >= yMin && y <= yMax;
+            });
+        }
+        if (spawns.length > 0) {
+            tbody.innerHTML = spawns.map(function(s) {
                 return '<tr>' +
                     '<td>' + escapeHtml(s.name || '-') + '</td>' +
                     '<td>' + escapeHtml(s.monster || '-') + '</td>' +
@@ -273,7 +297,9 @@ function loadMapSpawns() {
                     '</tr>';
             }).join('');
         } else {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #999;">이 맵에 등록된 스폰이 없습니다. 위에서 몬스터를 선택하고 스폰을 추가해 보세요.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #999;">' +
+                (xMin != null ? '이 구역(마을)에 등록된 스폰이 없습니다.' : '이 맵에 등록된 스폰이 없습니다.') +
+                ' 위에서 몬스터를 선택하고 스폰을 추가해 보세요.</td></tr>';
         }
     })
     .catch(function() {

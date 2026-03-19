@@ -29,7 +29,6 @@ with tab1:
     account_id = st.text_input("계정 ID", max_chars=20, placeholder="영문/숫자 4~20자", key="new_account_id")
     password = st.text_input("비밀번호", type="password", placeholder="4자 이상", key="new_password")
     password_confirm = st.text_input("비밀번호 확인", type="password", placeholder="비밀번호 재입력", key="new_password_confirm")
-    gm_checked = st.checkbox("GM 권한 부여", key="new_gm")
 
     def _validate_account_create():
         err = []
@@ -69,12 +68,7 @@ with tab1:
                                     (account_id.strip(), password),
                                 )
                         db.connection.commit()
-                        if gm_checked:
-                            try:
-                                db.execute_query("UPDATE accounts SET access_level = 200 WHERE LOWER(id) = %s", (account_id.strip().lower(),))
-                            except Exception:
-                                pass
-                        st.success("✅ 계정이 생성되었습니다.")
+                        st.success("✅ 계정이 생성되었습니다. GM 권한은 'GM 권한 관리' 탭에서 캐릭터 단위로 부여하세요.")
                         st.rerun()
                     except Exception as e:
                         if db.connection:
@@ -241,129 +235,145 @@ with tab2:
 # ========== 탭 3: GM 권한 관리 ==========
 with tab3:
     st.subheader("GM 권한 관리")
-    st.caption("게임 서버는 로그인 시 accounts.uid로 access_level을 읽어 캐릭터에 적용합니다. 권한 변경 후 **캐릭터를 한 번 로그아웃 후 재접속**해야 반영됩니다.")
+    st.caption("GM 권한은 **캐릭터 단위**로 부여됩니다. 권한 변경 후 해당 캐릭터로 **한 번 로그아웃 후 재접속**하면 반영됩니다.")
     with st.expander("❓ GM 권한이 게임에 안 먹힐 때"):
         st.markdown("""
-        1. **access_level 컬럼**이 accounts 테이블에 있는지 확인 (없으면 위 '컬럼 추가' 버튼 사용).
-        2. GM 권한 부여 후 해당 계정으로 **캐릭터 선택 → 월드 입장**까지 한 뒤, 한 번 **로그아웃 후 다시 접속**해 보세요.
-        3. 서버 코드(CharactersDatabase 등)를 수정했다면 **게임 서버 재시작**이 필요합니다.
-        4. 이 서버가 **운영자 세트 아이템**(오크족 망토 등) 착용으로 GM을 주는 방식이면, 아이템 관리에서 세트를 지급한 뒤 착용해야 합니다.
+        1. **gm 컬럼**이 characters 테이블에 있는지 확인 (없으면 아래 '컬럼 추가' 버튼 사용).
+        2. GM 권한 부여 후 해당 **캐릭터로 로그인 → 월드 입장**한 뒤, 한 번 **로그아웃 후 다시 접속**해 보세요.
+        3. 서버 코드를 수정했다면 **게임 서버 재시작**이 필요합니다.
         """)
 
-    # 서버 스키마: id 컬럼 사용 (account_name 아님)
+    # 캐릭터 목록: 계정 목록 탭과 동일한 방식으로 가져옴 (account_uid → characters)
+    account_rows = _get_account_list_full(db)
+    char_list = []
+    for r in account_rows:
+        acc_id = r.get("id") or ""
+        for name in (r.get("char_list") or []):
+            if name:
+                char_list.append({"name": name, "account": acc_id})
+    # gm 값은 한 번에 조회 (gm 컬럼 없을 수 있음)
+    has_gm_column = False
+    if char_list:
+        try:
+            gm_rows = db.fetch_all("SELECT name, gm FROM characters")
+            if gm_rows and "gm" in (gm_rows[0] or {}):
+                has_gm_column = True
+                name_to_gm = {(r.get("name") or "").lower(): (int(r["gm"]) if r.get("gm") is not None else 0) for r in gm_rows}
+            else:
+                name_to_gm = {}
+            for row in char_list:
+                row["gm"] = name_to_gm.get((row.get("name") or "").lower(), 0)
+        except Exception:
+            for row in char_list:
+                row["gm"] = 0
+
+    if not char_list:
+        st.info("등록된 캐릭터가 없습니다. 계정 목록 탭에 캐릭터가 보이면 해당 계정으로 캐릭터를 먼저 생성한 뒤 다시 시도하세요.")
+    else:
+        # gm 컬럼이 없으면 먼저 추가 유도 (캐릭터 선택은 아래에서 항상 표시)
+        if not has_gm_column:
+            if st.button("📌 characters 테이블에 gm 컬럼 추가", key="btn_add_gm_col"):
+                try:
+                    db.execute_query(
+                        "ALTER TABLE characters ADD COLUMN gm INT NOT NULL DEFAULT 0 COMMENT '0=일반, 200=GM'"
+                    )
+                    st.success("✅ gm 컬럼이 추가되었습니다. 페이지를 새로고침해 주세요.")
+                    st.rerun()
+                except Exception as e:
+                    err = str(e).lower()
+                    if "duplicate" in err or "already exists" in err:
+                        st.info("ℹ️ gm 컬럼이 이미 있습니다.")
+                    else:
+                        st.error(f"❌ 추가 실패: {e}")
+            st.caption("gm 컬럼이 없으면 위 버튼으로 추가한 뒤 새로고침하세요. 아래에서 캐릭터를 선택해 권한을 부여할 수 있습니다.")
+
+        # 캐릭터 선택 (목록이 있으면 항상 표시)
+        char_options = []
+        for r in char_list:
+            name = r.get("name") or ""
+            acc = r.get("account") or ""
+            gm_val = r.get("gm")
+            gm_int = int(gm_val) if gm_val is not None else 0
+            label = f"{name} (계정: {acc})" if acc else name
+            if has_gm_column:
+                label += " [GM]" if gm_int >= 200 else ""
+            char_options.append((name, label, gm_int))
+
+        choice_labels = [opt[1] for opt in char_options]
+        choice_idx = st.selectbox("캐릭터 선택", range(len(choice_labels)), format_func=lambda i: choice_labels[i], key="gm_select_char")
+        selected_char = char_options[choice_idx][0] if choice_idx is not None else None
+        current_gm = char_options[choice_idx][2] if choice_idx is not None else 0
+
+        if selected_char:
+            if has_gm_column:
+                level_text = "GM 캐릭터" if current_gm >= 200 else "일반 캐릭터"
+                st.info("**현재 권한:** " + level_text)
+
+                st.write("**GM 권한 부여**")
+                if st.button("GM 권한 부여", key="btn_grant_gm"):
+                    try:
+                        ok = db.execute_query(
+                            "UPDATE characters SET gm = 200 WHERE LOWER(name) = LOWER(%s)",
+                            (selected_char.strip(),),
+                        )
+                        if ok:
+                            st.success(f"✅ **{selected_char}** 캐릭터에 GM 권한을 부여했습니다. **재접속 후** 적용됩니다.")
+                            st.rerun()
+                        else:
+                            st.warning("반영되지 않았습니다. characters.gm 컬럼을 확인하세요.")
+                    except Exception as e:
+                        st.error(f"❌ 실패: {e}")
+
+                st.write("**GM 권한 해제**")
+                if st.button("GM 권한 해제", key="btn_revoke_gm", type="secondary"):
+                    try:
+                        ok = db.execute_query(
+                            "UPDATE characters SET gm = 0 WHERE LOWER(name) = LOWER(%s)",
+                            (selected_char.strip(),),
+                        )
+                        if ok:
+                            st.success(f"✅ **{selected_char}** 캐릭터의 GM 권한을 해제했습니다. **재접속 시** 반영됩니다.")
+                            st.rerun()
+                        else:
+                            st.warning("반영되지 않았습니다.")
+                    except Exception as e:
+                        st.error(f"❌ 실패: {e}")
+            else:
+                st.warning("characters 테이블에 **gm** 컬럼이 없습니다. 위에서 'gm 컬럼 추가' 후 새로고침하면 이 캐릭터에 GM 권한을 부여할 수 있습니다.")
+
+    st.divider()
+    st.write("**계정 삭제**")
     acc_list = db.fetch_all("SELECT id FROM accounts ORDER BY id")
     if not acc_list:
         acc_list = db.fetch_all("SELECT account_name FROM accounts ORDER BY account_name")
         id_col = "account_name"
     else:
         id_col = "id"
-
-    if not acc_list:
-        st.info("등록된 계정이 없습니다.")
-    else:
+    if acc_list:
         acc_names = [r[id_col] for r in acc_list]
-        selected = st.selectbox("계정 선택", acc_names, key="gm_select_account")
-
-        if selected:
-            # 현재 권한 표시 (access_level 없어도 아래 버튼은 항상 표시)
-            level_text = "확인 불가"
-            try:
-                if id_col == "id":
-                    info = db.fetch_one("SELECT id, access_level FROM accounts WHERE id = %s", (selected,))
-                else:
-                    info = db.fetch_one("SELECT account_name, access_level FROM accounts WHERE account_name = %s", (selected,))
-                if info is not None:
-                    level = info.get("access_level")
-                    level_int = int(level) if level is not None else 0
-                    level_text = "GM 계정" if level_int >= 200 else "일반 계정"
-            except Exception:
-                level_text = "확인 불가 (access_level 컬럼 없을 수 있음)"
-
-            st.info("**현재 권한:** " + level_text)
-
-            if "확인 불가" in level_text or "access_level" in level_text:
-                if st.button("📌 accounts 테이블에 access_level 컬럼 추가", key="btn_add_access_level"):
-                    try:
-                        db.execute_query(
-                            "ALTER TABLE accounts ADD COLUMN access_level INT NOT NULL DEFAULT 0 COMMENT '0=일반, 200=GM'"
-                        )
-                        st.success("✅ access_level 컬럼이 추가되었습니다. 페이지를 새로고침해 주세요.")
-                        st.rerun()
-                    except Exception as e:
-                        err = str(e).lower()
-                        if "duplicate" in err or "already exists" in err:
-                            st.info("ℹ️ access_level 컬럼이 이미 있습니다. 계정을 다시 선택해 보세요.")
-                        else:
-                            st.error(f"❌ 추가 실패: {e}")
-
-            st.write("**GM 권한 부여**")
-            if st.button("GM 권한 부여", key="btn_grant_gm"):
-                try:
-                    # 서버는 LOWER(id)로 조회하므로 UPDATE도 LOWER(id)로 일치시킴
-                    if id_col == "id":
-                        ok = db.execute_query(
-                            "UPDATE accounts SET access_level = 200 WHERE LOWER(id) = LOWER(%s)",
-                            (selected.strip(),),
-                        )
-                    else:
-                        ok = db.execute_query("UPDATE accounts SET access_level = 200 WHERE account_name = %s", (selected,))
-                    if ok:
-                        # 반영 확인: uid, access_level 재조회 (서버는 uid로 access_level 읽음)
-                        verify = db.fetch_one(
-                            "SELECT uid, access_level FROM accounts WHERE LOWER(" + ("id" if id_col == "id" else "account_name") + ") = LOWER(%s)",
-                            (selected.strip(),),
-                        )
-                        if verify and verify.get("access_level") == 200:
-                            uid_val = verify.get("uid", "?")
-                            st.success(f"✅ GM 권한을 부여했습니다. (DB 반영: uid={uid_val}, access_level=200) **캐릭터 재접속 후** 적용됩니다.")
-                        else:
-                            st.success("✅ GM 권한을 부여했습니다. **캐릭터 재접속 후** 적용됩니다.")
-                        st.rerun()
-                    else:
-                        st.warning("access_level 컬럼이 없을 수 있습니다. DB에 access_level 컬럼을 추가해 주세요.")
-                except Exception as e:
-                    st.error(f"❌ 실패: {e}")
-
-            st.write("**GM 권한 해제**")
-            if st.button("GM 권한 해제", key="btn_revoke_gm", type="secondary"):
+        del_acc = st.selectbox("삭제할 계정 선택", acc_names, key="gm_del_account")
+        confirm_delete = st.checkbox("계정 삭제를 확인합니다 (위험: 복구 불가)", key="confirm_delete_account")
+        if st.button("계정 삭제", key="btn_delete_account", type="secondary"):
+            if not confirm_delete:
+                st.warning("⚠️ 위 확인 체크박스를 선택한 뒤 삭제해 주세요.")
+            else:
                 try:
                     if id_col == "id":
-                        ok = db.execute_query(
-                            "UPDATE accounts SET access_level = 0 WHERE LOWER(id) = LOWER(%s)",
-                            (selected.strip(),),
-                        )
+                        uid_row = db.fetch_one("SELECT uid FROM accounts WHERE LOWER(id) = LOWER(%s)", (del_acc.strip(),))
                     else:
-                        ok = db.execute_query("UPDATE accounts SET access_level = 0 WHERE account_name = %s", (selected,))
-                    if ok:
-                        try:
-                            uid_row = db.fetch_one(
-                                "SELECT uid FROM accounts WHERE LOWER(" + ("id" if id_col == "id" else "account_name") + ") = LOWER(%s)",
-                                (selected.strip(),),
-                            )
-                            if uid_row and uid_row.get("uid") is not None:
-                                db.execute_query("UPDATE characters SET gm = 0 WHERE account_uid = %s", (uid_row["uid"],))
-                        except Exception:
-                            pass
-                        st.success("✅ GM 권한을 해제했습니다. **캐릭터 재접속 시** 반영됩니다.")
-                        st.rerun()
-                    else:
-                        st.warning("access_level 컬럼이 없을 수 있습니다. DB에 access_level 컬럼을 추가해 주세요.")
-                except Exception as e:
-                    st.error(f"❌ 실패: {e}")
-
-            st.divider()
-            st.write("**계정 삭제**")
-            confirm_delete = st.checkbox("계정 삭제를 확인합니다 (위험: 복구 불가)", key="confirm_delete_account")
-            if st.button("계정 삭제", key="btn_delete_account", type="secondary"):
-                if not confirm_delete:
-                    st.warning("⚠️ 위 확인 체크박스를 선택한 뒤 삭제해 주세요.")
-                else:
-                    try:
-                        if id_col == "id":
-                            db.execute_query("DELETE FROM accounts WHERE id = %s", (selected,))
-                        else:
-                            db.execute_query("DELETE FROM accounts WHERE account_name = %s", (selected,))
+                        uid_row = db.fetch_one("SELECT uid FROM accounts WHERE account_name = %s", (del_acc,))
+                    if uid_row and uid_row.get("uid") is not None:
+                        with db.connection.cursor() as cur:
+                            cur.execute("DELETE FROM characters WHERE account_uid = %s", (uid_row["uid"],))
+                            cur.execute("DELETE FROM accounts WHERE uid = %s", (uid_row["uid"],))
+                        db.connection.commit()
                         st.success("✅ 계정이 삭제되었습니다.")
                         st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ 삭제 실패: {e}")
+                    else:
+                        st.error("계정을 찾을 수 없습니다.")
+                except Exception as e:
+                    if db.connection:
+                        db.connection.rollback()
+                    st.error(f"❌ 삭제 실패: {e}")
+    else:
+        st.caption("삭제할 계정이 없습니다.")

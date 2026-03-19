@@ -560,6 +560,11 @@ with tab7:
     st.subheader("📍 스폰 위치 수정")
     st.caption("npc_spawnlist에 등록된(현재 월드에 리스폰되는) NPC만 표시됩니다. 좌표·맵·방향을 수정한 뒤 저장하면 DB에 반영됩니다. **반영 후 서버에서 NPC 리로드**가 필요합니다.")
     try:
+        apply_immediately = st.checkbox(
+            "저장 즉시 방향 반영 (해당 스폰만 npc_despawn/npc_respawn)",
+            value=True,
+            help="heading/좌표를 바꿔도 NPC가 이미 월드에 있으면 방향이 안 바뀔 수 있습니다. 이 옵션을 켜면 저장 직후 해당 스폰만 despawn/respawn 하여 즉시 반영됩니다."
+        )
         spawn_list = db.fetch_all(
             "SELECT name, npcName, locX, locY, locMap, heading FROM npc_spawnlist ORDER BY name"
         )
@@ -598,7 +603,27 @@ with tab7:
                                 (new_x, new_y, new_map, new_heading, spawn_name)
                             )
                             if ok:
-                                st.session_state["npc_page_feedback"] = ("success", f"✅ '{spawn_name}' 위치 저장됨 (X={new_x}, Y={new_y}, 맵={new_map}). **서버 리로드** 페이지에서 'npc 테이블 리로드'를 실행하세요.")
+                                if apply_immediately:
+                                    # 서버 폴링 처리(Executed=0)되면 해당 스폰만 다시 스폰되며 heading/좌표가 반영됩니다.
+                                    db.execute_query(
+                                        "INSERT INTO gm_server_command (command, param, executed) VALUES (%s, %s, 0)",
+                                        ("npc_despawn", spawn_name)
+                                    )
+                                    db.execute_query(
+                                        "INSERT INTO gm_server_command (command, param, executed) VALUES (%s, %s, 0)",
+                                        ("npc_respawn", spawn_name)
+                                    )
+                                    st.session_state["npc_page_feedback"] = (
+                                        "success",
+                                        f"✅ '{spawn_name}' 위치 저장됨 (X={new_x}, Y={new_y}, 맵={new_map}). "
+                                        f"즉시 적용 요청됨: `npc_despawn` → `npc_respawn`."
+                                    )
+                                else:
+                                    st.session_state["npc_page_feedback"] = (
+                                        "success",
+                                        f"✅ '{spawn_name}' 위치 저장됨 (X={new_x}, Y={new_y}, 맵={new_map}). "
+                                        f"**서버 리로드** 페이지에서 'npc 테이블 리로드'를 실행하세요."
+                                    )
                                 st.rerun()
                             else:
                                 st.session_state["npc_page_feedback"] = ("error", "❌ 저장 실패")
