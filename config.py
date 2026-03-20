@@ -28,6 +28,24 @@ PAGE_TITLE = "리니지 GM 툴"
 PAGE_ICON = "🎮"
 LAYOUT = "wide"
 
+# 파워볼 일일 포상: 서버 순이익 대비 풀 비율 (0.0 ~ 1.0)
+# - 네 직업(기사·법사·요정·다크엘프) 기본 합산 비율 → 군주에서 떼는 금액 가산 후, **참가로 체크한 직업 수**로 나눔 → 직업당 12:7:3
+# - 군주: ROYAL_TOTAL_RATE 로 먼저 풀을 잡고, 그중 DIVERT 비율만큼을 떼어 네 직업에 균등 가산 → 남은 금만 군주 7:3:2
+POWERBALL_POOL_FOUR_CLASSES_TOTAL_RATE = 0.22
+POWERBALL_POOL_ROYAL_TOTAL_RATE = 0.05
+# 군주 명목 풀(int(순이익×ROYAL)) 중 이 비율(0~1)만큼을 네 직업 쪽 총풀에 합산 후, 참가한 네 직업 수로 나눔
+POWERBALL_ROYAL_DIVERT_TO_FOUR_RATE = 0.3
+
+# 일일 포상에 참가할 직업 (False면 해당 직업 풀은 나머지 참가 직업에 균등 재분배). 자정 스크립트 기본값.
+# 군주 False 시 군주 실제 풀 전액도 네 직업 쪽 총풀에 합산 후 재분배.
+POWERBALL_REWARD_CLASS_DEFAULTS = {
+    "knight": True,
+    "wizard": True,
+    "elf": True,
+    "darkelf": False,
+    "royal": True,
+}
+
 # 직업 코드 매핑 (서버와 동일: 0~6)
 CLASS_NAMES = {
     0: "군주",

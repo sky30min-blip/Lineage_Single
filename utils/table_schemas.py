@@ -110,7 +110,7 @@ TABLE_CREATION_SQLS = {
           `server_profit` BIGINT NOT NULL DEFAULT 0 COMMENT '당일 서버 순이익(배팅−당첨지급)',
           `pool_four_class` BIGINT NOT NULL DEFAULT 0 COMMENT '기사/법사/요정/다크엘프 풀 합(22%)',
           `pool_royal` BIGINT NOT NULL DEFAULT 0 COMMENT '군주 풀(12%)',
-          `rank_metric` VARCHAR(32) NOT NULL DEFAULT 'contribution' COMMENT 'contribution|total_bet',
+          `rank_metric` VARCHAR(32) NOT NULL DEFAULT 'level' COMMENT '수혜자 순위: level=직업별 레벨',
           `executed_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
           `note` VARCHAR(255) DEFAULT NULL,
           PRIMARY KEY (`reward_date`)
