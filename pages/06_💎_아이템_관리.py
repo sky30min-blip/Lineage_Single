@@ -1,5 +1,12 @@
 import streamlit as st
 from utils.db_manager import get_db
+from utils.field_help_ko import ITEM_HELP as IH
+from utils.gm_db_options import (
+    CUSTOM_STR_LABEL,
+    distinct_item_materials,
+    resolve_string_selection,
+    string_field_options,
+)
 
 st.set_page_config(page_title="아이템 관리", page_icon="💎", layout="wide")
 st.title("💎 아이템 관리")
@@ -128,31 +135,47 @@ with tab2:
         
         with col1:
             st.markdown("#### 기본 정보")
-            새이름 = st.text_input("아이템 이름", value=원본이름, key="edit_name")
-            인벤ID = st.number_input("인벤ID (아이콘)", value=int(item.get('인벤ID') or 0), min_value=0, key="edit_invgfx")
-            구분1 = st.text_input("구분1", value=str(item.get('구분1') or ''), key="edit_type1")
-            구분2 = st.text_input("구분2", value=str(item.get('구분2') or ''), key="edit_type2")
-            재질 = st.text_input("재질", value=str(item.get('재질') or ''), key="edit_material")
-            무게 = st.text_input("무게", value=str(item.get('무게') or '0'), key="edit_weight")
-            최소레벨 = st.number_input("최소 레벨", value=int(item.get('level_min') or 0), min_value=0, max_value=99, key="edit_minlvl")
-            최대레벨 = st.number_input("최대 레벨", value=int(item.get('level_max') or 0), min_value=0, max_value=99, key="edit_maxlvl")
+            새이름 = st.text_input("아이템 이름", value=원본이름, key="edit_name", help="DB item 테이블의 고유 이름. 다른 아이템과 중복되면 안 됩니다.")
+            인벤ID = st.number_input("인벤ID (아이콘)", value=int(item.get('인벤ID') or 0), min_value=0, key="edit_invgfx", help=IH["인벤ID"])
+            구분1 = st.text_input("구분1", value=str(item.get('구분1') or ''), key="edit_type1", help=IH["구분1"])
+            구분2 = st.text_input("구분2", value=str(item.get('구분2') or ''), key="edit_type2", help=IH["구분2"])
+            _mat_list = distinct_item_materials(db)
+            _edit_mat_opts, _edit_mat_idx = string_field_options(_mat_list, str(item.get("재질") or ""))
+            _edit_mat_sel = st.selectbox(
+                "재질 (DB 목록)",
+                _edit_mat_opts,
+                index=min(_edit_mat_idx, len(_edit_mat_opts) - 1),
+                key="edit_material_sel",
+                help="item 테이블에 이미 쓰인 재질 목록 + 직접 입력. 서버가 인식하는 재질 문자열을 맞추세요.",
+            )
+            _edit_mat_custom = ""
+            if _edit_mat_sel == CUSTOM_STR_LABEL:
+                _edit_mat_custom = st.text_input(
+                    "재질 직접 입력",
+                    value=str(item.get("재질") or ""),
+                    key="edit_material_custom",
+                )
+            재질 = resolve_string_selection(_edit_mat_sel, _edit_mat_custom) or "기타"
+            무게 = st.text_input("무게", value=str(item.get('무게') or '0'), key="edit_weight", help=IH["무게"])
+            최소레벨 = st.number_input("최소 레벨", value=int(item.get('level_min') or 0), min_value=0, max_value=99, key="edit_minlvl", help=IH["level_min"])
+            최대레벨 = st.number_input("최대 레벨", value=int(item.get('level_max') or 0), min_value=0, max_value=99, key="edit_maxlvl", help=IH["level_max"])
         
         with col2:
             st.markdown("#### 능력치")
-            방어력 = st.number_input("AC (방어력)", value=int(item.get('ac') or 0), key="edit_ac")
-            소형데미지 = st.number_input("작은 몬스터 데미지", value=int(item.get('작은 몬스터') or 0), min_value=0, key="edit_small")
-            대형데미지 = st.number_input("큰 몬스터 데미지", value=int(item.get('큰 몬스터') or 0), min_value=0, key="edit_large")
-            명중 = st.number_input("공격성공율", value=int(item.get('공격성공율') or 0), key="edit_hit")
-            추가데미지 = st.number_input("추가타격치", value=int(item.get('추가타격치') or 0), key="edit_dmg")
+            방어력 = st.number_input("AC (방어력)", value=int(item.get('ac') or 0), key="edit_ac", help="방어력. 높을수록 물리 피해 감소.")
+            소형데미지 = st.number_input("작은 몬스터 데미지", value=int(item.get('작은 몬스터') or 0), min_value=0, key="edit_small", help="무기일 때 소형(작은 체형) 몬스터에게 주는 추가 데미지 구간.")
+            대형데미지 = st.number_input("큰 몬스터 데미지", value=int(item.get('큰 몬스터') or 0), min_value=0, key="edit_large", help="무기일 때 대형 몬스터에게 주는 추가 데미지 구간.")
+            명중 = st.number_input("공격성공율", value=int(item.get('공격성공율') or 0), key="edit_hit", help="공격 시 명중에 가산되는 값.")
+            추가데미지 = st.number_input("추가타격치", value=int(item.get('추가타격치') or 0), key="edit_dmg", help="최종 타격 데미지에 더해지는 값.")
         
         st.markdown("#### 인챈트 설정 (무기/방어구 등)")
         enc_col1, enc_col2, enc_col3 = st.columns(3)
         with enc_col1:
-            인첸트가능 = "true" if st.checkbox("인챈트 가능", value=(str(item.get('인첸트') or '') == 'true'), key="edit_enchant") else "false"
+            인첸트가능 = "true" if st.checkbox("인챈트 가능", value=(str(item.get('인첸트') or '') == 'true'), key="edit_enchant", help="무기/방어구 등 인챈트 주문서로 강화 가능 여부") else "false"
         with enc_col2:
-            안전인첸트 = st.number_input("안전인첸트 (단계)", value=int(item.get('안전인첸트') or 0), min_value=0, max_value=20, key="edit_safe_enc")
+            안전인첸트 = st.number_input("안전인첸트 (단계)", value=int(item.get('안전인첸트') or 0), min_value=0, max_value=20, key="edit_safe_enc", help=IH["안전인첸트"])
         with enc_col3:
-            최고인챈 = st.number_input("최고인챈 (최대 인챈)", value=int(item.get('최고인챈') or 0), min_value=0, max_value=255, key="edit_max_enc")
+            최고인챈 = st.number_input("최고인챈 (최대 인챈)", value=int(item.get('최고인챈') or 0), min_value=0, max_value=255, key="edit_max_enc", help=IH["최고인챈"])
         
         st.markdown("#### 속성 (attribute_crystal)")
         _attr_val = str(item.get('attribute_crystal') or 'none').lower()
@@ -163,61 +186,62 @@ with tab2:
             "속성 (없음/땅/불/바람/물)",
             ["none", "earth", "fire", "wind", "water"],
             index=_attr_idx,
-            key="edit_attr"
+            key="edit_attr",
+            help=IH["attribute_crystal"],
         )
         
         st.markdown("#### 사용 가능 직업 (0/1)")
         col3, col4, col5, col6, col7, col7b, col7c = st.columns(7)
         with col3:
-            군주 = 1 if st.checkbox("군주", value=bool(int(item.get('군주') or 0)), key="edit_royal") else 0
+            군주 = 1 if st.checkbox("군주", value=bool(int(item.get('군주') or 0)), key="edit_royal", help="1=군주 직업이 착용/사용 가능") else 0
         with col4:
-            기사 = 1 if st.checkbox("기사", value=bool(int(item.get('기사') or 0)), key="edit_knight") else 0
+            기사 = 1 if st.checkbox("기사", value=bool(int(item.get('기사') or 0)), key="edit_knight", help="1=기사 직업 가능") else 0
         with col5:
-            요정 = 1 if st.checkbox("요정", value=bool(int(item.get('요정') or 0)), key="edit_elf") else 0
+            요정 = 1 if st.checkbox("요정", value=bool(int(item.get('요정') or 0)), key="edit_elf", help="1=요정 직업 가능") else 0
         with col6:
-            마법사 = 1 if st.checkbox("마법사", value=bool(int(item.get('마법사') or 0)), key="edit_mage") else 0
+            마법사 = 1 if st.checkbox("마법사", value=bool(int(item.get('마법사') or 0)), key="edit_mage", help="1=마법사 직업 가능") else 0
         with col7:
-            다엘 = 1 if st.checkbox("다크엘프", value=bool(int(item.get('다크엘프') or 0)), key="edit_darkelf") else 0
+            다엘 = 1 if st.checkbox("다크엘프", value=bool(int(item.get('다크엘프') or 0)), key="edit_darkelf", help="1=다크엘프 직업 가능") else 0
         with col7b:
-            용기사 = 1 if st.checkbox("용기사", value=bool(int(item.get('용기사') or 0)), key="edit_dragon") else 0
+            용기사 = 1 if st.checkbox("용기사", value=bool(int(item.get('용기사') or 0)), key="edit_dragon", help="1=용기사 직업 가능") else 0
         with col7c:
-            환술사 = 1 if st.checkbox("환술사", value=bool(int(item.get('환술사') or 0)), key="edit_illusion") else 0
+            환술사 = 1 if st.checkbox("환술사", value=bool(int(item.get('환술사') or 0)), key="edit_illusion", help="1=환술사 직업 가능") else 0
         
         st.markdown("#### 스탯/능력 증가")
         stat_col1, stat_col2, stat_col3, stat_col4 = st.columns(4)
         with stat_col1:
-            HP증가 = st.number_input("HP증가", value=int(item.get('HP증가') or 0), key="edit_add_hp")
+            HP증가 = st.number_input("HP증가", value=int(item.get('HP증가') or 0), key="edit_add_hp", help=IH["HP증가"])
         with stat_col2:
-            MP증가 = st.number_input("MP증가", value=int(item.get('MP증가') or 0), key="edit_add_mp")
+            MP증가 = st.number_input("MP증가", value=int(item.get('MP증가') or 0), key="edit_add_mp", help=IH["MP증가"])
         with stat_col3:
-            MR증가 = st.number_input("MR증가", value=int(item.get('MR증가') or 0), key="edit_add_mr")
+            MR증가 = st.number_input("MR증가", value=int(item.get('MR증가') or 0), key="edit_add_mr", help=IH["MR증가"])
         with stat_col4:
-            SP증가 = st.number_input("SP증가", value=int(item.get('SP증가') or 0), key="edit_add_sp")
+            SP증가 = st.number_input("SP증가", value=int(item.get('SP증가') or 0), key="edit_add_sp", help=IH["SP증가"])
         
         st.markdown("#### 속성 저항 (수/풍/지/화)")
         res_col1, res_col2, res_col3, res_col4 = st.columns(4)
         with res_col1:
-            waterress = st.number_input("waterress(수)", value=int(item.get('waterress') or 0), key="edit_water")
+            waterress = st.number_input("waterress(수)", value=int(item.get('waterress') or 0), key="edit_water", help=IH["waterress"])
         with res_col2:
-            windress = st.number_input("windress(풍)", value=int(item.get('windress') or 0), key="edit_wind")
+            windress = st.number_input("windress(풍)", value=int(item.get('windress') or 0), key="edit_wind", help=IH["windress"])
         with res_col3:
-            earthress = st.number_input("earthress(지)", value=int(item.get('earthress') or 0), key="edit_earth")
+            earthress = st.number_input("earthress(지)", value=int(item.get('earthress') or 0), key="edit_earth", help=IH["earthress"])
         with res_col4:
-            fireress = st.number_input("fireress(화)", value=int(item.get('fireress') or 0), key="edit_fire")
+            fireress = st.number_input("fireress(화)", value=int(item.get('fireress') or 0), key="edit_fire", help=IH["fireress"])
         
         st.markdown("#### 기타 옵션")
         opt_col1, opt_col2, opt_col3 = st.columns(3)
         with opt_col1:
-            이펙트ID = st.number_input("이펙트ID", value=int(item.get('이펙트ID') or 0), min_value=0, key="edit_effect")
-            delay = st.number_input("delay", value=int(item.get('delay') or 0), min_value=0, key="edit_delay")
+            이펙트ID = st.number_input("이펙트ID", value=int(item.get('이펙트ID') or 0), min_value=0, key="edit_effect", help=IH["이펙트ID"])
+            delay = st.number_input("delay", value=int(item.get('delay') or 0), min_value=0, key="edit_delay", help=IH["delay"])
         with opt_col2:
-            거래가능 = "true" if st.checkbox("거래 가능", value=(str(item.get('거래') or '') == 'true'), key="edit_trade") else "false"
-            드랍가능 = "true" if st.checkbox("드랍 가능", value=(str(item.get('드랍') or '') == 'true'), key="edit_drop") else "false"
-            겹침가능 = "true" if st.checkbox("겹침 가능", value=(str(item.get('겹침') or '') == 'true'), key="edit_piles") else "false"
+            거래가능 = "true" if st.checkbox("거래 가능", value=(str(item.get('거래') or '') == 'true'), key="edit_trade", help="플레이어 간 거래(트레이드) 허용") else "false"
+            드랍가능 = "true" if st.checkbox("드랍 가능", value=(str(item.get('드랍') or '') == 'true'), key="edit_drop", help="몬스터/상자 등에서 드랍될 수 있는지") else "false"
+            겹침가능 = "true" if st.checkbox("겹침 가능", value=(str(item.get('겹침') or '') == 'true'), key="edit_piles", help="인벤에서 한 칸에 여러 개 쌓이는지") else "false"
         with opt_col3:
-            판매가능 = "true" if st.checkbox("판매", value=(str(item.get('판매') or '') == 'true'), key="edit_sell") else "false"
-            창고가능 = "true" if st.checkbox("창고", value=(str(item.get('창고') or '') == 'true'), key="edit_warehouse") else "false"
-            손상가능 = "true" if st.checkbox("손상 가능", value=(str(item.get('손상') or '') == 'true'), key="edit_canbedmg") else "false"
+            판매가능 = "true" if st.checkbox("판매", value=(str(item.get('판매') or '') == 'true'), key="edit_sell", help="NPC 상점에 팔 수 있는지") else "false"
+            창고가능 = "true" if st.checkbox("창고", value=(str(item.get('창고') or '') == 'true'), key="edit_warehouse", help="창고 보관 가능 여부") else "false"
+            손상가능 = "true" if st.checkbox("손상 가능", value=(str(item.get('손상') or '') == 'true'), key="edit_canbedmg", help="내구/손상 시스템에 걸리는지") else "false"
         
         # 이동 주문서인 경우: item_teleport 목적지 수정 (x, y, 맵번호 등)
         구분2_val = str(item.get('구분2') or '')
@@ -231,16 +255,16 @@ with tab2:
                 if tp_row:
                     st.markdown("#### 📜 이동 주문서 목적지 수정")
                     st.caption("이동 주문서의 도착 좌표/맵을 수정합니다. 저장 시 item_teleport만 갱신됩니다.")
-                    tp_name_edit = st.text_input("목적지 이름 (item_teleport.name)", value=str(tp_row.get("name") or ""), key="edit_tp_name")
+                    tp_name_edit = st.text_input("목적지 이름 (item_teleport.name)", value=str(tp_row.get("name") or ""), key="edit_tp_name", help="목적지 표시용 이름(관리용). 게임 내 주문서 이름은 아이템 이름과 별개일 수 있음.")
                     tpc1, tpc2, tpc3 = st.columns(3)
                     with tpc1:
-                        tp_x_edit = st.number_input("X (goto_x)", value=int(tp_row.get("goto_x") or 32768), key="edit_tp_x")
+                        tp_x_edit = st.number_input("X (goto_x)", value=int(tp_row.get("goto_x") or 32768), key="edit_tp_x", help=IH["goto_x"])
                     with tpc2:
-                        tp_y_edit = st.number_input("Y (goto_y)", value=int(tp_row.get("goto_y") or 32768), key="edit_tp_y")
+                        tp_y_edit = st.number_input("Y (goto_y)", value=int(tp_row.get("goto_y") or 32768), key="edit_tp_y", help=IH["goto_y"])
                     with tpc3:
-                        tp_map_edit = st.number_input("맵 번호 (goto_map)", value=int(tp_row.get("goto_map") or 0), key="edit_tp_map")
-                    tp_range_edit = st.number_input("도착지 랜덤 범위 (range)", value=int(tp_row.get("range") or 0), min_value=0, key="edit_tp_range")
-                    tp_heading_edit = st.number_input("goto_heading", value=int(tp_row.get("goto_heading") or 0), key="edit_tp_heading")
+                        tp_map_edit = st.number_input("맵 번호 (goto_map)", value=int(tp_row.get("goto_map") or 0), key="edit_tp_map", help=IH["goto_map"])
+                    tp_range_edit = st.number_input("도착지 랜덤 범위 (range)", value=int(tp_row.get("range") or 0), min_value=0, key="edit_tp_range", help=IH["range_tp"])
+                    tp_heading_edit = st.number_input("goto_heading", value=int(tp_row.get("goto_heading") or 0), key="edit_tp_heading", help=IH["goto_heading"])
                     if st.button("💾 이동 목적지만 저장", key="save_teleport_only"):
                         ok = db.execute_query(
                             "UPDATE item_teleport SET name=%s, goto_x=%s, goto_y=%s, goto_map=%s, `range`=%s, goto_heading=%s WHERE uid=%s",
@@ -302,8 +326,23 @@ with tab3:
                     tp_quick_y = st.number_input("Y 좌표", value=32768, key="tp_quick_y")
                 with c3:
                     tp_quick_map = st.number_input("맵 번호", value=0, key="tp_quick_map")
-                tp_quick_range = st.number_input("도착지 랜덤 범위 (0=정확한 좌표, 1 이상=주변 랜덤)", value=0, min_value=0, key="tp_quick_range")
-                tp_quick_heading = st.number_input("goto_heading (방향)", value=0, key="tp_quick_heading")
+                tp_quick_range = st.number_input("도착지 랜덤 범위 (0=정확한 좌표, 1 이상=주변 랜덤)", value=0, min_value=0, key="tp_quick_range", help=IH["range_tp"])
+                tp_quick_heading = st.number_input("goto_heading (방향)", value=0, key="tp_quick_heading", help=IH["goto_heading"])
+                st.markdown("**주문서 아이콘·그래픽**")
+                tp_quick_inven = st.number_input(
+                    "인벤ID (가방 아이콘)",
+                    min_value=0,
+                    value=0,
+                    key="tp_quick_inven",
+                    help="인벤토리에 보이는 아이콘 ID. 기존 이동 주문서와 같은 값을 DB에서 복사해 쓰는 것을 권장합니다.",
+                )
+                tp_quick_gfx = st.number_input(
+                    "GFXID (바닥·월드 그래픽)",
+                    min_value=0,
+                    value=0,
+                    key="tp_quick_gfx",
+                    help="땅에 떨어졌을 때 등에 쓰이는 그래픽 ID.",
+                )
                 if st.form_submit_button("이동 주문서 추가 (목적지 + 아이템 한 번에 생성)"):
                     if not (tp_quick_name and tp_quick_name.strip()):
                         st.warning("주문서 이름을 입력하세요.")
@@ -332,7 +371,7 @@ with tab3:
                                         `이펙트ID`, delay
                                     ) VALUES (
                                         %s, 'item', %s, '$50000', '기타', '0', 0, 0,
-                                        0, 0, 0, 0, 0, 0, 0,
+                                        %s, %s, 0, 0, 0, 0, 0,
                                         1, 1, 1, 1, 1, 0, 0,
                                         'false', 0, 0, 'none',
                                         0, 0, 0, 0,
@@ -340,7 +379,7 @@ with tab3:
                                         'true', 'true', 'true', 'false', 'true', 'false',
                                         0, 0
                                     )
-                                """, (tp_quick_name.strip(), 구분2_teleport))
+                                """, (tp_quick_name.strip(), 구분2_teleport, tp_quick_inven, tp_quick_gfx))
                                 if ins_ok:
                                     st.success(f"✅ 이동 주문서 추가됨: **{tp_quick_name.strip()}** → ({tp_quick_x}, {tp_quick_y}) 맵 {tp_quick_map}. 구분2=**{구분2_teleport}**")
                                     st.rerun()
@@ -394,12 +433,12 @@ with tab3:
         if db.table_exists("item_teleport"):
             st.write("**item_teleport 목적지 추가** (uid는 자동 증가일 수 있음, DB에 따라 다름)")
             with st.form("item_teleport_form"):
-                tp_name = st.text_input("name (주문서 이름과 연동)", value="", key="tp_name")
-                tp_x = st.number_input("goto_x", value=32768, key="tp_x")
-                tp_y = st.number_input("goto_y", value=32768, key="tp_y")
-                tp_map = st.number_input("goto_map", value=0, key="tp_map")
-                tp_range = st.number_input("range", value=0, key="tp_range")
-                tp_heading = st.number_input("goto_heading", value=0, key="tp_heading")
+                tp_name = st.text_input("name (주문서 이름과 연동)", value="", key="tp_name", help="item_teleport 행 설명용 이름")
+                tp_x = st.number_input("goto_x", value=32768, key="tp_x", help=IH["goto_x"])
+                tp_y = st.number_input("goto_y", value=32768, key="tp_y", help=IH["goto_y"])
+                tp_map = st.number_input("goto_map", value=0, key="tp_map", help=IH["goto_map"])
+                tp_range = st.number_input("range", value=0, key="tp_range", help=IH["range_tp"])
+                tp_heading = st.number_input("goto_heading", value=0, key="tp_heading", help=IH["goto_heading"])
                 if st.form_submit_button("item_teleport 행 추가"):
                     try:
                         db.execute_query(
@@ -427,71 +466,82 @@ with tab3:
         st.markdown("#### 기본 정보")
         col1, col2 = st.columns(2)
         with col1:
-            신규이름 = st.text_input("아이템 이름 (필수) *", placeholder="예: 테스트 아이템", key="add_name")
-            신규NAMEID = st.text_input("NAMEID", value="$50000", key="add_nameid")
-            신규재질 = st.text_input("재질", value="기타", key="add_material")
-            신규무게 = st.text_input("무게", value="0", key="add_weight")
-            신규인벤ID = st.number_input("인벤ID", min_value=0, value=0, key="add_invgfx")
-            신규GFXID = st.number_input("GFXID", min_value=0, value=0, key="add_gfxid")
-            신규최소레벨 = st.number_input("최소 레벨", min_value=0, max_value=99, value=0, key="add_minlvl")
-            신규최대레벨 = st.number_input("최대 레벨", min_value=0, max_value=99, value=0, key="add_maxlvl")
+            신규이름 = st.text_input("아이템 이름 (필수) *", placeholder="예: 테스트 아이템", key="add_name", help="DB에 등록될 고유 아이템 이름")
+            신규NAMEID = st.text_input("NAMEID", value="$50000", key="add_nameid", help=IH["NAMEID"])
+            _add_mat_opts, _add_mat_idx = string_field_options(distinct_item_materials(db), "")
+            신규재질_sel = st.selectbox(
+                "재질 (DB 목록)",
+                _add_mat_opts,
+                index=min(_add_mat_idx, len(_add_mat_opts) - 1),
+                key="add_mat_sel",
+                help="item 테이블에서 쓰인 재질 + 자주 쓰는 기본값. 목록에 없으면 「직접 입력」을 선택하세요.",
+            )
+            신규재질_custom = ""
+            if 신규재질_sel == CUSTOM_STR_LABEL:
+                신규재질_custom = st.text_input("재질 직접 입력", value="기타", key="add_mat_custom")
+            신규재질 = resolve_string_selection(신규재질_sel, 신규재질_custom) or "기타"
+            신규무게 = st.text_input("무게", value="0", key="add_weight", help=IH["무게"])
+            신규인벤ID = st.number_input("인벤ID", min_value=0, value=0, key="add_invgfx", help=IH["인벤ID"])
+            신규GFXID = st.number_input("GFXID", min_value=0, value=0, key="add_gfxid", help=IH["GFXID"])
+            신규최소레벨 = st.number_input("최소 레벨", min_value=0, max_value=99, value=0, key="add_minlvl", help=IH["level_min"])
+            신규최대레벨 = st.number_input("최대 레벨", min_value=0, max_value=99, value=0, key="add_maxlvl", help=IH["level_max"])
         with col2:
-            신규AC = st.number_input("AC (방어력)", value=0, key="add_ac")
-            신규소형 = st.number_input("작은 몬스터 데미지", min_value=0, value=0, key="add_small")
-            신규대형 = st.number_input("큰 몬스터 데미지", min_value=0, value=0, key="add_large")
-            신규명중 = st.number_input("공격성공율", value=0, key="add_hit")
-            신규추뎀 = st.number_input("추가타격치", value=0, key="add_dmg")
+            신규AC = st.number_input("AC (방어력)", value=0, key="add_ac", help="방어력")
+            신규소형 = st.number_input("작은 몬스터 데미지", min_value=0, value=0, key="add_small", help="소형 몬스터용 무기 데미지 구간")
+            신규대형 = st.number_input("큰 몬스터 데미지", min_value=0, value=0, key="add_large", help="대형 몬스터용 무기 데미지 구간")
+            신규명중 = st.number_input("공격성공율", value=0, key="add_hit", help="명중 보정")
+            신규추뎀 = st.number_input("추가타격치", value=0, key="add_dmg", help="추가 데미지")
         
         st.markdown("#### 인챈트 설정")
         enc1, enc2, enc3 = st.columns(3)
         with enc1:
-            신규인첸트가능 = st.checkbox("인챈트 가능", value=False, key="add_enchant")
+            신규인첸트가능 = st.checkbox("인챈트 가능", value=False, key="add_enchant", help="인챈트 주문서로 강화 가능 여부")
         with enc2:
-            신규안전인첸트 = st.number_input("안전인첸트", min_value=0, max_value=20, value=0, key="add_safe_enc")
+            신규안전인첸트 = st.number_input("안전인첸트", min_value=0, max_value=20, value=0, key="add_safe_enc", help=IH["안전인첸트"])
         with enc3:
-            신규최고인챈 = st.number_input("최고인챈", min_value=0, max_value=255, value=0, key="add_max_enc")
+            신규최고인챈 = st.number_input("최고인챈", min_value=0, max_value=255, value=0, key="add_max_enc", help=IH["최고인챈"])
         신규인첸트 = "true" if 신규인첸트가능 else "false"
         
         st.markdown("#### 속성 (attribute_crystal)")
-        신규속성 = st.selectbox("속성", ["none", "earth", "fire", "wind", "water"], index=0, key="add_attr")
+        신규속성 = st.selectbox("속성", ["none", "earth", "fire", "wind", "water"], index=0, key="add_attr", help=IH["attribute_crystal"])
         
         st.markdown("#### 사용 가능 직업 (0/1)")
         j1, j2, j3, j4, j5, j6, j7 = st.columns(7)
-        with j1: 신규군주 = 1 if st.checkbox("군주", value=True, key="add_royal") else 0
-        with j2: 신규기사 = 1 if st.checkbox("기사", value=True, key="add_knight") else 0
-        with j3: 신규요정 = 1 if st.checkbox("요정", value=True, key="add_elf") else 0
-        with j4: 신규마법사 = 1 if st.checkbox("마법사", value=True, key="add_mage") else 0
-        with j5: 신규다엘 = 1 if st.checkbox("다크엘프", value=True, key="add_darkelf") else 0
-        with j6: 신규용기사 = 1 if st.checkbox("용기사", value=False, key="add_dragon") else 0
-        with j7: 신규환술사 = 1 if st.checkbox("환술사", value=False, key="add_illusion") else 0
+        with j1: 신규군주 = 1 if st.checkbox("군주", value=True, key="add_royal", help="군주 착용 가능") else 0
+        with j2: 신규기사 = 1 if st.checkbox("기사", value=True, key="add_knight", help="기사 착용 가능") else 0
+        with j3: 신규요정 = 1 if st.checkbox("요정", value=True, key="add_elf", help="요정 착용 가능") else 0
+        with j4: 신규마법사 = 1 if st.checkbox("마법사", value=True, key="add_mage", help="마법사 착용 가능") else 0
+        with j5: 신규다엘 = 1 if st.checkbox("다크엘프", value=True, key="add_darkelf", help="다크엘프 착용 가능") else 0
+        with j6: 신규용기사 = 1 if st.checkbox("용기사", value=False, key="add_dragon", help="용기사 착용 가능") else 0
+        with j7: 신규환술사 = 1 if st.checkbox("환술사", value=False, key="add_illusion", help="환술사 착용 가능") else 0
         
         st.markdown("#### 스탯/능력 증가")
         s1, s2, s3, s4 = st.columns(4)
-        with s1: 신규HP증가 = st.number_input("HP증가", value=0, key="add_add_hp")
-        with s2: 신규MP증가 = st.number_input("MP증가", value=0, key="add_add_mp")
-        with s3: 신규MR증가 = st.number_input("MR증가", value=0, key="add_add_mr")
-        with s4: 신규SP증가 = st.number_input("SP증가", value=0, key="add_add_sp")
+        with s1: 신규HP증가 = st.number_input("HP증가", value=0, key="add_add_hp", help=IH["HP증가"])
+        with s2: 신규MP증가 = st.number_input("MP증가", value=0, key="add_add_mp", help=IH["MP증가"])
+        with s3: 신규MR증가 = st.number_input("MR증가", value=0, key="add_add_mr", help=IH["MR증가"])
+        with s4: 신규SP증가 = st.number_input("SP증가", value=0, key="add_add_sp", help=IH["SP증가"])
         
         st.markdown("#### 속성 저항 (수/풍/지/화)")
         r1, r2, r3, r4 = st.columns(4)
-        with r1: 신규waterress = st.number_input("waterress", value=0, key="add_water")
-        with r2: 신규windress = st.number_input("windress", value=0, key="add_wind")
-        with r3: 신규earthress = st.number_input("earthress", value=0, key="add_earth")
-        with r4: 신규fireress = st.number_input("fireress", value=0, key="add_fire")
+        with r1: 신규waterress = st.number_input("waterress", value=0, key="add_water", help=IH["waterress"])
+        with r2: 신규windress = st.number_input("windress", value=0, key="add_wind", help=IH["windress"])
+        with r3: 신규earthress = st.number_input("earthress", value=0, key="add_earth", help=IH["earthress"])
+        with r4: 신규fireress = st.number_input("fireress", value=0, key="add_fire", help=IH["fireress"])
         
         st.markdown("#### 기타 옵션")
         o1, o2, o3 = st.columns(3)
         with o1:
-            신규이펙트ID = st.number_input("이펙트ID", min_value=0, value=0, key="add_effect")
-            신규delay = st.number_input("delay", min_value=0, value=0, key="add_delay")
+            신규이펙트ID = st.number_input("이펙트ID", min_value=0, value=0, key="add_effect", help=IH["이펙트ID"])
+            신규delay = st.number_input("delay", min_value=0, value=0, key="add_delay", help=IH["delay"])
         with o2:
-            신규거래 = "true" if st.checkbox("거래 가능", value=True, key="add_trade") else "false"
-            신규드랍 = "true" if st.checkbox("드랍 가능", value=True, key="add_drop") else "false"
-            신규겹침 = "true" if st.checkbox("겹침 가능", value=True, key="add_piles") else "false"
+            신규거래 = "true" if st.checkbox("거래 가능", value=True, key="add_trade", help="플레이어 간 거래 허용") else "false"
+            신규드랍 = "true" if st.checkbox("드랍 가능", value=True, key="add_drop", help="드랍 가능") else "false"
+            신규겹침 = "true" if st.checkbox("겹침 가능", value=True, key="add_piles", help="스택(겹침) 가능") else "false"
         with o3:
-            신규판매 = "true" if st.checkbox("판매", value=False, key="add_sell") else "false"
-            신규창고 = "true" if st.checkbox("창고", value=True, key="add_warehouse") else "false"
-            신규손상 = "true" if st.checkbox("손상 가능", value=False, key="add_canbedmg") else "false"
+            신규판매 = "true" if st.checkbox("판매", value=False, key="add_sell", help="NPC에 판매 가능") else "false"
+            신규창고 = "true" if st.checkbox("창고", value=True, key="add_warehouse", help="창고 보관") else "false"
+            신규손상 = "true" if st.checkbox("손상 가능", value=False, key="add_canbedmg", help="손상/내구 시스템") else "false"
         
         submitted = st.form_submit_button("➕ 아이템 추가")
     

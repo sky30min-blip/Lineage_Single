@@ -49,6 +49,7 @@ with tab1:
         height=200,
         placeholder="SELECT * FROM characters LIMIT 10;",
         key="sql_query",
+        help="실행할 SQL 한 덩어리를 입력합니다. SELECT는 조회만, INSERT/UPDATE/DELETE는 아래에서 '수정' 타입을 고른 뒤 실행하세요. 운영 DB이므로 백업 후 사용을 권장합니다.",
     )
 
     col1, col2 = st.columns([1, 5])
@@ -59,6 +60,7 @@ with tab1:
             "쿼리 타입",
             ["SELECT (조회)", "INSERT/UPDATE/DELETE (수정)"],
             horizontal=True,
+            help="SELECT만 결과 테이로 보입니다. 데이터를 바꾸는 문은 '수정'을 선택해야 실행됩니다.",
         )
 
     if run_clicked and sql_query.strip():

@@ -19,6 +19,7 @@ st.title("🎮 리니지 싱글 서버 GM 툴")
 
 # 사이드바
 with st.sidebar:
+    st.caption("💡 입력란 옆 **?** 에 마우스를 올리면 한글 설명이 표시됩니다.")
     st.header("📡 서버 상태")
     
     # DB 연결 테스트

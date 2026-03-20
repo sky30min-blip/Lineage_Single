@@ -4,6 +4,7 @@ NPC 관리 페이지 (NPC 목록, NPC 추가, NPC 삭제, 상점 관리)
 """
 import streamlit as st
 from utils.db_manager import get_db
+from utils.field_help_ko import NPC_HELP as NH
 
 st.set_page_config(page_title="NPC 관리", page_icon="🏰", layout="wide")
 st.title("🏰 NPC 관리")
@@ -192,17 +193,17 @@ with tab3:
                         st.text_input("NPC 이름", value=row["name"], disabled=True, key="edit_name_ro")
                         c1, c2 = st.columns(2)
                         with c1:
-                            edit_type = st.text_input("타입 (type)", value=row.get("type") or "default", max_chars=32, key="edit_type")
-                            edit_nameid = st.text_input("NAMEID (nameid)", value=row.get("nameid") or "0", max_chars=32, key="edit_nameid")
+                            edit_type = st.text_input("타입 (type)", value=row.get("type") or "default", max_chars=32, key="edit_type", help=NH["type"])
+                            edit_nameid = st.text_input("NAMEID (nameid)", value=row.get("nameid") or "0", max_chars=32, key="edit_nameid", help=NH["nameid"])
                             edit_gfxid = st.number_input("그래픽 ID (gfxid)", min_value=0, value=int(row.get("gfxid") or 0), key="edit_gfxid", help="NPC 외형(이미지) 변경")
-                            edit_gfxMode = st.number_input("그래픽 모드 (gfxMode)", min_value=0, value=int(row.get("gfxMode") or 0), key="edit_gfxMode")
+                            edit_gfxMode = st.number_input("그래픽 모드 (gfxMode)", min_value=0, value=int(row.get("gfxMode") or 0), key="edit_gfxMode", help=NH["gfxMode"])
                         with c2:
-                            edit_hp = st.number_input("체력 (hp)", min_value=1, value=int(row.get("hp") or 1), key="edit_hp")
-                            edit_lawful = st.number_input("성향 (lawful)", value=int(row.get("lawful") or 0), key="edit_lawful")
-                            edit_light = st.number_input("광원 (light)", value=int(row.get("light") or 0), key="edit_light")
-                            edit_ai = st.selectbox("AI 사용 (ai)", ["false", "true"], index=1 if (row.get("ai") and str(row.get("ai")).lower() == "true") else 0, key="edit_ai")
-                            edit_areaatk = st.number_input("범위 공격 (areaatk)", min_value=0, value=int(row.get("areaatk") or 0), key="edit_areaatk")
-                            edit_arrowGfx = st.number_input("화살 그래픽 (arrowGfx)", min_value=0, value=int(row.get("arrowGfx") or 0), key="edit_arrowGfx")
+                            edit_hp = st.number_input("체력 (hp)", min_value=1, value=int(row.get("hp") or 1), key="edit_hp", help=NH["hp"])
+                            edit_lawful = st.number_input("성향 (lawful)", value=int(row.get("lawful") or 0), key="edit_lawful", help=NH["lawful"])
+                            edit_light = st.number_input("광원 (light)", value=int(row.get("light") or 0), key="edit_light", help=NH["light"])
+                            edit_ai = st.selectbox("AI 사용 (ai)", ["false", "true"], index=1 if (row.get("ai") and str(row.get("ai")).lower() == "true") else 0, key="edit_ai", help=NH["ai"])
+                            edit_areaatk = st.number_input("범위 공격 (areaatk)", min_value=0, value=int(row.get("areaatk") or 0), key="edit_areaatk", help=NH["areaatk"])
+                            edit_arrowGfx = st.number_input("화살 그래픽 (arrowGfx)", min_value=0, value=int(row.get("arrowGfx") or 0), key="edit_arrowGfx", help=NH["arrowGfx"])
                         if st.form_submit_button("수정 반영"):
                             ok = db.execute_query(
                                 """UPDATE npc SET type=%s, nameid=%s, gfxid=%s, gfxMode=%s, hp=%s, lawful=%s, light=%s, ai=%s, areaatk=%s, arrowGfx=%s WHERE name=%s""",
@@ -239,10 +240,10 @@ with tab4:
                     place_locX = st.number_input("X 좌표", value=33449, key="place_x", help="게임에서 [명령어]좌표 로 확인한 X")
                     place_locY = st.number_input("Y 좌표", value=32825, key="place_y", help="게임에서 [명령어]좌표 로 확인한 Y")
                 with pc2:
-                    place_locMap = st.number_input("맵 ID", value=4, min_value=0, key="place_map")
-                    place_heading = st.number_input("방향 (0~7)", value=0, min_value=0, max_value=7, key="place_heading")
+                    place_locMap = st.number_input("맵 ID", value=4, min_value=0, key="place_map", help=NH["locMap"])
+                    place_heading = st.number_input("방향 (0~7)", value=0, min_value=0, max_value=7, key="place_heading", help=NH["heading"])
                 with pc3:
-                    place_respawn = st.number_input("리스폰", value=0, min_value=0, key="place_respawn")
+                    place_respawn = st.number_input("리스폰", value=0, min_value=0, key="place_respawn", help=NH["respawn"])
                     place_title = st.text_input("말풍선 제목 (비우면 NPC 이름)", value="", max_chars=64, key="place_title")
                 place_spawn_key = st.text_input("스폰 이름 (고유키, 비우면 자동 생성)", value="", placeholder="예: 상인_기란_1", max_chars=64, help="npc_spawnlist의 name. 같은 NPC를 여러 곳에 배치할 때마다 서로 다른 값 사용")
                 if st.form_submit_button("배치 추가"):

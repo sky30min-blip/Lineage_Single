@@ -355,7 +355,7 @@ with tab1:
         st.info("캐릭터가 없습니다.")
     else:
         names = [r["name"] for r in char_list]
-        selected_char = st.selectbox("캐릭터 선택", names, key="item_char")
+        selected_char = st.selectbox("캐릭터 선택", names, key="item_char", help="아이템을 넣을 대상 캐릭터")
 
         # 운영자 세트 일괄 지급 (기본 펼침으로 노출)
         st.markdown("---")
@@ -382,7 +382,7 @@ with tab1:
                         st.error(f"❌ 지급 실패: {err}")
 
         st.write("**아이템 검색**")
-        search_term = st.text_input("아이템명 입력", placeholder="검색어 입력", key="item_search")
+        search_term = st.text_input("아이템명 입력", placeholder="검색어 입력", key="item_search", help="아이템 DB(여러 테이블)에서 이름 일부로 검색합니다.")
         if st.button("검색", key="item_search_btn"):
             if search_term.strip():
                 names_found, rows_display, err = _search_items_union(db, search_term.strip(), limit=50)
@@ -437,16 +437,18 @@ with tab1:
                 "선택한 아이템",
                 st.session_state["item_search_results"],
                 key="item_select",
+                help="검색 결과 중 지급할 아이템 이름",
             )
         else:
             st.caption("위에서 아이템을 검색한 뒤 선택하세요.")
 
-        count = st.number_input("개수", min_value=1, max_value=999999, value=1, key="item_count")
-        en = st.number_input("인챈트", min_value=0, max_value=10, value=0, key="item_en")
+        count = st.number_input("개수", min_value=1, max_value=999999, value=1, key="item_count", help="겹치는 아이템(소비 등)은 이 개수만큼 한 스택으로 지급됩니다. 장비는 보통 1.")
+        en = st.number_input("인챈트", min_value=0, max_value=10, value=0, key="item_en", help="지급 시 인챈트 단계(+값). 장비·주문서 규칙은 서버에 따릅니다.")
         force_equipment = st.checkbox(
             "장비로 지급 (게임에서 수량 표시 안 함, 무기/방어구용)",
             value=False,
             key="item_force_equipment",
+            help="겹침 판정이 애매할 때 체크하면 무기/방어구처럼 quantity=0으로 넣어 (1) 표시를 막습니다.",
         )
         st.caption("아이템 테이블에 '겹침' 컬럼이 있으면 자동으로 적용됩니다. 없을 때만 위 체크 또는 weapon/armor 테이블로 판단합니다.")
 
@@ -481,7 +483,7 @@ with tab2:
         st.info("캐릭터가 없습니다.")
     else:
         names2 = [r["name"] for r in char_list2]
-        selected_char2 = st.selectbox("캐릭터 선택", names2, key="inv_char")
+        selected_char2 = st.selectbox("캐릭터 선택", names2, key="inv_char", help="인벤토리를 볼 캐릭터")
 
         if selected_char2:
             rows = db.fetch_all(
@@ -555,6 +557,7 @@ with tab2:
                 "또는 수동 수정: 장비로 볼 아이템명 (쉼표 구분, 예: 레이피어, 진 레이피어)",
                 key="manual_equipment_names",
                 placeholder="레이피어, 상아탑 가죽 장갑",
+                help="위 자동 목록에 없을 때, 장비로 취급할 정확한 아이템 이름을 쉼표로 구분해 입력합니다.",
             )
             if st.button("입력한 아이템 quantity → 0으로 수정", key="fix_manual_qty") and manual_names.strip():
                 names_list = [n.strip() for n in manual_names.split(",") if n.strip()]
@@ -580,6 +583,7 @@ with tab2:
                 min_value=0,
                 value=0,
                 key="del_obj_id",
+                help="위 인벤 목록의 '아이템ID' 열 값. 해당 슬롯 한 칸만 삭제됩니다.",
             )
             if st.button("삭제", key="inv_del_btn"):
                 if del_obj_id <= 0:

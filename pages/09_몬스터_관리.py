@@ -4,6 +4,17 @@
 """
 import streamlit as st
 from utils.db_manager import get_db
+from utils.field_help_ko import MONSTER_HELP as MH
+from utils.gm_db_options import (
+    CUSTOM_NUM_LABEL,
+    CUSTOM_STR_LABEL,
+    distinct_monster_ints,
+    distinct_monster_strings,
+    int_field_options,
+    resolve_int_selection,
+    resolve_string_selection,
+    string_field_options,
+)
 
 st.set_page_config(page_title="몬스터 관리", page_icon="🐉", layout="wide")
 st.title("🐉 몬스터 관리")
@@ -71,65 +82,122 @@ with tab2:
         st.markdown("**기본 정보**")
         c1, c2, c3 = st.columns(3)
         with c1:
-            add_name = st.text_input("이름 (name) *", placeholder="예: 커스텀_늑대", key="add_mname")
-            add_name_id = st.text_input("name_id", value="", placeholder="비우면 자동 생성", key="add_nameid")
-            add_gfx = st.number_input("gfx", min_value=0, value=0, key="add_gfx")
-            add_gfx_mode = st.number_input("gfx_mode", min_value=0, value=0, key="add_gfx_mode")
-            add_level = st.number_input("level", min_value=1, max_value=99, value=1, key="add_level")
+            add_name = st.text_input("이름 (name) *", placeholder="예: 커스텀_늑대", key="add_mname", help=MH["name"])
+            add_name_id = st.text_input("name_id", value="", placeholder="비우면 자동 생성", key="add_nameid", help=MH["name_id"])
+            add_gfx = st.number_input("gfx", min_value=0, value=0, key="add_gfx", help=MH["gfx"])
+            _add_gm_opts, _add_gm_i = int_field_options(distinct_monster_ints(db, "gfx_mode"), 0)
+            add_gfx_mode_sel = st.selectbox(
+                "gfx_mode (DB 목록)",
+                _add_gm_opts,
+                index=min(_add_gm_i, len(_add_gm_opts) - 1),
+                key="add_gfx_mode_sel",
+                help=MH["gfx_mode"],
+            )
+            add_gfx_mode_custom = 0
+            if add_gfx_mode_sel == CUSTOM_NUM_LABEL:
+                add_gfx_mode_custom = st.number_input("gfx_mode 직접 입력", value=0, key="add_gfx_mode_custom")
+            add_gfx_mode = resolve_int_selection(add_gfx_mode_sel, add_gfx_mode_custom)
+            add_level = st.number_input("level", min_value=1, max_value=99, value=1, key="add_level", help=MH["level"])
         with c2:
-            add_hp = st.number_input("hp", min_value=1, value=50, key="add_hp")
-            add_mp = st.number_input("mp", min_value=0, value=10, key="add_mp")
-            add_exp = st.number_input("exp", min_value=0, value=0, key="add_exp")
-            add_boss = st.selectbox("boss", ["false", "true"], index=0, key="add_boss")
-            add_boss_class = st.text_input("boss_class", value="", placeholder="하급/중급/상급 등", key="add_boss_class")
+            add_hp = st.number_input("hp", min_value=1, value=50, key="add_hp", help=MH["hp"])
+            add_mp = st.number_input("mp", min_value=0, value=10, key="add_mp", help=MH["mp"])
+            add_exp = st.number_input("exp", min_value=0, value=0, key="add_exp", help=MH["exp"])
+            add_boss = st.selectbox("boss", ["false", "true"], index=0, key="add_boss", help=MH["boss"])
+            _add_bc_opts, _add_bc_i = string_field_options(distinct_monster_strings(db, "boss_class"), "")
+            add_boss_class_sel = st.selectbox(
+                "boss_class (DB 목록)",
+                _add_bc_opts,
+                index=min(_add_bc_i, len(_add_bc_opts) - 1),
+                key="add_boss_class_sel",
+                help=MH["boss_class"],
+            )
+            add_boss_class_custom = ""
+            if add_boss_class_sel == CUSTOM_STR_LABEL:
+                add_boss_class_custom = st.text_input(
+                    "boss_class 직접 입력", value="", key="add_boss_class_custom", placeholder="하급/중급/상급 등"
+                )
+            add_boss_class = resolve_string_selection(add_boss_class_sel, add_boss_class_custom)
         with c3:
-            add_lawful = st.number_input("lawful", value=0, key="add_lawful")
-            add_mr = st.number_input("mr", value=0, key="add_mr")
-            add_ac = st.number_input("ac", value=0, key="add_ac")
-            add_size = st.selectbox("size", ["small", "medium", "large"], index=0, key="add_size")
-            add_family = st.text_input("family", value="", key="add_family")
+            add_lawful = st.number_input("lawful", value=0, key="add_lawful", help=MH["lawful"])
+            add_mr = st.number_input("mr", value=0, key="add_mr", help=MH["mr"])
+            add_ac = st.number_input("ac", value=0, key="add_ac", help=MH["ac"])
+            add_size = st.selectbox("size", ["small", "medium", "large"], index=0, key="add_size", help=MH["size"])
+            _add_fam_opts, _add_fam_i = string_field_options(distinct_monster_strings(db, "family"), "")
+            add_family_sel = st.selectbox(
+                "family (DB 목록)",
+                _add_fam_opts,
+                index=min(_add_fam_i, len(_add_fam_opts) - 1),
+                key="add_family_sel",
+                help=MH["family"],
+            )
+            add_family_custom = ""
+            if add_family_sel == CUSTOM_STR_LABEL:
+                add_family_custom = st.text_input("family 직접 입력", value="", key="add_family_custom")
+            add_family = resolve_string_selection(add_family_sel, add_family_custom)
 
         st.markdown("**스탯 (str, dex, con, int, wis, cha)**")
         s1, s2, s3, s4, s5, s6 = st.columns(6)
-        with s1: add_str = st.number_input("str", value=10, key="add_str")
-        with s2: add_dex = st.number_input("dex", value=10, key="add_dex")
-        with s3: add_con = st.number_input("con", value=10, key="add_con")
-        with s4: add_int = st.number_input("int", value=10, key="add_int")
-        with s5: add_wis = st.number_input("wis", value=10, key="add_wis")
-        with s6: add_cha = st.number_input("cha", value=10, key="add_cha")
+        with s1: add_str = st.number_input("str", value=10, key="add_str", help=MH["str"])
+        with s2: add_dex = st.number_input("dex", value=10, key="add_dex", help=MH["dex"])
+        with s3: add_con = st.number_input("con", value=10, key="add_con", help=MH["con"])
+        with s4: add_int = st.number_input("int", value=10, key="add_int", help=MH["int"])
+        with s5: add_wis = st.number_input("wis", value=10, key="add_wis", help=MH["wis"])
+        with s6: add_cha = st.number_input("cha", value=10, key="add_cha", help=MH["cha"])
 
         st.markdown("**공격/행동**")
         a1, a2, a3 = st.columns(3)
         with a1:
-            add_atk_type = st.number_input("atk_type", value=0, key="add_atk_type")
-            add_atk_range = st.number_input("atk_range", value=0, key="add_atk_range")
+            _add_at_opts, _add_at_i = int_field_options(distinct_monster_ints(db, "atk_type"), 0)
+            add_atk_type_sel = st.selectbox(
+                "atk_type (DB 목록)",
+                _add_at_opts,
+                index=min(_add_at_i, len(_add_at_opts) - 1),
+                key="add_atk_type_sel",
+                help=MH["atk_type"],
+            )
+            add_atk_type_custom = 0
+            if add_atk_type_sel == CUSTOM_NUM_LABEL:
+                add_atk_type_custom = st.number_input("atk_type 직접 입력", value=0, key="add_atk_type_custom")
+            add_atk_type = resolve_int_selection(add_atk_type_sel, add_atk_type_custom)
+            _add_ar_opts, _add_ar_i = int_field_options(distinct_monster_ints(db, "atk_range"), 0)
+            add_atk_range_sel = st.selectbox(
+                "atk_range (DB 목록)",
+                _add_ar_opts,
+                index=min(_add_ar_i, len(_add_ar_opts) - 1),
+                key="add_atk_range_sel",
+                help=MH["atk_range"],
+            )
+            add_atk_range_custom = 0
+            if add_atk_range_sel == CUSTOM_NUM_LABEL:
+                add_atk_range_custom = st.number_input("atk_range 직접 입력", value=0, key="add_atk_range_custom")
+            add_atk_range = resolve_int_selection(add_atk_range_sel, add_atk_range_custom)
         with a2:
-            add_atk_invis = st.selectbox("atk_invis", ["false", "true"], index=0, key="add_atk_invis")
-            add_atk_poly = st.selectbox("atk_poly", ["false", "true"], index=0, key="add_atk_poly")
+            add_atk_invis = st.selectbox("atk_invis", ["false", "true"], index=0, key="add_atk_invis", help=MH["atk_invis"])
+            add_atk_poly = st.selectbox("atk_poly", ["false", "true"], index=0, key="add_atk_poly", help=MH["atk_poly"])
         with a3:
-            add_arrowGfx = st.number_input("arrowGfx", min_value=0, value=0, key="add_arrowGfx")
+            add_arrowGfx = st.number_input("arrowGfx", min_value=0, value=0, key="add_arrowGfx", help=MH["arrowGfx"])
 
         st.markdown("**플래그 (true/false)**")
         f1, f2, f3 = st.columns(3)
         with f1:
-            add_is_pickup = st.selectbox("is_pickup", ["false", "true"], index=0, key="add_pickup")
-            add_is_revival = st.selectbox("is_revival", ["false", "true"], index=0, key="add_revival")
-            add_is_toughskin = st.selectbox("is_toughskin", ["false", "true"], index=0, key="add_toughskin")
+            add_is_pickup = st.selectbox("is_pickup", ["false", "true"], index=0, key="add_pickup", help=MH["is_pickup"])
+            add_is_revival = st.selectbox("is_revival", ["false", "true"], index=0, key="add_revival", help=MH["is_revival"])
+            add_is_toughskin = st.selectbox("is_toughskin", ["false", "true"], index=0, key="add_toughskin", help=MH["is_toughskin"])
         with f2:
-            add_is_adendrop = st.selectbox("is_adendrop", ["false", "true"], index=0, key="add_adendrop")
-            add_is_taming = st.selectbox("is_taming", ["false", "true"], index=0, key="add_taming")
-            add_is_undead = st.selectbox("is_undead", ["false", "true"], index=0, key="add_undead")
+            add_is_adendrop = st.selectbox("is_adendrop", ["false", "true"], index=0, key="add_adendrop", help=MH["is_adendrop"])
+            add_is_taming = st.selectbox("is_taming", ["false", "true"], index=0, key="add_taming", help=MH["is_taming"])
+            add_is_undead = st.selectbox("is_undead", ["false", "true"], index=0, key="add_undead", help=MH["is_undead"])
         with f3:
-            add_is_turn_undead = st.selectbox("is_turn_undead", ["false", "true"], index=0, key="add_turn_undead")
-            add_haste = st.selectbox("haste", ["false", "true"], index=0, key="add_haste")
-            add_bravery = st.selectbox("bravery", ["false", "true"], index=0, key="add_bravery")
+            add_is_turn_undead = st.selectbox("is_turn_undead", ["false", "true"], index=0, key="add_turn_undead", help=MH["is_turn_undead"])
+            add_haste = st.selectbox("haste", ["false", "true"], index=0, key="add_haste", help=MH["haste"])
+            add_bravery = st.selectbox("bravery", ["false", "true"], index=0, key="add_bravery", help=MH["bravery"])
 
         st.markdown("**속성 저항 (resistance)**")
         r1, r2, r3, r4 = st.columns(4)
-        with r1: add_res_earth = st.number_input("resistance_earth", value=0, key="add_res_earth")
-        with r2: add_res_fire = st.number_input("resistance_fire", value=0, key="add_res_fire")
-        with r3: add_res_wind = st.number_input("resistance_wind", value=0, key="add_res_wind")
-        with r4: add_res_water = st.number_input("resistance_water", value=0, key="add_res_water")
+        with r1: add_res_earth = st.number_input("resistance_earth", value=0, key="add_res_earth", help=MH["resistance_earth"])
+        with r2: add_res_fire = st.number_input("resistance_fire", value=0, key="add_res_fire", help=MH["resistance_fire"])
+        with r3: add_res_wind = st.number_input("resistance_wind", value=0, key="add_res_wind", help=MH["resistance_wind"])
+        with r4: add_res_water = st.number_input("resistance_water", value=0, key="add_res_water", help=MH["resistance_water"])
 
         submitted = st.form_submit_button("몬스터 추가")
 
@@ -189,68 +257,138 @@ with tab3:
                         st.markdown("**기본 정보**")
                         c1, c2, c3 = st.columns(3)
                         with c1:
-                            edit_name = st.text_input("이름 (name)", value=str(row.get("name") or ""), key="edit_mname")
-                            edit_name_id = st.text_input("name_id", value=str(row.get("name_id") or ""), key="edit_nameid")
-                            edit_gfx = st.number_input("gfx", value=int(row.get("gfx") or 0), min_value=0, key="edit_gfx")
-                            edit_gfx_mode = st.number_input("gfx_mode", value=int(row.get("gfx_mode") or 0), min_value=0, key="edit_gfx_mode")
-                            edit_level = st.number_input("level", value=int(row.get("level") or 1), min_value=1, max_value=99, key="edit_level")
+                            edit_name = st.text_input("이름 (name)", value=str(row.get("name") or ""), key="edit_mname", help=MH["name"])
+                            edit_name_id = st.text_input("name_id", value=str(row.get("name_id") or ""), key="edit_nameid", help=MH["name_id"])
+                            edit_gfx = st.number_input("gfx", value=int(row.get("gfx") or 0), min_value=0, key="edit_gfx", help=MH["gfx"])
+                            _cur_gm = int(row.get("gfx_mode") or 0)
+                            _edit_gm_opts, _edit_gm_i = int_field_options(distinct_monster_ints(db, "gfx_mode"), _cur_gm)
+                            edit_gfx_mode_sel = st.selectbox(
+                                "gfx_mode (DB 목록)",
+                                _edit_gm_opts,
+                                index=min(_edit_gm_i, len(_edit_gm_opts) - 1),
+                                key="edit_gfx_mode_sel",
+                                help=MH["gfx_mode"],
+                            )
+                            edit_gfx_mode_custom = _cur_gm
+                            if edit_gfx_mode_sel == CUSTOM_NUM_LABEL:
+                                edit_gfx_mode_custom = st.number_input(
+                                    "gfx_mode 직접 입력", value=_cur_gm, key="edit_gfx_mode_custom"
+                                )
+                            edit_gfx_mode = resolve_int_selection(edit_gfx_mode_sel, edit_gfx_mode_custom)
+                            edit_level = st.number_input("level", value=int(row.get("level") or 1), min_value=1, max_value=99, key="edit_level", help=MH["level"])
                         with c2:
-                            edit_hp = st.number_input("hp", value=int(row.get("hp") or 50), min_value=1, key="edit_hp")
-                            edit_mp = st.number_input("mp", value=int(row.get("mp") or 10), min_value=0, key="edit_mp")
-                            edit_exp = st.number_input("exp", value=int(row.get("exp") or 0), min_value=0, key="edit_exp")
-                            edit_boss = st.selectbox("boss", ["false", "true"], index=1 if str(row.get("boss") or "").lower() == "true" else 0, key="edit_boss")
-                            edit_boss_class = st.text_input("boss_class", value=str(row.get("boss_class") or ""), key="edit_boss_class")
+                            edit_hp = st.number_input("hp", value=int(row.get("hp") or 50), min_value=1, key="edit_hp", help=MH["hp"])
+                            edit_mp = st.number_input("mp", value=int(row.get("mp") or 10), min_value=0, key="edit_mp", help=MH["mp"])
+                            edit_exp = st.number_input("exp", value=int(row.get("exp") or 0), min_value=0, key="edit_exp", help=MH["exp"])
+                            edit_boss = st.selectbox("boss", ["false", "true"], index=1 if str(row.get("boss") or "").lower() == "true" else 0, key="edit_boss", help=MH["boss"])
+                            _cur_bc = str(row.get("boss_class") or "").strip()
+                            _edit_bc_opts, _edit_bc_i = string_field_options(distinct_monster_strings(db, "boss_class"), _cur_bc)
+                            edit_boss_class_sel = st.selectbox(
+                                "boss_class (DB 목록)",
+                                _edit_bc_opts,
+                                index=min(_edit_bc_i, len(_edit_bc_opts) - 1),
+                                key="edit_boss_class_sel",
+                                help=MH["boss_class"],
+                            )
+                            edit_boss_class_custom = _cur_bc
+                            if edit_boss_class_sel == CUSTOM_STR_LABEL:
+                                edit_boss_class_custom = st.text_input(
+                                    "boss_class 직접 입력", value=_cur_bc, key="edit_boss_class_custom"
+                                )
+                            edit_boss_class = resolve_string_selection(edit_boss_class_sel, edit_boss_class_custom)
                         with c3:
-                            edit_lawful = st.number_input("lawful", value=int(row.get("lawful") or 0), key="edit_lawful")
-                            edit_mr = st.number_input("mr", value=int(row.get("mr") or 0), key="edit_mr")
-                            edit_ac = st.number_input("ac", value=int(row.get("ac") or 0), key="edit_ac")
+                            edit_lawful = st.number_input("lawful", value=int(row.get("lawful") or 0), key="edit_lawful", help=MH["lawful"])
+                            edit_mr = st.number_input("mr", value=int(row.get("mr") or 0), key="edit_mr", help=MH["mr"])
+                            edit_ac = st.number_input("ac", value=int(row.get("ac") or 0), key="edit_ac", help=MH["ac"])
                             _size = str(row.get("size") or "small").lower()
                             if _size not in ("small", "medium", "large"):
                                 _size = "small"
-                            edit_size = st.selectbox("size", ["small", "medium", "large"], index=["small", "medium", "large"].index(_size), key="edit_size")
-                            edit_family = st.text_input("family", value=str(row.get("family") or ""), key="edit_family")
+                            edit_size = st.selectbox("size", ["small", "medium", "large"], index=["small", "medium", "large"].index(_size), key="edit_size", help=MH["size"])
+                            _cur_fam = str(row.get("family") or "").strip()
+                            _edit_fam_opts, _edit_fam_i = string_field_options(distinct_monster_strings(db, "family"), _cur_fam)
+                            edit_family_sel = st.selectbox(
+                                "family (DB 목록)",
+                                _edit_fam_opts,
+                                index=min(_edit_fam_i, len(_edit_fam_opts) - 1),
+                                key="edit_family_sel",
+                                help=MH["family"],
+                            )
+                            edit_family_custom = _cur_fam
+                            if edit_family_sel == CUSTOM_STR_LABEL:
+                                edit_family_custom = st.text_input(
+                                    "family 직접 입력", value=_cur_fam, key="edit_family_custom"
+                                )
+                            edit_family = resolve_string_selection(edit_family_sel, edit_family_custom)
 
                         st.markdown("**스탯 (str, dex, con, int, wis, cha)**")
                         s1, s2, s3, s4, s5, s6 = st.columns(6)
-                        with s1: edit_str = st.number_input("str", value=int(row.get("str") or 10), key="edit_str")
-                        with s2: edit_dex = st.number_input("dex", value=int(row.get("dex") or 10), key="edit_dex")
-                        with s3: edit_con = st.number_input("con", value=int(row.get("con") or 10), key="edit_con")
-                        with s4: edit_int = st.number_input("int", value=int(row.get("int") or 10), key="edit_int")
-                        with s5: edit_wis = st.number_input("wis", value=int(row.get("wis") or 10), key="edit_wis")
-                        with s6: edit_cha = st.number_input("cha", value=int(row.get("cha") or 10), key="edit_cha")
+                        with s1: edit_str = st.number_input("str", value=int(row.get("str") or 10), key="edit_str", help=MH["str"])
+                        with s2: edit_dex = st.number_input("dex", value=int(row.get("dex") or 10), key="edit_dex", help=MH["dex"])
+                        with s3: edit_con = st.number_input("con", value=int(row.get("con") or 10), key="edit_con", help=MH["con"])
+                        with s4: edit_int = st.number_input("int", value=int(row.get("int") or 10), key="edit_int", help=MH["int"])
+                        with s5: edit_wis = st.number_input("wis", value=int(row.get("wis") or 10), key="edit_wis", help=MH["wis"])
+                        with s6: edit_cha = st.number_input("cha", value=int(row.get("cha") or 10), key="edit_cha", help=MH["cha"])
 
                         st.markdown("**공격/행동**")
                         a1, a2, a3 = st.columns(3)
                         with a1:
-                            edit_atk_type = st.number_input("atk_type", value=int(row.get("atk_type") or 0), key="edit_atk_type")
-                            edit_atk_range = st.number_input("atk_range", value=int(row.get("atk_range") or 0), key="edit_atk_range")
+                            _cur_at = int(row.get("atk_type") or 0)
+                            _edit_at_opts, _edit_at_i = int_field_options(distinct_monster_ints(db, "atk_type"), _cur_at)
+                            edit_atk_type_sel = st.selectbox(
+                                "atk_type (DB 목록)",
+                                _edit_at_opts,
+                                index=min(_edit_at_i, len(_edit_at_opts) - 1),
+                                key="edit_atk_type_sel",
+                                help=MH["atk_type"],
+                            )
+                            edit_atk_type_custom = _cur_at
+                            if edit_atk_type_sel == CUSTOM_NUM_LABEL:
+                                edit_atk_type_custom = st.number_input(
+                                    "atk_type 직접 입력", value=_cur_at, key="edit_atk_type_custom"
+                                )
+                            edit_atk_type = resolve_int_selection(edit_atk_type_sel, edit_atk_type_custom)
+                            _cur_ar = int(row.get("atk_range") or 0)
+                            _edit_ar_opts, _edit_ar_i = int_field_options(distinct_monster_ints(db, "atk_range"), _cur_ar)
+                            edit_atk_range_sel = st.selectbox(
+                                "atk_range (DB 목록)",
+                                _edit_ar_opts,
+                                index=min(_edit_ar_i, len(_edit_ar_opts) - 1),
+                                key="edit_atk_range_sel",
+                                help=MH["atk_range"],
+                            )
+                            edit_atk_range_custom = _cur_ar
+                            if edit_atk_range_sel == CUSTOM_NUM_LABEL:
+                                edit_atk_range_custom = st.number_input(
+                                    "atk_range 직접 입력", value=_cur_ar, key="edit_atk_range_custom"
+                                )
+                            edit_atk_range = resolve_int_selection(edit_atk_range_sel, edit_atk_range_custom)
                         with a2:
-                            edit_atk_invis = st.selectbox("atk_invis", ["false", "true"], index=1 if str(row.get("atk_invis") or "").lower() == "true" else 0, key="edit_atk_invis")
-                            edit_atk_poly = st.selectbox("atk_poly", ["false", "true"], index=1 if str(row.get("atk_poly") or "").lower() == "true" else 0, key="edit_atk_poly")
+                            edit_atk_invis = st.selectbox("atk_invis", ["false", "true"], index=1 if str(row.get("atk_invis") or "").lower() == "true" else 0, key="edit_atk_invis", help=MH["atk_invis"])
+                            edit_atk_poly = st.selectbox("atk_poly", ["false", "true"], index=1 if str(row.get("atk_poly") or "").lower() == "true" else 0, key="edit_atk_poly", help=MH["atk_poly"])
                         with a3:
-                            edit_arrowGfx = st.number_input("arrowGfx", value=int(row.get("arrowGfx") or 0), min_value=0, key="edit_arrowGfx")
+                            edit_arrowGfx = st.number_input("arrowGfx", value=int(row.get("arrowGfx") or 0), min_value=0, key="edit_arrowGfx", help=MH["arrowGfx"])
 
                         st.markdown("**플래그 (true/false)**")
                         f1, f2, f3 = st.columns(3)
                         with f1:
-                            edit_is_pickup = st.selectbox("is_pickup", ["false", "true"], index=1 if str(row.get("is_pickup") or "").lower() == "true" else 0, key="edit_pickup")
-                            edit_is_revival = st.selectbox("is_revival", ["false", "true"], index=1 if str(row.get("is_revival") or "").lower() == "true" else 0, key="edit_revival")
-                            edit_is_toughskin = st.selectbox("is_toughskin", ["false", "true"], index=1 if str(row.get("is_toughskin") or "").lower() == "true" else 0, key="edit_toughskin")
+                            edit_is_pickup = st.selectbox("is_pickup", ["false", "true"], index=1 if str(row.get("is_pickup") or "").lower() == "true" else 0, key="edit_pickup", help=MH["is_pickup"])
+                            edit_is_revival = st.selectbox("is_revival", ["false", "true"], index=1 if str(row.get("is_revival") or "").lower() == "true" else 0, key="edit_revival", help=MH["is_revival"])
+                            edit_is_toughskin = st.selectbox("is_toughskin", ["false", "true"], index=1 if str(row.get("is_toughskin") or "").lower() == "true" else 0, key="edit_toughskin", help=MH["is_toughskin"])
                         with f2:
-                            edit_is_adendrop = st.selectbox("is_adendrop", ["false", "true"], index=1 if str(row.get("is_adendrop") or "").lower() == "true" else 0, key="edit_adendrop")
-                            edit_is_taming = st.selectbox("is_taming", ["false", "true"], index=1 if str(row.get("is_taming") or "").lower() == "true" else 0, key="edit_taming")
-                            edit_is_undead = st.selectbox("is_undead", ["false", "true"], index=1 if str(row.get("is_undead") or "").lower() == "true" else 0, key="edit_undead")
+                            edit_is_adendrop = st.selectbox("is_adendrop", ["false", "true"], index=1 if str(row.get("is_adendrop") or "").lower() == "true" else 0, key="edit_adendrop", help=MH["is_adendrop"])
+                            edit_is_taming = st.selectbox("is_taming", ["false", "true"], index=1 if str(row.get("is_taming") or "").lower() == "true" else 0, key="edit_taming", help=MH["is_taming"])
+                            edit_is_undead = st.selectbox("is_undead", ["false", "true"], index=1 if str(row.get("is_undead") or "").lower() == "true" else 0, key="edit_undead", help=MH["is_undead"])
                         with f3:
-                            edit_is_turn_undead = st.selectbox("is_turn_undead", ["false", "true"], index=1 if str(row.get("is_turn_undead") or "").lower() == "true" else 0, key="edit_turn_undead")
-                            edit_haste = st.selectbox("haste", ["false", "true"], index=1 if str(row.get("haste") or "").lower() == "true" else 0, key="edit_haste")
-                            edit_bravery = st.selectbox("bravery", ["false", "true"], index=1 if str(row.get("bravery") or "").lower() == "true" else 0, key="edit_bravery")
+                            edit_is_turn_undead = st.selectbox("is_turn_undead", ["false", "true"], index=1 if str(row.get("is_turn_undead") or "").lower() == "true" else 0, key="edit_turn_undead", help=MH["is_turn_undead"])
+                            edit_haste = st.selectbox("haste", ["false", "true"], index=1 if str(row.get("haste") or "").lower() == "true" else 0, key="edit_haste", help=MH["haste"])
+                            edit_bravery = st.selectbox("bravery", ["false", "true"], index=1 if str(row.get("bravery") or "").lower() == "true" else 0, key="edit_bravery", help=MH["bravery"])
 
                         st.markdown("**속성 저항 (resistance)**")
                         r1, r2, r3, r4 = st.columns(4)
-                        with r1: edit_res_earth = st.number_input("resistance_earth", value=int(row.get("resistance_earth") or 0), key="edit_res_earth")
-                        with r2: edit_res_fire = st.number_input("resistance_fire", value=int(row.get("resistance_fire") or 0), key="edit_res_fire")
-                        with r3: edit_res_wind = st.number_input("resistance_wind", value=int(row.get("resistance_wind") or 0), key="edit_res_wind")
-                        with r4: edit_res_water = st.number_input("resistance_water", value=int(row.get("resistance_water") or 0), key="edit_res_water")
+                        with r1: edit_res_earth = st.number_input("resistance_earth", value=int(row.get("resistance_earth") or 0), key="edit_res_earth", help=MH["resistance_earth"])
+                        with r2: edit_res_fire = st.number_input("resistance_fire", value=int(row.get("resistance_fire") or 0), key="edit_res_fire", help=MH["resistance_fire"])
+                        with r3: edit_res_wind = st.number_input("resistance_wind", value=int(row.get("resistance_wind") or 0), key="edit_res_wind", help=MH["resistance_wind"])
+                        with r4: edit_res_water = st.number_input("resistance_water", value=int(row.get("resistance_water") or 0), key="edit_res_water", help=MH["resistance_water"])
 
                         if st.form_submit_button("수정 반영"):
                             sql = """UPDATE monster SET

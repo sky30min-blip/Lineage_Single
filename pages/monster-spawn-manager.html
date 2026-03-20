@@ -262,15 +262,15 @@
                 <div class="section-title">1️⃣ 사냥터/던전 선택</div>
                 <div class="form-grid">
                     <div class="form-group">
-                        <label>맵 선택</label>
-                        <select id="mapSelect">
+                        <label title="스폰을 등록할 맵(사냥터/던전) 번호. 목록은 maps-data.js 기준입니다.">맵 선택</label>
+                        <select id="mapSelect" title="스폰을 등록할 맵을 고릅니다.">
                             <option value="">맵을 선택하세요</option>
                             <!-- 옵션은 maps-data.js + spawn-manager.js에서 채움 -->
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>스폰 위치 설명</label>
-                        <input type="text" id="locationName" placeholder="예: 기란 던전 입구">
+                        <label title="나중에 목록에서 구분하기 위한 메모 이름입니다. 게임 내 표시와는 무관할 수 있습니다.">스폰 위치 설명</label>
+                        <input type="text" id="locationName" placeholder="예: 기란 던전 입구" title="스폰 구역을 사람이 알아볼 수 있게 적는 이름">
                     </div>
                 </div>
             </div>
@@ -279,7 +279,7 @@
             <div class="section">
                 <div class="section-title">2️⃣ 몬스터 선택 <small style="color:#666;">(검색창에 입력 시 해당 단어로 필터)</small></div>
                 <div style="display:flex; gap:12px; align-items:center; margin-bottom:12px;">
-                    <input type="text" class="search-box" id="monsterSearch" placeholder="몬스터 이름 검색..." onkeyup="filterMonsters()" style="flex:1; margin-bottom:0;">
+                    <input type="text" class="search-box" id="monsterSearch" placeholder="몬스터 이름 검색..." onkeyup="filterMonsters()" style="flex:1; margin-bottom:0;" title="목록에 표시된 몬스터 이름의 일부를 입력하면 필터됩니다.">
                     <button type="button" class="btn btn-primary" onclick="openCustomMonsterModal()">➕ 커스텀 몬스터 추가</button>
                 </div>
                 <div class="monster-list" id="monsterList">
@@ -292,41 +292,41 @@
                 <div class="section-title">3️⃣ 스폰 설정</div>
                 <div class="form-grid">
                     <div class="form-group">
-                        <label>개체수</label>
-                        <input type="number" id="spawnCount" value="10" min="1" max="100">
+                        <label title="이 구역에 동시에 존재할 몬스터 마릿수입니다.">개체수</label>
+                        <input type="number" id="spawnCount" value="10" min="1" max="100" title="스폰될 몬스터 수">
                     </div>
                     <div class="form-group">
-                        <label>리스폰 시간 (초)</label>
-                        <input type="number" id="respawnTime" value="300" min="0" max="7200">
+                        <label title="몬스터가 죽은 뒤 다시 나타나기까지 걸리는 시간(초)입니다.">리스폰 시간 (초)</label>
+                        <input type="number" id="respawnTime" value="300" min="0" max="7200" title="리스폰 대기 시간(초). 0이면 서버 규칙에 따름">
                     </div>
                     <div class="form-group">
-                        <label>이동 반경 (칸)</label>
-                        <input type="number" id="moveDistance" value="10" min="0" max="50">
+                        <label title="스폰 지점에서 몬스터가 움직일 수 있는 반경(타일)입니다.">이동 반경 (칸)</label>
+                        <input type="number" id="moveDistance" value="10" min="0" max="50" title="활동 반경. 0이면 거의 고정">
                     </div>
                     <div class="form-group">
-                        <label>방향 (0~7)</label>
-                        <input type="number" id="heading" value="0" min="0" max="7">
+                        <label title="몬스터가 바라보는 방향. 0~7은 북쪽부터 시계방향 8방향입니다.">방향 (0~7)</label>
+                        <input type="number" id="heading" value="0" min="0" max="7" title="NPC/몬스터 heading과 동일 (0~7)">
                     </div>
                 </div>
                 
                 <div class="form-group" style="margin-top: 16px;">
-                    <label>스폰 좌표 (중심점)</label>
+                    <label title="몬스터가 나타날 중심 좌표와, 주변에 흩뿌릴 때의 가로·세로 범위입니다. 게임 .좌표 명령 값과 동일합니다.">스폰 좌표 (중심점)</label>
                     <div class="coord-inputs">
                         <div>
-                            <label style="font-size: 12px; color: #999;">X</label>
-                            <input type="number" id="spawnX" value="33000" min="30000" max="35000">
+                            <label style="font-size: 12px; color: #999;" title="맵 X 좌표">X</label>
+                            <input type="number" id="spawnX" value="33000" min="30000" max="35000" title="스폰 중심 X (게임 좌표)">
                         </div>
                         <div>
-                            <label style="font-size: 12px; color: #999;">Y</label>
-                            <input type="number" id="spawnY" value="33000" min="30000" max="35000">
+                            <label style="font-size: 12px; color: #999;" title="맵 Y 좌표">Y</label>
+                            <input type="number" id="spawnY" value="33000" min="30000" max="35000" title="스폰 중심 Y">
                         </div>
                         <div>
-                            <label style="font-size: 12px; color: #999;">X 범위</label>
-                            <input type="number" id="spawnRangeX" value="20" min="0" max="100">
+                            <label style="font-size: 12px; color: #999;" title="중심 X 기준 ±범위 안에 랜덤 배치">X 범위</label>
+                            <input type="number" id="spawnRangeX" value="20" min="0" max="100" title="X축 랜덤 분산 폭">
                         </div>
                         <div>
-                            <label style="font-size: 12px; color: #999;">Y 범위</label>
-                            <input type="number" id="spawnRangeY" value="20" min="0" max="100">
+                            <label style="font-size: 12px; color: #999;" title="중심 Y 기준 ±범위">Y 범위</label>
+                            <input type="number" id="spawnRangeY" value="20" min="0" max="100" title="Y축 랜덤 분산 폭">
                         </div>
                     </div>
                     <p style="font-size: 12px; color: #999; margin-top: 8px;">
@@ -391,37 +391,37 @@
                 </ul>
             </details>
             <div class="form-group">
-                <label>이름 (필수)</label>
+                <label title="monster 테이블에 저장되는 고유 이름. 스폰·드랍에서 이 문자열로 씁니다.">이름 (필수)</label>
                 <span class="field-desc">게임 내에 표시되는 몬스터 이름. monster 테이블 name 컬럼이며, 스폰 시 이 이름으로 등록됩니다.</span>
                 <input type="text" id="customName" placeholder="몬스터 이름">
             </div>
             <div class="form-group">
-                <label>name_id</label>
+                <label title="클라이언트 문자열 ID. 보통 $숫자. 비우면 자동 생성될 수 있습니다.">name_id</label>
                 <span class="field-desc">클라이언트에서 쓰는 이름/메시지 ID. 보통 $0 또는 $숫자. 비워두면 이름 기준으로 자동 생성됩니다.</span>
                 <input type="text" id="customNameId" value="$0" placeholder="$0">
             </div>
             <div class="form-group">
-                <label>gfx</label>
+                <label title="몬스터 외형 그래픽 ID. 클라이언트와 맞춰야 합니다.">gfx</label>
                 <span class="field-desc">몬스터 그래픽(외형) ID. 0이면 기본 외형. 클라이언트 npc/몬스터 gfx 목록과 맞추면 됩니다.</span>
                 <input type="number" id="customGfx" value="0" min="0">
             </div>
             <div class="form-group">
-                <label>level</label>
+                <label title="몬스터 레벨. 경험치·명중 등에 사용됩니다.">level</label>
                 <span class="field-desc">몬스터 레벨. 전투·명중·경험치 계산 등에 사용됩니다.</span>
                 <input type="number" id="customLevel" value="1" min="1">
             </div>
             <div class="form-group">
-                <label>hp</label>
+                <label title="최대 체력. 서버 HP 배율이 곱해질 수 있습니다.">hp</label>
                 <span class="field-desc">최대 체력(HP). 실제 적용 시 서버 밸런스(monster_hp_rate)가 곱해질 수 있습니다.</span>
                 <input type="number" id="customHp" value="50" min="1">
             </div>
             <div class="form-group">
-                <label>mp</label>
+                <label title="최대 마나. 스킬 사용 몬스터에 사용.">mp</label>
                 <span class="field-desc">최대 마나(MP). 스킬 사용 등에 사용됩니다. 서버 밸런스(monster_mp_rate) 적용 가능.</span>
                 <input type="number" id="customMp" value="10" min="0">
             </div>
             <div class="form-group">
-                <label>exp</label>
+                <label title="처치 시 주는 경험치.">exp</label>
                 <span class="field-desc">플레이어가 이 몬스터를 처치했을 때 얻는 경험치입니다.</span>
                 <input type="number" id="customExp" value="0" min="0">
             </div>

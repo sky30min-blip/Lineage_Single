@@ -38,7 +38,7 @@ for param_key, label, desc in RELOAD_OPTIONS:
         st.markdown(f"**{label}**")
         st.caption(desc)
     with col2:
-        if st.button("실행", key=f"reload_{param_key}"):
+        if st.button("실행", key=f"reload_{param_key}", help=f"서버에 reload:{param_key} 요청을 넣습니다. {desc}"):
             ok = db.execute_query(
                 "INSERT INTO gm_server_command (command, param, executed) VALUES (%s, %s, 0)",
                 ("reload", param_key)
