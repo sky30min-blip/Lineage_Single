@@ -1,10 +1,113 @@
 """
-NPC 관리 페이지 (NPC 목록, NPC 추가, NPC 삭제, 상점 관리)
+NPC 관리 페이지 (NPC 목록, NPC 추가, NPC 배치 제거, 상점 관리)
 - 상점: 리니지 서버 npc_shop / item 테이블 사용 (l1jdb)
 """
+from __future__ import annotations
+
+import hashlib
+
 import streamlit as st
 from utils.db_manager import get_db
 from utils.field_help_ko import NPC_HELP as NH
+
+# 자주 쓰는 맵 번호 → 이름 (DB에 맵 테이블이 없을 때 보조). 서버팩마다 다를 수 있음.
+_COMMON_MAP_NAMES = {
+    0: "말하는섬",
+    1: "숲",
+    4: "기란",
+    304: "글루디오",
+    320: "말섬던전",
+    340: "켄트",
+    350: "윈다우드",
+    360: "요정숲",
+    370: "은기사 마을",
+    430: "화전민 마을",
+    440: "오렌",
+    53: "기란감옥 1층",
+    54: "기란감옥 2층",
+    55: "기란감옥 3층",
+    56: "기란감옥 4층",
+}
+
+
+def _try_merge_map_names_from_db(db, base: dict) -> dict:
+    """mapids / maps 등 있으면 id→이름 병합 (컬럼명 자동 추정)."""
+    out = dict(base)
+    try:
+        tables = set(db.get_all_tables())
+        for cand in ("mapids", "maps"):
+            if cand not in tables:
+                continue
+            rows = db.fetch_all(f"SELECT * FROM `{cand}` LIMIT 3000")
+            if not rows or not isinstance(rows[0], dict):
+                continue
+            keys = {str(k).lower(): k for k in rows[0].keys()}
+            id_key = next((keys[k] for k in ("id", "mapid", "map_id", "loc_id") if k in keys), None)
+            name_key = next((keys[k] for k in ("name", "locationname", "map_name", "note", "title") if k in keys), None)
+            if not id_key or not name_key:
+                continue
+            for r in rows:
+                try:
+                    mid = int(r[id_key])
+                    nm = (r.get(name_key) or "").strip()
+                    if nm:
+                        out[mid] = nm
+                except (TypeError, ValueError):
+                    pass
+            break
+    except Exception:
+        pass
+    return out
+
+
+def _map_label(map_id: int, names: dict) -> str:
+    n = names.get(map_id)
+    if n:
+        return f"{n}(맵{map_id})"
+    return f"맵{map_id}"
+
+
+def _row_val(row: dict, *keys: str):
+    for k in keys:
+        if k in row and row[k] is not None:
+            return row[k]
+    return None
+
+
+def _npc_spawn_index_by_npcname(db) -> dict[str, list[dict]]:
+    """npc_spawnlist의 npcName 기준으로 스폰 행 목록 (같은 NPC 여러 스폰 허용)."""
+    try:
+        rows = db.fetch_all(
+            "SELECT `name`, `npcName`, `locX`, `locY`, `locMap` FROM `npc_spawnlist` ORDER BY `npcName`, `locMap`, `locX`, `locY`"
+        )
+    except Exception:
+        return {}
+    idx: dict[str, list[dict]] = {}
+    for r in rows or []:
+        key = str(_row_val(r, "npcName", "npcname") or "").strip()
+        if not key:
+            continue
+        idx.setdefault(key, []).append(r)
+    return idx
+
+
+def _format_world_placements(spawns: list[dict] | None, map_names: dict) -> str:
+    """여러 스폰을 한 셀에 표시. 없으면 빈 문자열."""
+    if not spawns:
+        return ""
+    parts = []
+    for s in spawns:
+        mid = int(_row_val(s, "locMap", "locmap") or 0)
+        lx = int(_row_val(s, "locX", "locx") or 0)
+        ly = int(_row_val(s, "locY", "locy") or 0)
+        sk = str(_row_val(s, "name", "Name") or "").strip()
+        ml = _map_label(mid, map_names)
+        if sk:
+            parts.append(f"{ml} X={lx} Y={ly} [스폰키:{sk}]")
+        else:
+            parts.append(f"{ml} X={lx} Y={ly}")
+    return " · ".join(parts)
+
 
 st.set_page_config(page_title="NPC 관리", page_icon="🏰", layout="wide")
 st.title("🏰 NPC 관리")
@@ -20,7 +123,7 @@ if "npc_page_feedback" in st.session_state:
 
 db = get_db()
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-    "📋 NPC 목록", "➕ NPC 추가", "✏️ NPC 수정", "📍 NPC 배치", "🗑️ NPC 삭제/제거", "🏪 상점 관리", "📍 스폰 위치 수정"
+    "📋 NPC 목록", "➕ NPC 추가", "✏️ NPC 수정", "📍 NPC 배치", "🗑️ NPC 배치 제거", "🏪 상점 관리", "📍 스폰 위치 수정"
 ])
 
 # ========== tab1: NPC 목록 ==========
@@ -31,15 +134,31 @@ with tab1:
         npc_list = db.fetch_all("SELECT name, nameid, type, gfxid FROM npc ORDER BY name")
         if npc_list:
             import pandas as pd
+
+            map_names = _try_merge_map_names_from_db(db, _COMMON_MAP_NAMES)
+            spawn_by_npc = _npc_spawn_index_by_npcname(db)
+
             for r in npc_list:
                 r["name"] = str(r["name"]) if r.get("name") is not None else ""
-            df_npc = pd.DataFrame(npc_list).rename(columns={"name": "이름", "nameid": "NAMEID", "type": "타입", "gfxid": "그래픽 ID"})
+                sp = spawn_by_npc.get(r["name"])
+                r["월드 배치 (맵·좌표)"] = _format_world_placements(sp, map_names)
+
+            df_npc = pd.DataFrame(npc_list).rename(
+                columns={"name": "이름", "nameid": "NAMEID", "type": "타입", "gfxid": "그래픽 ID"}
+            )
+            preferred = ["이름", "월드 배치 (맵·좌표)", "NAMEID", "타입", "그래픽 ID"]
+            df_npc = df_npc[[c for c in preferred if c in df_npc.columns] + [c for c in df_npc.columns if c not in preferred]]
+
             search_npc = st.text_input("🔍 NPC 이름 검색 (이름·NAMEID 일부 입력)", placeholder="예: 0, 파워볼, 상인", key="npc_list_search")
             if search_npc and search_npc.strip():
                 mask = df_npc["이름"].astype(str).str.contains(search_npc.strip(), case=False, na=False) | df_npc["NAMEID"].astype(str).str.contains(search_npc.strip(), case=False, na=False)
                 df_npc = df_npc.loc[mask]
-            st.caption(f"총 {len(df_npc)}건 (검색어 없으면 전체 목록)")
-            st.dataframe(df_npc, height=400)
+            st.caption(
+                f"총 {len(df_npc)}건 · **월드 배치** 열은 `npc_spawnlist` 기준입니다. "
+                "같은 NPC를 여러 곳에 두면 ` · ` 로 구분해 모두 표시합니다. 배치 행이 없으면 빈칸입니다. "
+                "맵 이름은 DB(`mapids` 등) 또는 내장 사전으로 보강됩니다."
+            )
+            st.dataframe(df_npc, height=400, width='stretch')
         else:
             st.info("NPC 목록을 불러오지 못했거나 비어 있습니다.")
     except Exception as e:
@@ -140,7 +259,7 @@ with tab2:
             submitted = st.form_submit_button("NPC 추가")
             if submitted and add_name and add_name.strip():
                 name = add_name.strip()
-                ok = db.execute_query(
+                ok, ins_err = db.execute_query_ex(
                     """INSERT INTO npc (name, type, nameid, gfxid, gfxMode, hp, lawful, light, ai, areaatk, arrowGfx)
                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                     (name, add_type.strip() or "default", add_nameid.strip() or "0",
@@ -151,7 +270,7 @@ with tab2:
                     if add_do_spawn:
                         spawn_key = (name.replace(" ", "_") + "_1")[:64]
                         title_val = (add_title.strip() or name)[:64]
-                        ok2 = db.execute_query(
+                        ok2, sp_err = db.execute_query_ex(
                             """INSERT INTO npc_spawnlist (name, npcName, locX, locY, locMap, heading, respawn, title)
                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                                ON DUPLICATE KEY UPDATE npcName=%s, locX=%s, locY=%s, locMap=%s, heading=%s, respawn=%s, title=%s""",
@@ -161,12 +280,12 @@ with tab2:
                         if ok2:
                             msg += f" 스폰 등록됨 (X={add_locX}, Y={add_locY}, 맵={add_locMap})."
                         else:
-                            msg += " (스폰 등록 실패 시 npc_spawnlist 확인)"
+                            msg += f" (스폰 등록 실패: {sp_err})"
                     msg += " 서버 재시작 후 반영됩니다."
                     st.session_state["npc_page_feedback"] = ("success", msg)
                     st.rerun()
                 else:
-                    st.session_state["npc_page_feedback"] = ("error", "❌ 추가 실패 (이미 같은 name이 있거나 DB 오류)")
+                    st.session_state["npc_page_feedback"] = ("error", f"❌ NPC 추가 실패: {ins_err}")
                     st.rerun()
             elif submitted and not (add_name and add_name.strip()):
                 st.warning("NPC 이름을 입력하세요.")
@@ -188,24 +307,26 @@ with tab3:
             if edit_name:
                 row = db.fetch_one("SELECT name, type, nameid, gfxid, gfxMode, hp, lawful, light, ai, areaatk, arrowGfx FROM npc WHERE name = %s", (str(edit_name),))
                 if row:
-                    with st.form("npc_edit_form"):
+                    # 선택 NPC가 바뀌어도 위젯 key가 같으면 session_state 가 이전 값을 유지함 → NPC별 고유 접미사
+                    _ek = hashlib.md5(str(edit_name).encode("utf-8", errors="replace")).hexdigest()[:16]
+                    with st.form(f"npc_edit_form_{_ek}"):
                         st.markdown("**기본 정보** (이름은 변경 불가)")
-                        st.text_input("NPC 이름", value=row["name"], disabled=True, key="edit_name_ro")
+                        st.text_input("NPC 이름", value=row["name"], disabled=True, key=f"npc_edit_name_ro_{_ek}")
                         c1, c2 = st.columns(2)
                         with c1:
-                            edit_type = st.text_input("타입 (type)", value=row.get("type") or "default", max_chars=32, key="edit_type", help=NH["type"])
-                            edit_nameid = st.text_input("NAMEID (nameid)", value=row.get("nameid") or "0", max_chars=32, key="edit_nameid", help=NH["nameid"])
-                            edit_gfxid = st.number_input("그래픽 ID (gfxid)", min_value=0, value=int(row.get("gfxid") or 0), key="edit_gfxid", help="NPC 외형(이미지) 변경")
-                            edit_gfxMode = st.number_input("그래픽 모드 (gfxMode)", min_value=0, value=int(row.get("gfxMode") or 0), key="edit_gfxMode", help=NH["gfxMode"])
+                            edit_type = st.text_input("타입 (type)", value=row.get("type") or "default", max_chars=32, key=f"npc_edit_type_{_ek}", help=NH["type"])
+                            edit_nameid = st.text_input("NAMEID (nameid)", value=row.get("nameid") or "0", max_chars=32, key=f"npc_edit_nameid_{_ek}", help=NH["nameid"])
+                            edit_gfxid = st.number_input("그래픽 ID (gfxid)", min_value=0, value=int(row.get("gfxid") or 0), key=f"npc_edit_gfxid_{_ek}", help="NPC 외형(이미지) 변경")
+                            edit_gfxMode = st.number_input("그래픽 모드 (gfxMode)", min_value=0, value=int(row.get("gfxMode") or 0), key=f"npc_edit_gfxMode_{_ek}", help=NH["gfxMode"])
                         with c2:
-                            edit_hp = st.number_input("체력 (hp)", min_value=1, value=int(row.get("hp") or 1), key="edit_hp", help=NH["hp"])
-                            edit_lawful = st.number_input("성향 (lawful)", value=int(row.get("lawful") or 0), key="edit_lawful", help=NH["lawful"])
-                            edit_light = st.number_input("광원 (light)", value=int(row.get("light") or 0), key="edit_light", help=NH["light"])
-                            edit_ai = st.selectbox("AI 사용 (ai)", ["false", "true"], index=1 if (row.get("ai") and str(row.get("ai")).lower() == "true") else 0, key="edit_ai", help=NH["ai"])
-                            edit_areaatk = st.number_input("범위 공격 (areaatk)", min_value=0, value=int(row.get("areaatk") or 0), key="edit_areaatk", help=NH["areaatk"])
-                            edit_arrowGfx = st.number_input("화살 그래픽 (arrowGfx)", min_value=0, value=int(row.get("arrowGfx") or 0), key="edit_arrowGfx", help=NH["arrowGfx"])
+                            edit_hp = st.number_input("체력 (hp)", min_value=1, value=int(row.get("hp") or 1), key=f"npc_edit_hp_{_ek}", help=NH["hp"])
+                            edit_lawful = st.number_input("성향 (lawful)", value=int(row.get("lawful") or 0), key=f"npc_edit_lawful_{_ek}", help=NH["lawful"])
+                            edit_light = st.number_input("광원 (light)", value=int(row.get("light") or 0), key=f"npc_edit_light_{_ek}", help=NH["light"])
+                            edit_ai = st.selectbox("AI 사용 (ai)", ["false", "true"], index=1 if (row.get("ai") and str(row.get("ai")).lower() == "true") else 0, key=f"npc_edit_ai_{_ek}", help=NH["ai"])
+                            edit_areaatk = st.number_input("범위 공격 (areaatk)", min_value=0, value=int(row.get("areaatk") or 0), key=f"npc_edit_areaatk_{_ek}", help=NH["areaatk"])
+                            edit_arrowGfx = st.number_input("화살 그래픽 (arrowGfx)", min_value=0, value=int(row.get("arrowGfx") or 0), key=f"npc_edit_arrowGfx_{_ek}", help=NH["arrowGfx"])
                         if st.form_submit_button("수정 반영"):
-                            ok = db.execute_query(
+                            ok, uerr = db.execute_query_ex(
                                 """UPDATE npc SET type=%s, nameid=%s, gfxid=%s, gfxMode=%s, hp=%s, lawful=%s, light=%s, ai=%s, areaatk=%s, arrowGfx=%s WHERE name=%s""",
                                 (edit_type.strip() or "default", edit_nameid.strip() or "0", edit_gfxid, edit_gfxMode, edit_hp, edit_lawful, edit_light, edit_ai, edit_areaatk, edit_arrowGfx, edit_name)
                             )
@@ -213,7 +334,7 @@ with tab3:
                                 st.session_state["npc_page_feedback"] = ("success", f"✅ NPC '{edit_name}' 수정 반영되었습니다. 서버 재시작 후 적용됩니다.")
                                 st.rerun()
                             else:
-                                st.session_state["npc_page_feedback"] = ("error", "❌ 수정 실패 (DB 오류)")
+                                st.session_state["npc_page_feedback"] = ("error", f"❌ NPC 수정 실패: {uerr}")
                                 st.rerun()
                 else:
                     st.warning("해당 NPC를 찾을 수 없습니다.")
@@ -253,7 +374,7 @@ with tab4:
                         n = len(existing) + 1
                         spawn_name = (place_npc_name.replace(" ", "_") + "_" + str(n))[:64]
                     title_val = (place_title.strip() or place_npc_name)[:64]
-                    ok = db.execute_query(
+                    ok, perr = db.execute_query_ex(
                         """INSERT INTO npc_spawnlist (name, npcName, locX, locY, locMap, heading, respawn, title)
                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                            ON DUPLICATE KEY UPDATE npcName=%s, locX=%s, locY=%s, locMap=%s, heading=%s, respawn=%s, title=%s""",
@@ -264,14 +385,13 @@ with tab4:
                         st.session_state["npc_page_feedback"] = ("success", f"✅ '{place_npc_name}' 배치 추가됨 (스폰명: {spawn_name}, X={place_locX}, Y={place_locY}, 맵={place_locMap}). 서버 재시작 후 반영됩니다.")
                         st.rerun()
                     else:
-                        st.session_state["npc_page_feedback"] = ("error", "❌ 배치 추가 실패 (스폰 이름 중복 또는 DB 오류)")
+                        st.session_state["npc_page_feedback"] = ("error", f"❌ 배치 추가 실패: {perr}")
                         st.rerun()
     except Exception as e:
         st.error(f"NPC 배치 오류: {e}")
 
-# ========== tab5: NPC 삭제 (월드에서 제거 / 복구 / 스폰 영구 삭제) ==========
+# ========== tab5: NPC 배치 제거 (npc_spawnlist 영구 삭제 + 실행 중 서버 디스폰) ==========
 with tab5:
-    # rerun 후에도 피드백 유지 (삭제/복구 버튼 반응이 안 보이던 문제 해결)
     if "npc_tab3_feedback" in st.session_state:
         msg_type, msg_text = st.session_state["npc_tab3_feedback"]
         if msg_type == "success":
@@ -280,11 +400,12 @@ with tab5:
             st.error(msg_text)
         del st.session_state["npc_tab3_feedback"]
 
-    st.subheader("🗑️ NPC 삭제 / 제거")
-    st.info("**서버 재부팅 후에도 NPC를 없애려면** → 아래 **「스폰 영구 삭제」**를 사용하세요. 위쪽 '월드에서 제거'는 재부팅하면 다시 나타납니다.")
-    st.caption("**월드에서 제거** = 지금만 숨김 (DB는 그대로라 **재부팅 시 다시 나타남**, 복구 가능). **스폰 영구 삭제** = DB(npc_spawnlist)에서 삭제 → **재부팅 후에도 안 나옴**.")
+    st.subheader("🗑️ NPC 배치 제거")
+    st.caption(
+        "선택한 스폰을 **배치 목록(npc_spawnlist)**에서 삭제합니다. **재시작 후에도** 해당 위치에 다시 나오지 않습니다. "
+        "서버가 실행 중이면 **디스폰 명령**을 함께 보내 맵에서도 곧 사라지게 합니다."
+    )
     try:
-        # 스폰 목록: npc_spawnlist 기준 (서버가 name으로 디스폰/리스폰). LIMIT 제거해 '0' 등 모든 스폰 표시
         spawn_list = db.fetch_all(
             "SELECT name, npcName, locX, locY, locMap FROM npc_spawnlist ORDER BY name"
         )
@@ -292,21 +413,9 @@ with tab5:
             for r in spawn_list:
                 r["name"] = str(r["name"]) if r.get("name") is not None else ""
                 r["npcName"] = str(r["npcName"]) if r.get("npcName") is not None else ""
-        despawned_list = db.fetch_all(
-            "SELECT spawn_name FROM gm_npc_despawned ORDER BY spawn_name"
-        )
     except Exception as e:
-        st.warning(f"테이블 조회 실패 (npc_spawnlist·gm_npc_despawned 확인): {e}")
+        st.warning(f"테이블 조회 실패 (npc_spawnlist 확인): {e}")
         spawn_list = []
-        despawned_list = []
-
-    # 삭제 요청 직후 서버가 gm_npc_despawned 갱신 전이어도 복구 목록에 바로 표시
-    if "npc_pending_despawn" not in st.session_state:
-        st.session_state["npc_pending_despawn"] = []
-    db_despawned_names = {r["spawn_name"] for r in despawned_list}
-    pending = [p for p in st.session_state["npc_pending_despawn"] if p not in db_despawned_names]
-    st.session_state["npc_pending_despawn"] = pending
-    restore_choices_all = sorted(set([r["spawn_name"] for r in despawned_list]) | set(pending))
 
     if spawn_list:
         # DB가 컬럼명을 소문자로 반환할 수 있으므로 대소문자 무시하고 값 추출
@@ -326,75 +435,36 @@ with tab5:
         choices = [f"{_row_name(r)} | {_row_npc_name(r)} (X={r.get('locX')}, Y={r.get('locY')}, 맵={r.get('locMap')})" for r in spawn_filtered]
         spawn_keys = [_row_name(r) for r in spawn_filtered]
         idx = st.selectbox(
-            "삭제할 스폰 선택 (아래에서 용도 선택)",
+            "배치에서 제거할 스폰 선택",
             range(len(choices)),
             format_func=lambda i: choices[i],
             key="npc_del_select"
         )
         del_spawn_name = spawn_keys[idx] if idx is not None and len(spawn_keys) else None
 
-        st.caption("⛔ **월드에서 제거**: 지금만 사라짐. **재부팅하면 다시 나타남.** (임시 숨김·복구용) · 서버가 수 초 내에 명령을 처리합니다. 안 되면 서버 콘솔에서 'npc_despawn 실패' 로그를 확인하세요.")
         row1 = st.columns([1, 1])
         with row1[0]:
-            if st.button("🗑️ 선택 스폰 삭제 (월드에서만 제거 · 재부팅 시 다시 나타남)", key="npc_del_btn"):
+            if st.button("🗑️ 선택 스폰 배치 제거", key="npc_remove_spawn_btn"):
                 if del_spawn_name:
-                    ok = db.execute_query(
-                        "INSERT INTO gm_server_command (command, param, executed) VALUES (%s, %s, 0)",
-                        ("npc_despawn", del_spawn_name)
-                    )
+                    ok, del_err = db.execute_query_ex("DELETE FROM npc_spawnlist WHERE name = %s", (del_spawn_name,))
                     if ok:
-                        if del_spawn_name not in st.session_state["npc_pending_despawn"]:
-                            st.session_state["npc_pending_despawn"].append(del_spawn_name)
-                        st.session_state["npc_tab3_feedback"] = ("success", f"✅ '{del_spawn_name}' 월드에서 제거 요청됨. 서버 재부팅하면 다시 나타나므로, 완전히 없애려면 아래 '스폰 영구 삭제'를 사용하세요.")
+                        ok_cmd, cmd_err = db.execute_query_ex(
+                            "INSERT INTO gm_server_command (command, param, executed) VALUES (%s, %s, 0)",
+                            ("npc_despawn", del_spawn_name)
+                        )
+                        msg = f"✅ 스폰 '{del_spawn_name}'을(를) 배치에서 제거했습니다. 재시작 후에도 해당 배치는 없습니다."
+                        if not ok_cmd:
+                            msg += f" (참고: 즉시 디스폰 명령 삽입 실패 — {cmd_err})"
+                        st.session_state["npc_tab3_feedback"] = ("success", msg)
                         st.rerun()
                     else:
-                        st.session_state["npc_tab3_feedback"] = ("error", "❌ 명령 삽입 실패 (gm_server_command 테이블·param 길이 확인)")
+                        st.session_state["npc_tab3_feedback"] = ("error", f"❌ 배치 제거 실패: {del_err}")
                         st.rerun()
                 else:
                     st.warning("스폰을 선택하세요.")
         with row1[1]:
-            pass  # 복구는 아래 블록에
-
-        st.divider()
-        st.markdown("**복구** — 월드에서 제거했던 NPC를 다시 스폰합니다.")
-        st.caption("서버가 삭제/복구 명령을 처리하면 DB가 갱신됩니다. 목록을 최신으로 보려면 **목록 새로고침**을 누르세요.")
-        if st.button("🔄 목록 새로고침", key="npc_tab3_refresh"):
-            st.rerun()
-        if restore_choices_all:
-            restore_name = st.selectbox("복구할 스폰 선택", restore_choices_all, key="npc_restore_select")
-            if st.button("🔄 복구", key="npc_restore_btn"):
-                ok = db.execute_query(
-                    "INSERT INTO gm_server_command (command, param, executed) VALUES (%s, %s, 0)",
-                    ("npc_respawn", restore_name)
-                )
-                if ok:
-                    if restore_name in st.session_state["npc_pending_despawn"]:
-                        st.session_state["npc_pending_despawn"] = [p for p in st.session_state["npc_pending_despawn"] if p != restore_name]
-                    st.session_state["npc_tab3_feedback"] = ("success", f"✅ 반영되었습니다. '{restore_name}' 복구 요청됨 — 서버가 처리하면 월드에 다시 나타납니다.")
-                    st.rerun()
-                else:
-                    st.session_state["npc_tab3_feedback"] = ("error", "❌ 명령 삽입 실패")
-                    st.rerun()
-        else:
-            st.caption("현재 디스폰된 스폰이 없습니다. 위에서 삭제한 스폰만 여기 목록에 표시됩니다.")
-
-        st.divider()
-        st.markdown("**✅ 스폰 영구 삭제** — 서버 재부팅 후에도 없애려면 이걸 사용")
-        st.caption("npc_spawnlist에서 해당 스폰을 삭제합니다. 재시작 후 그 위치에 NPC가 다시 안 나옵니다. 같은 NPC를 다른 위치에 띄운 스폰은 그대로입니다.")
-        if spawn_list:
-            perm_choices = [f"{_row_name(r)} | {_row_npc_name(r)} (X={r.get('locX')}, Y={r.get('locY')}, 맵={r.get('locMap')})" for r in spawn_filtered]
-            perm_keys = [_row_name(r) for r in spawn_filtered]
-            perm_idx = st.selectbox("영구 삭제할 스폰 선택 (재부팅 후에도 없음)", range(len(perm_choices)), format_func=lambda i: perm_choices[i], key="npc_perm_del_select")
-            if st.button("🗑️ 이 스폰 영구 삭제 (DB에서 제거 → 재부팅 후에도 안 나옴)", key="npc_perm_del_btn"):
-                if perm_idx is not None and perm_idx < len(perm_keys):
-                    key = perm_keys[perm_idx]
-                    ok = db.execute_query("DELETE FROM npc_spawnlist WHERE name = %s", (key,))
-                    if ok:
-                        st.session_state["npc_tab3_feedback"] = ("success", f"✅ 스폰 '{key}'가 npc_spawnlist에서 삭제되었습니다. 서버 재시작 후 해당 위치에 더 이상 나타나지 않습니다.")
-                        st.rerun()
-                    else:
-                        st.session_state["npc_tab3_feedback"] = ("error", "❌ 삭제 실패")
-                        st.rerun()
+            if st.button("🔄 목록 새로고침", key="npc_tab3_refresh"):
+                st.rerun()
     else:
         st.info("npc_spawnlist에 스폰이 없거나 조회할 수 없습니다.")
 
@@ -450,7 +520,7 @@ with tab6:
                     if st.button("판매 물품 추가", key="add_sell"):
                         if 선택아이템:
                             itemname = 선택아이템.get("아이템이름")
-                            ok = db.execute_query(
+                            ok, sh_err = db.execute_query_ex(
                                 """INSERT INTO npc_shop 
                                    (name, itemname, itemcount, itembress, itemenlevel, itemtime, sell, buy, gamble, price, aden_type) 
                                    VALUES (%s, %s, %s, 1, 0, 0, 'false', 'true', 'false', %s, '')""",
@@ -460,7 +530,7 @@ with tab6:
                                 st.session_state["npc_page_feedback"] = ("success", "✅ 반영되었습니다. 판매 물품이 추가되었습니다.")
                                 st.rerun()
                             else:
-                                st.session_state["npc_page_feedback"] = ("error", "❌ 추가 실패 (중복 또는 제약조건 확인)")
+                                st.session_state["npc_page_feedback"] = ("error", f"❌ 판매 물품 추가 실패: {sh_err}")
                                 st.rerun()
                         else:
                             st.warning("아이템을 선택하세요.")
@@ -474,12 +544,18 @@ with tab6:
                             key="del_sell"
                         )
                         if st.button("판매 물품 삭제", key="del_sell_btn") and 삭제선택:
+                            failed = []
                             for x in 삭제선택:
-                                db.execute_query(
+                                ok_d, e_d = db.execute_query_ex(
                                     "DELETE FROM npc_shop WHERE name = %s AND itemname = %s AND buy = 'true'",
                                     (npc_name, x.get("itemname"))
                                 )
-                            st.session_state["npc_page_feedback"] = ("success", f"✅ 반영되었습니다. 판매 물품 {len(삭제선택)}개 삭제 완료.")
+                                if not ok_d:
+                                    failed.append(f"{x.get('itemname')}: {e_d}")
+                            if failed:
+                                st.session_state["npc_page_feedback"] = ("error", "❌ 일부 삭제 실패 — " + "; ".join(failed))
+                            else:
+                                st.session_state["npc_page_feedback"] = ("success", f"✅ 반영되었습니다. 판매 물품 {len(삭제선택)}개 삭제 완료.")
                             st.rerun()
                     else:
                         st.caption("삭제할 판매 물품이 없습니다.")
@@ -518,7 +594,7 @@ with tab6:
                     if st.button("매입 물품 추가", key="add_buy"):
                         if 선택아이템2:
                             itemname = 선택아이템2.get("아이템이름")
-                            ok = db.execute_query(
+                            ok, bh_err = db.execute_query_ex(
                                 """INSERT INTO npc_shop 
                                    (name, itemname, itemcount, itembress, itemenlevel, itemtime, sell, buy, gamble, price, aden_type) 
                                    VALUES (%s, %s, 1, 1, 0, 0, 'true', 'false', 'false', %s, '')""",
@@ -528,7 +604,7 @@ with tab6:
                                 st.session_state["npc_page_feedback"] = ("success", "✅ 반영되었습니다. 매입 물품이 추가되었습니다.")
                                 st.rerun()
                             else:
-                                st.session_state["npc_page_feedback"] = ("error", "❌ 추가 실패")
+                                st.session_state["npc_page_feedback"] = ("error", f"❌ 매입 물품 추가 실패: {bh_err}")
                                 st.rerun()
                         else:
                             st.warning("아이템을 선택하세요.")
@@ -542,12 +618,18 @@ with tab6:
                             key="del_buy"
                         )
                         if st.button("매입 물품 삭제", key="del_buy_btn") and 삭제매입:
+                            failed_b = []
                             for x in 삭제매입:
-                                db.execute_query(
+                                ok_b, e_b = db.execute_query_ex(
                                     "DELETE FROM npc_shop WHERE name = %s AND itemname = %s AND sell = 'true'",
                                     (npc_name, x.get("itemname"))
                                 )
-                            st.session_state["npc_page_feedback"] = ("success", f"✅ 반영되었습니다. 매입 물품 {len(삭제매입)}개 삭제 완료.")
+                                if not ok_b:
+                                    failed_b.append(f"{x.get('itemname')}: {e_b}")
+                            if failed_b:
+                                st.session_state["npc_page_feedback"] = ("error", "❌ 일부 삭제 실패 — " + "; ".join(failed_b))
+                            else:
+                                st.session_state["npc_page_feedback"] = ("success", f"✅ 반영되었습니다. 매입 물품 {len(삭제매입)}개 삭제 완료.")
                             st.rerun()
                     else:
                         st.caption("삭제할 매입 물품이 없습니다.")
@@ -599,35 +681,40 @@ with tab7:
                             new_map = st.number_input("맵 ID", value=int(row.get("locMap") or 0), min_value=0, key="pos_map")
                             new_heading = st.number_input("방향 (0~7)", value=int(row.get("heading") or 0), min_value=0, max_value=7, key="pos_heading")
                         if st.form_submit_button("💾 위치 저장"):
-                            ok = db.execute_query(
+                            ok, pos_err = db.execute_query_ex(
                                 "UPDATE npc_spawnlist SET locX=%s, locY=%s, locMap=%s, heading=%s WHERE name=%s",
                                 (new_x, new_y, new_map, new_heading, spawn_name)
                             )
                             if ok:
                                 if apply_immediately:
-                                    # 서버 폴링 처리(Executed=0)되면 해당 스폰만 다시 스폰되며 heading/좌표가 반영됩니다.
-                                    db.execute_query(
+                                    ok_ds, e_ds = db.execute_query_ex(
                                         "INSERT INTO gm_server_command (command, param, executed) VALUES (%s, %s, 0)",
                                         ("npc_despawn", spawn_name)
                                     )
-                                    db.execute_query(
+                                    ok_rs, e_rs = db.execute_query_ex(
                                         "INSERT INTO gm_server_command (command, param, executed) VALUES (%s, %s, 0)",
                                         ("npc_respawn", spawn_name)
                                     )
-                                    st.session_state["npc_page_feedback"] = (
-                                        "success",
-                                        f"✅ '{spawn_name}' 위치 저장됨 (X={new_x}, Y={new_y}, 맵={new_map}). "
-                                        f"즉시 적용 요청됨: `npc_despawn` → `npc_respawn`."
-                                    )
+                                    if ok_ds and ok_rs:
+                                        st.session_state["npc_page_feedback"] = (
+                                            "success",
+                                            f"✅ '{spawn_name}' 위치 저장됨 (X={new_x}, Y={new_y}, 맵={new_map}). "
+                                            "즉시 적용 요청: npc_despawn → npc_respawn.",
+                                        )
+                                    else:
+                                        st.session_state["npc_page_feedback"] = (
+                                            "error",
+                                            f"❌ 좌표는 DB에 저장됐으나 서버 명령 큐 실패 — despawn: {e_ds or 'OK'}, respawn: {e_rs or 'OK'}",
+                                        )
                                 else:
                                     st.session_state["npc_page_feedback"] = (
                                         "success",
                                         f"✅ '{spawn_name}' 위치 저장됨 (X={new_x}, Y={new_y}, 맵={new_map}). "
-                                        f"**서버 리로드** 페이지에서 'npc 테이블 리로드'를 실행하세요."
+                                        f"**서버 리로드** 페이지에서 'npc 테이블 리로드'를 실행하세요.",
                                     )
                                 st.rerun()
                             else:
-                                st.session_state["npc_page_feedback"] = ("error", "❌ 저장 실패")
+                                st.session_state["npc_page_feedback"] = ("error", f"❌ 위치 저장 실패: {pos_err}")
                                 st.rerun()
     except Exception as e:
         st.error(f"스폰 위치 수정 오류: {e}")

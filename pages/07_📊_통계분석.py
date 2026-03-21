@@ -9,6 +9,49 @@ import plotly.express as px
 from utils.db_manager import get_db
 import config
 
+
+def _characters_column_type(db, column_name: str):
+    row = db.fetch_one(
+        "SELECT DATA_TYPE AS t FROM information_schema.COLUMNS "
+        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'characters' AND COLUMN_NAME = %s",
+        (column_name,),
+    )
+    if not row or row.get("t") is None:
+        return None
+    return str(row["t"]).lower()
+
+
+def _count_characters_logged_in_today(db):
+    """
+    오늘 접속(세션)으로 볼 수 있는 캐릭터 수.
+    last_login 이 있으면 우선, 없으면 join_date (호두 서버 CharactersDatabase.updateCharacterJoinTimeStamp).
+    반환: (건수 int, None) 또는 (None, 안내 문자열)
+    """
+    if _characters_column_type(db, "last_login"):
+        r = db.fetch_one(
+            "SELECT COUNT(*) AS c FROM characters WHERE last_login IS NOT NULL AND DATE(last_login) = CURDATE()"
+        )
+        if r is None:
+            return None, "last_login 조회에 실패했습니다."
+        return int(r.get("c", 0)), None
+    jt = _characters_column_type(db, "join_date")
+    if not jt:
+        return None, "characters 테이블에 last_login·join_date 컬럼이 없어 접속 통계를 낼 수 없습니다."
+    if jt in ("bigint", "int", "integer", "mediumint", "smallint", "tinyint"):
+        r = db.fetch_one(
+            "SELECT COUNT(*) AS c FROM characters WHERE join_date IS NOT NULL AND join_date > 0 "
+            "AND FROM_UNIXTIME(FLOOR(join_date/1000)) >= CURDATE() "
+            "AND FROM_UNIXTIME(FLOOR(join_date/1000)) < DATE_ADD(CURDATE(), INTERVAL 1 DAY)"
+        )
+    else:
+        r = db.fetch_one(
+            "SELECT COUNT(*) AS c FROM characters WHERE join_date IS NOT NULL AND DATE(join_date) = CURDATE()"
+        )
+    if r is None:
+        return None, "join_date 조회에 실패했습니다."
+    return int(r.get("c", 0)), None
+
+
 # DB 연결 확인
 db = get_db()
 is_connected, msg = db.test_connection()
@@ -215,15 +258,13 @@ with tab4:
             st.metric("최저 레벨", min_level.get("c", "-") if min_level else "-")
 
         st.subheader("접속 통계")
-        try:
-            today_login = db.fetch_one(
-                "SELECT COUNT(*) as c FROM characters WHERE DATE(last_login) = CURDATE()"
+        today_cnt, today_err = _count_characters_logged_in_today(db)
+        if today_cnt is not None:
+            st.metric("오늘 접속 캐릭터 수", today_cnt)
+            st.caption(
+                "기준: `last_login`이 있으면 그 날짜, 없으면 `join_date`(게임 서버가 접속 시 갱신)가 오늘인 행입니다."
             )
-            if today_login is not None:
-                st.metric("오늘 접속 캐릭터 수", today_login.get("c", 0))
-            else:
-                st.caption("접속 통계를 조회할 수 없습니다.")
-        except Exception:
-            st.caption("last_login 컬럼이 없어 접속 통계를 표시하지 않습니다.")
+        else:
+            st.caption(today_err or "접속 통계를 표시할 수 없습니다.")
     else:
         st.info("데이터가 없습니다.")

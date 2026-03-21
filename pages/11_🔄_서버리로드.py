@@ -39,14 +39,17 @@ for param_key, label, desc in RELOAD_OPTIONS:
         st.caption(desc)
     with col2:
         if st.button("실행", key=f"reload_{param_key}", help=f"서버에 reload:{param_key} 요청을 넣습니다. {desc}"):
-            ok = db.execute_query(
+            ok, err = db.execute_query_ex(
                 "INSERT INTO gm_server_command (command, param, executed) VALUES (%s, %s, 0)",
-                ("reload", param_key)
+                ("reload", param_key),
             )
             if ok:
-                st.session_state["reload_feedback"] = ("success", f"✅ '{label}' 요청됨. 서버가 곧 처리합니다. 서버 콘솔에서 '[gm_server_command] reload: ...' 로그 확인.")
+                st.session_state["reload_feedback"] = (
+                    "success",
+                    f"✅ '{label}' 리로드 요청이 큐에 등록되었습니다. 서버 콘솔에서 '[gm_server_command] reload: ...' 로그를 확인하세요.",
+                )
             else:
-                st.session_state["reload_feedback"] = ("error", "❌ 명령 삽입 실패 (gm_server_command 테이블 확인)")
+                st.session_state["reload_feedback"] = ("error", f"❌ 명령 삽입 실패: {err}")
             st.rerun()
     st.divider()
 

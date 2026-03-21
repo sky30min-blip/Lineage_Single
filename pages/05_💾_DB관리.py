@@ -68,18 +68,18 @@ with tab1:
             result = db.fetch_all(sql_query.strip())
             if result is not None and len(result) > 0:
                 df = pd.DataFrame(result)
-                st.dataframe(df, use_container_width=True)
+                st.dataframe(df, width='stretch')
                 st.caption(f"총 {len(df)}건 조회됨")
             elif result is not None:
                 st.info("조회 결과가 없습니다.")
             else:
                 st.error("쿼리 실행 중 오류가 발생했습니다.")
         else:
-            success = db.execute_query(sql_query.strip())
-            if success:
+            ok_q, err_q = db.execute_query_ex(sql_query.strip())
+            if ok_q:
                 st.success("✅ 쿼리 실행 완료")
             else:
-                st.error("❌ 쿼리 실행 실패")
+                st.error(f"❌ 쿼리 실행 실패: {err_q}")
 
 # ========== 탭 2: 테이블 목록 ==========
 with tab2:
@@ -97,7 +97,7 @@ with tab2:
             with t1:
                 structure = db.get_table_structure(selected_table)
                 if structure:
-                    st.dataframe(pd.DataFrame(structure), use_container_width=True)
+                    st.dataframe(pd.DataFrame(structure), width='stretch')
                 else:
                     st.info("구조 정보를 불러올 수 없습니다.")
 
@@ -107,7 +107,7 @@ with tab2:
                 data = db.fetch_all(f"SELECT * FROM `{selected_table}` LIMIT %s", (int(limit),))
                 if data:
                     df = pd.DataFrame(data)
-                    st.dataframe(df, use_container_width=True)
+                    st.dataframe(df, width='stretch')
                 else:
                     st.info("데이터가 없습니다.")
 
@@ -132,16 +132,19 @@ with tab3:
                 st.code(sql, language="sql")
 
                 if st.button(f"생성: {table}", key=f"create_{table}"):
-                    success = db.execute_query(sql)
-                    if success:
+                    ok_c, err_c = db.execute_query_ex(sql)
+                    if ok_c:
                         st.success(f"✅ {table} 생성 완료")
                         init_sql = get_initial_data_sql(table)
                         if init_sql:
-                            db.execute_query(init_sql)
-                            st.info("초기 데이터 삽입 완료")
+                            ok_i, err_i = db.execute_query_ex(init_sql)
+                            if ok_i:
+                                st.info("초기 데이터 삽입 완료")
+                            else:
+                                st.warning(f"초기 데이터 삽입 실패: {err_i}")
                         st.rerun()
                     else:
-                        st.error("❌ 생성 실패")
+                        st.error(f"❌ 생성 실패: {err_c}")
     else:
         st.success("✅ 모든 필수 테이블이 존재합니다")
 
@@ -155,11 +158,11 @@ with tab3:
 
     if st.button("커스텀 테이블 생성", key="create_custom"):
         if custom_sql.strip():
-            success = db.execute_query(custom_sql.strip())
-            if success:
+            ok_cc, err_cc = db.execute_query_ex(custom_sql.strip())
+            if ok_cc:
                 st.success("✅ 테이블 생성 완료")
                 st.rerun()
             else:
-                st.error("❌ 생성 실패")
+                st.error(f"❌ 생성 실패: {err_cc}")
         else:
             st.warning("SQL을 입력해 주세요.")

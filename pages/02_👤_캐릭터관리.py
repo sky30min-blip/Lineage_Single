@@ -78,7 +78,7 @@ with tab2:
                     maxMP = st.number_input("maxMP", min_value=0, value=int(char.get("maxMP") or 0), key="edit_maxMP")
 
                 if st.button("저장", key="save_char"):
-                    ok = db.execute_query(
+                    ok, err = db.execute_query_ex(
                         """UPDATE characters SET
                            level=%s, str=%s, dex=%s, con=%s, wis=%s, inter=%s, cha=%s,
                            nowHP=%s, maxHP=%s, nowMP=%s, maxMP=%s
@@ -87,10 +87,30 @@ with tab2:
                          nowHP, maxHP, nowMP, maxMP, selected_name),
                     )
                     if ok:
-                        st.success("✅ 저장되었습니다.")
+                        st.success("✅ 캐릭터 정보가 저장되었습니다.")
                         st.rerun()
                     else:
-                        st.error("❌ 저장에 실패했습니다.")
+                        st.error(f"❌ 저장 실패: {err}")
+
+def _resolve_char_obj_id(char_row):
+    """characters 행에서 objID 컬럼명 대소문자/별칭 차이 흡수 (PyMySQL·DB 설정별)."""
+    if not char_row:
+        return None
+    for key in ("objID", "objId", "obj_id", "OBJID"):
+        v = char_row.get(key)
+        if v is not None:
+            try:
+                return int(v)
+            except (TypeError, ValueError):
+                continue
+    for k, v in char_row.items():
+        if k and str(k).lower() == "objid" and v is not None:
+            try:
+                return int(v)
+            except (TypeError, ValueError):
+                continue
+    return None
+
 
 def _adena_upsert(db, cha_name, cha_obj_id, new_count):
     """
@@ -133,29 +153,25 @@ def _adena_upsert(db, cha_name, cha_obj_id, new_count):
 
 
 def _gm_adena_delivery_insert(db, cha_obj_id, new_count):
-    """접속 중인 캐릭터에게 아데나 즉시 반영용 테이블에 삽입. 테이블 없으면 무시."""
+    """접속 중인 캐릭터에게 아데나 즉시 반영용 테이블에 삽입. (실패 시 오류 문자열 반환)"""
     if cha_obj_id is None:
-        return
-    try:
-        db.execute_query(
-            "INSERT INTO gm_adena_delivery (cha_objId, new_count, delivered) VALUES (%s, %s, 0)",
-            (cha_obj_id, new_count),
-        )
-    except Exception:
-        pass
+        return None
+    _ok, err = db.execute_query_ex(
+        "INSERT INTO gm_adena_delivery (cha_objId, new_count, delivered) VALUES (%s, %s, 0)",
+        (cha_obj_id, new_count),
+    )
+    return err if not _ok else None
 
 
 def _gm_location_delivery_insert(db, cha_obj_id, loc_x, loc_y, loc_map):
-    """접속 중인 캐릭터에게 좌표 이동 즉시 반영용 테이블에 삽입. 테이블 없으면 무시."""
+    """접속 중인 캐릭터에게 좌표 이동 즉시 반영용 테이블에 삽입."""
     if cha_obj_id is None:
-        return
-    try:
-        db.execute_query(
-            "INSERT INTO gm_location_delivery (cha_objId, locX, locY, locMAP, delivered) VALUES (%s, %s, %s, %s, 0)",
-            (cha_obj_id, loc_x, loc_y, loc_map),
-        )
-    except Exception:
-        pass
+        return None
+    _ok, err = db.execute_query_ex(
+        "INSERT INTO gm_location_delivery (cha_objId, locX, locY, locMAP, delivered) VALUES (%s, %s, %s, %s, 0)",
+        (cha_obj_id, loc_x, loc_y, loc_map),
+    )
+    return err if not _ok else None
 
 
 # ========== 탭 3: 아데나 관리 ==========
@@ -180,9 +196,7 @@ with tab3:
 
             # cha_objId (characters.objID) - INSERT 시 사용
             char_info = db.fetch_one("SELECT objID FROM characters WHERE name = %s", (selected_name3,))
-            cha_obj_id = None
-            if char_info:
-                cha_obj_id = char_info.get("objID") or char_info.get("obj_id")
+            cha_obj_id = _resolve_char_obj_id(char_info)
 
             st.metric("현재 아데나", f"{current_adena:,}")
 
@@ -194,8 +208,10 @@ with tab3:
                     new_count = current_adena + amount
                     ok, err = _adena_upsert(db, selected_name3, cha_obj_id, new_count)
                     if ok:
-                        _gm_adena_delivery_insert(db, cha_obj_id, new_count)
-                        st.success("✅ 지급 완료 (접속 중이면 곧 반영)")
+                        derr = _gm_adena_delivery_insert(db, cha_obj_id, new_count)
+                        st.success("✅ 아데나가 지급되었습니다. (DB 반영 완료)")
+                        if derr:
+                            st.warning(f"접속 중 즉시 반영 큐(gm_adena_delivery) INSERT 실패: {derr}")
                         st.rerun()
                     else:
                         st.error(f"❌ 지급 실패: {err}")
@@ -204,8 +220,10 @@ with tab3:
                     new_count = max(0, current_adena - amount)
                     ok, err = _adena_upsert(db, selected_name3, cha_obj_id, new_count)
                     if ok:
-                        _gm_adena_delivery_insert(db, cha_obj_id, new_count)
-                        st.success("✅ 차감 완료 (접속 중이면 곧 반영)")
+                        derr = _gm_adena_delivery_insert(db, cha_obj_id, new_count)
+                        st.success("✅ 아데나가 차감되었습니다. (DB 반영 완료)")
+                        if derr:
+                            st.warning(f"접속 중 즉시 반영 큐(gm_adena_delivery) INSERT 실패: {derr}")
                         st.rerun()
                     else:
                         st.error(f"❌ 차감 실패: {err}")
@@ -214,8 +232,10 @@ with tab3:
                     new_count = amount
                     ok, err = _adena_upsert(db, selected_name3, cha_obj_id, new_count)
                     if ok:
-                        _gm_adena_delivery_insert(db, cha_obj_id, new_count)
-                        st.success("✅ 설정 완료 (접속 중이면 곧 반영)")
+                        derr = _gm_adena_delivery_insert(db, cha_obj_id, new_count)
+                        st.success("✅ 아데나 수량이 설정되었습니다. (DB 반영 완료)")
+                        if derr:
+                            st.warning(f"접속 중 즉시 반영 큐(gm_adena_delivery) INSERT 실패: {derr}")
                         st.rerun()
                     else:
                         st.error(f"❌ 설정 실패: {err}")
@@ -241,23 +261,25 @@ with tab4:
 
             # 좌표 이동 시 접속 중 즉시 반영용 cha_objId
             char_info4 = db.fetch_one("SELECT objID FROM characters WHERE name = %s", (selected_name4,))
-            cha_obj_id_loc = (char_info4.get("objID") or char_info4.get("obj_id")) if char_info4 else None
+            cha_obj_id_loc = _resolve_char_obj_id(char_info4)
 
             st.write("**방법 1: 주요 마을로 이동**")
             town_names = list(config.TOWN_COORDINATES.keys())
             town = st.selectbox("마을 선택", town_names, key="town_select")
             if st.button("마을로 이동", key="move_town"):
                 co = config.TOWN_COORDINATES[town]
-                ok = db.execute_query(
+                ok, err = db.execute_query_ex(
                     "UPDATE characters SET locX=%s, locY=%s, locMAP=%s WHERE name=%s",
                     (co["x"], co["y"], co["map_id"], selected_name4),
                 )
                 if ok:
-                    _gm_location_delivery_insert(db, cha_obj_id_loc, co["x"], co["y"], co["map_id"])
-                    st.success("✅ 마을로 이동했습니다. (접속 중이면 곧 반영)")
+                    derr = _gm_location_delivery_insert(db, cha_obj_id_loc, co["x"], co["y"], co["map_id"])
+                    st.success("✅ 좌표가 마을로 변경되었습니다. (DB 반영 완료)")
+                    if derr:
+                        st.warning(f"접속 중 즉시 반영 큐(gm_location_delivery) INSERT 실패: {derr}")
                     st.rerun()
                 else:
-                    st.error("❌ 이동 처리 실패")
+                    st.error(f"❌ 이동 처리 실패: {err}")
 
             st.divider()
             st.write("**방법 2: 좌표 직접 입력**")
@@ -265,13 +287,15 @@ with tab4:
             locY = st.number_input("locY", value=int(loc.get("locY", 0)) if loc else 0, key="input_locY")
             locMAP = st.number_input("locMAP", value=int(loc.get("locMAP", 0)) if loc else 0, key="input_locMAP")
             if st.button("좌표로 이동", key="move_xy"):
-                ok = db.execute_query(
+                ok, err = db.execute_query_ex(
                     "UPDATE characters SET locX=%s, locY=%s, locMAP=%s WHERE name=%s",
                     (locX, locY, locMAP, selected_name4),
                 )
                 if ok:
-                    _gm_location_delivery_insert(db, cha_obj_id_loc, locX, locY, locMAP)
-                    st.success("✅ 위치가 변경되었습니다. (접속 중이면 곧 반영)")
+                    derr = _gm_location_delivery_insert(db, cha_obj_id_loc, locX, locY, locMAP)
+                    st.success("✅ 위치가 변경되었습니다. (DB 반영 완료)")
+                    if derr:
+                        st.warning(f"접속 중 즉시 반영 큐(gm_location_delivery) INSERT 실패: {derr}")
                     st.rerun()
                 else:
-                    st.error("❌ 이동 처리 실패")
+                    st.error(f"❌ 이동 처리 실패: {err}")

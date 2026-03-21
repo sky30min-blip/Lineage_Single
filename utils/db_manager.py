@@ -13,6 +13,16 @@ class DBManager:
     def __init__(self):
         self.connection = None
         self.config = config.DB_CONFIG
+
+    def _ensure_connection(self) -> None:
+        """장시간 띄운 Streamlit에서 끊긴 소켓 대비."""
+        if not self.connection:
+            self.connect()
+            return
+        try:
+            self.connection.ping(reconnect=True)
+        except Exception:
+            self.connect()
     
     def connect(self) -> bool:
         """DB 연결"""
@@ -24,7 +34,8 @@ class DBManager:
                 password=self.config['password'],
                 database=self.config['database'],
                 charset=self.config['charset'],
-                cursorclass=pymysql.cursors.DictCursor
+                cursorclass=pymysql.cursors.DictCursor,
+                init_command="SET SESSION time_zone = '+09:00'",
             )
             return True
         except Exception as e:
@@ -36,6 +47,26 @@ class DBManager:
         if self.connection:
             self.connection.close()
     
+    def execute_query_ex(self, sql: str, params: tuple = None) -> tuple[bool, str]:
+        """
+        INSERT, UPDATE, DELETE 등 실행. UI 피드백용으로 (성공 여부, 오류 메시지) 반환.
+        성공 시 두 번째 값은 빈 문자열.
+        """
+        try:
+            self._ensure_connection()
+            with self.connection.cursor() as cursor:
+                cursor.execute(sql, params)
+                self.connection.commit()
+            return True, ""
+        except Exception as e:
+            if self.connection:
+                self.connection.rollback()
+            err = str(e)
+            print(f"쿼리 실행 실패: {err}")
+            print(f"SQL: {sql}")
+            print(f"Params: {params}")
+            return False, err
+
     def execute_query(self, sql: str, params: tuple = None) -> bool:
         """
         INSERT, UPDATE, DELETE 등 실행
@@ -47,17 +78,8 @@ class DBManager:
         Returns:
             성공 여부
         """
-        try:
-            with self.connection.cursor() as cursor:
-                cursor.execute(sql, params)
-                self.connection.commit()
-                return True
-        except Exception as e:
-            self.connection.rollback()
-            print(f"쿼리 실행 실패: {e}")
-            print(f"SQL: {sql}")
-            print(f"Params: {params}")
-            return False
+        ok, _ = self.execute_query_ex(sql, params)
+        return ok
     
     def fetch_all(self, sql: str, params: tuple = None) -> List[Dict[str, Any]]:
         """
@@ -71,6 +93,7 @@ class DBManager:
             결과 리스트 (딕셔너리 리스트)
         """
         try:
+            self._ensure_connection()
             with self.connection.cursor() as cursor:
                 cursor.execute(sql, params)
                 return cursor.fetchall()
@@ -91,6 +114,7 @@ class DBManager:
             결과 딕셔너리 또는 None
         """
         try:
+            self._ensure_connection()
             with self.connection.cursor() as cursor:
                 cursor.execute(sql, params)
                 return cursor.fetchone()

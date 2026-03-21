@@ -266,7 +266,7 @@ with tab2:
                     tp_range_edit = st.number_input("도착지 랜덤 범위 (range)", value=int(tp_row.get("range") or 0), min_value=0, key="edit_tp_range", help=IH["range_tp"])
                     tp_heading_edit = st.number_input("goto_heading", value=int(tp_row.get("goto_heading") or 0), key="edit_tp_heading", help=IH["goto_heading"])
                     if st.button("💾 이동 목적지만 저장", key="save_teleport_only"):
-                        ok = db.execute_query(
+                        ok, tp_err = db.execute_query_ex(
                             "UPDATE item_teleport SET name=%s, goto_x=%s, goto_y=%s, goto_map=%s, `range`=%s, goto_heading=%s WHERE uid=%s",
                             (tp_name_edit, tp_x_edit, tp_y_edit, tp_map_edit, tp_range_edit, tp_heading_edit, teleport_uid)
                         )
@@ -274,12 +274,12 @@ with tab2:
                             st.success("✅ 이동 목적지가 수정되었습니다. 서버 재시작 또는 item_teleport 리로드 후 반영됩니다.")
                             st.rerun()
                         else:
-                            st.error("목적지 수정 실패")
+                            st.error(f"❌ 목적지 수정 실패: {tp_err}")
                 else:
                     st.warning(f"item_teleport에서 uid={teleport_uid} 항목을 찾을 수 없습니다. 목적지를 DB에 추가한 뒤 구분2를 teleport_{teleport_uid}로 맞추세요.")
         
         if st.button("💾 수정 저장", type="primary"):
-            성공 = db.execute_query("""
+            성공, upd_err = db.execute_query_ex("""
                 UPDATE item SET
                     `아이템이름`=%s, `인벤ID`=%s, `구분1`=%s, `구분2`=%s, `재질`=%s, `무게`=%s,
                     level_min=%s, level_max=%s, ac=%s, `작은 몬스터`=%s, `큰 몬스터`=%s,
@@ -301,11 +301,11 @@ with tab2:
                   이펙트ID, delay, 원본이름))
             
             if 성공:
-                st.success("✅ 수정 완료!")
+                st.success("✅ 아이템 수정이 저장되었습니다.")
                 del st.session_state['edit_item']
                 st.rerun()
             else:
-                st.error("❌ 수정 실패 (DB 컬럼명 확인)")
+                st.error(f"❌ 수정 실패: {upd_err}")
     else:
         st.info("'아이템 조회' 탭에서 수정할 아이템을 선택하세요")
 
@@ -348,43 +348,48 @@ with tab3:
                         st.warning("주문서 이름을 입력하세요.")
                     else:
                         try:
-                            db.execute_query(
+                            tp_ok, tp_ins_err = db.execute_query_ex(
                                 "INSERT INTO item_teleport (name, goto_x, goto_y, goto_map, `range`, goto_heading) VALUES (%s, %s, %s, %s, %s, %s)",
                                 (tp_quick_name.strip(), tp_quick_x, tp_quick_y, tp_quick_map, tp_quick_range, tp_quick_heading)
                             )
-                            r = db.fetch_one("SELECT LAST_INSERT_ID() AS id")
-                            new_uid = int((r.get("id") or r.get("ID") or 0)) if r else 0
-                            if new_uid <= 0:
-                                st.error("item_teleport 추가 후 uid를 가져오지 못했습니다.")
+                            if not tp_ok:
+                                st.error(f"❌ item_teleport 추가 실패: {tp_ins_err}")
                             else:
-                                구분2_teleport = f"teleport_{new_uid}"
-                                # item 테이블에 이동주문서 행 추가 (기본값으로)
-                                ins_ok = db.execute_query("""
-                                    INSERT INTO item (
-                                        `아이템이름`, `구분1`, `구분2`, NAMEID, `재질`, `무게`, level_min, level_max,
-                                        `인벤ID`, GFXID, ac, `작은 몬스터`, `큰 몬스터`, `공격성공율`, `추가타격치`,
-                                        `군주`, `기사`, `요정`, `마법사`, `다크엘프`, `용기사`, `환술사`,
-                                        `인첸트`, `안전인첸트`, `최고인챈`, attribute_crystal,
-                                        `HP증가`, `MP증가`, `MR증가`, `SP증가`,
-                                        waterress, windress, earthress, fireress,
-                                        `거래`, `드랍`, `겹침`, `판매`, `창고`, `손상`,
-                                        `이펙트ID`, delay
-                                    ) VALUES (
-                                        %s, 'item', %s, '$50000', '기타', '0', 0, 0,
-                                        %s, %s, 0, 0, 0, 0, 0,
-                                        1, 1, 1, 1, 1, 0, 0,
-                                        'false', 0, 0, 'none',
-                                        0, 0, 0, 0,
-                                        0, 0, 0, 0,
-                                        'true', 'true', 'true', 'false', 'true', 'false',
-                                        0, 0
-                                    )
-                                """, (tp_quick_name.strip(), 구분2_teleport, tp_quick_inven, tp_quick_gfx))
-                                if ins_ok:
-                                    st.success(f"✅ 이동 주문서 추가됨: **{tp_quick_name.strip()}** → ({tp_quick_x}, {tp_quick_y}) 맵 {tp_quick_map}. 구분2=**{구분2_teleport}**")
-                                    st.rerun()
+                                r = db.fetch_one("SELECT LAST_INSERT_ID() AS id")
+                                new_uid = int((r.get("id") or r.get("ID") or 0)) if r else 0
+                                if new_uid <= 0:
+                                    st.error("item_teleport 추가 후 uid를 가져오지 못했습니다.")
                                 else:
-                                    st.error("item_teleport는 추가되었으나 item 추가에 실패했습니다. 수동으로 item에 구분2=teleport_{} 로 추가하세요.".format(new_uid))
+                                    구분2_teleport = f"teleport_{new_uid}"
+                                    ins_ok, ins_err = db.execute_query_ex("""
+                                        INSERT INTO item (
+                                            `아이템이름`, `구분1`, `구분2`, NAMEID, `재질`, `무게`, level_min, level_max,
+                                            `인벤ID`, GFXID, ac, `작은 몬스터`, `큰 몬스터`, `공격성공율`, `추가타격치`,
+                                            `군주`, `기사`, `요정`, `마법사`, `다크엘프`, `용기사`, `환술사`,
+                                            `인첸트`, `안전인첸트`, `최고인챈`, attribute_crystal,
+                                            `HP증가`, `MP증가`, `MR증가`, `SP증가`,
+                                            waterress, windress, earthress, fireress,
+                                            `거래`, `드랍`, `겹침`, `판매`, `창고`, `손상`,
+                                            `이펙트ID`, delay
+                                        ) VALUES (
+                                            %s, 'item', %s, '$50000', '기타', '0', 0, 0,
+                                            %s, %s, 0, 0, 0, 0, 0,
+                                            1, 1, 1, 1, 1, 0, 0,
+                                            'false', 0, 0, 'none',
+                                            0, 0, 0, 0,
+                                            0, 0, 0, 0,
+                                            'true', 'true', 'true', 'false', 'true', 'false',
+                                            0, 0
+                                        )
+                                    """, (tp_quick_name.strip(), 구분2_teleport, tp_quick_inven, tp_quick_gfx))
+                                    if ins_ok:
+                                        st.success(f"✅ 이동 주문서 추가됨: **{tp_quick_name.strip()}** → ({tp_quick_x}, {tp_quick_y}) 맵 {tp_quick_map}. 구분2=**{구분2_teleport}**")
+                                        st.rerun()
+                                    else:
+                                        st.error(
+                                            f"item_teleport는 추가되었으나 item 추가 실패: {ins_err} "
+                                            f"(수동으로 item에 구분2=teleport_{new_uid} 로 추가하세요.)"
+                                        )
                         except Exception as e:
                             st.error(f"오류: {e}")
         else:
@@ -440,16 +445,16 @@ with tab3:
                 tp_range = st.number_input("range", value=0, key="tp_range", help=IH["range_tp"])
                 tp_heading = st.number_input("goto_heading", value=0, key="tp_heading", help=IH["goto_heading"])
                 if st.form_submit_button("item_teleport 행 추가"):
-                    try:
-                        db.execute_query(
-                            "INSERT INTO item_teleport (name, goto_x, goto_y, goto_map, `range`, goto_heading) VALUES (%s, %s, %s, %s, %s, %s)",
-                            (tp_name or "이동", tp_x, tp_y, tp_map, tp_range, tp_heading)
-                        )
+                    ok_tp, e_tp = db.execute_query_ex(
+                        "INSERT INTO item_teleport (name, goto_x, goto_y, goto_map, `range`, goto_heading) VALUES (%s, %s, %s, %s, %s, %s)",
+                        (tp_name or "이동", tp_x, tp_y, tp_map, tp_range, tp_heading)
+                    )
+                    if ok_tp:
                         r = db.fetch_one("SELECT LAST_INSERT_ID() AS id")
                         lid = (r.get("id") or r.get("ID") or 0) if r else 0
-                        st.success(f"추가됨. 새 uid는 DB에 따라 다를 수 있음. SELECT * FROM item_teleport 로 확인 후, 아이템 추가 시 구분2=teleport_{lid} 로 넣으세요.")
-                    except Exception as e:
-                        st.error(str(e))
+                        st.success(f"✅ 추가됨. SELECT * FROM item_teleport 로 확인 후, 아이템 추가 시 구분2=teleport_{lid} 로 넣으세요.")
+                    else:
+                        st.error(f"❌ item_teleport 추가 실패: {e_tp}")
             st.caption("item_teleport에 if_level, if_class, if_remove 컬럼이 있으면 직접 SQL로 0으로 넣거나, 서버 기본값을 사용하세요.")
         else:
             st.warning("item_teleport 테이블이 없습니다. 서버 DB에 해당 테이블이 있는지 확인하세요.")
@@ -579,11 +584,11 @@ with tab3:
                     신규거래, 신규드랍, 신규겹침, 신규판매, 신규창고, 신규손상,
                     신규이펙트ID, 신규delay
                 )
-                성공 = db.execute_query(sql, params)
+                성공, add_err = db.execute_query_ex(sql, params)
                 if 성공:
                     st.success("✅ 아이템이 추가되었습니다. 서버 재시작 후 반영될 수 있습니다.")
                     st.rerun()
                 else:
-                    st.error("❌ 추가 실패 (이름 중복 또는 DB 컬럼/제약 확인)")
+                    st.error(f"❌ 아이템 추가 실패: {add_err}")
             except Exception as e:
                 st.error(f"❌ 추가 중 오류: {e}")

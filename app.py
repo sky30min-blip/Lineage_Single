@@ -88,11 +88,11 @@ if missing_tables:
         for table in missing_tables:
             create_sql = get_create_sql(table)
             if create_sql:
-                success = db.execute_query(create_sql)
-                if success:
+                ok_t, err_t = db.execute_query_ex(create_sql)
+                if ok_t:
                     st.success(f"✅ {table} 테이블 생성 완료")
                 else:
-                    st.error(f"❌ {table} 테이블 생성 실패")
+                    st.error(f"❌ {table} 테이블 생성 실패: {err_t}")
         st.rerun()
 else:
     st.success("✅ 모든 필수 테이블이 존재합니다")

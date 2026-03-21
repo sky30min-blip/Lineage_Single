@@ -230,12 +230,12 @@ with tab2:
                 add_is_undead, add_is_turn_undead, add_arrowGfx, add_haste, add_bravery,
                 "", 0, 0  # faust_monster, chance, effect
             )
-            ok = db.execute_query(sql, params)
+            ok, err = db.execute_query_ex(sql, params)
             if ok:
                 st.success(f"✅ '{name}' 몬스터가 추가되었습니다. 서버 재시작 또는 몬스터 리로드 후 반영됩니다.")
                 st.rerun()
             else:
-                st.error("❌ 추가 실패 (이름 중복 또는 DB 오류)")
+                st.error(f"❌ 몬스터 추가 실패: {err}")
 
 # ========== 탭3: 수정 (상세 설정) ==========
 with tab3:
@@ -410,12 +410,12 @@ with tab3:
                                 edit_res_earth, edit_res_fire, edit_res_wind, edit_res_water,
                                 selected
                             )
-                            ok = db.execute_query(sql, params)
+                            ok, err = db.execute_query_ex(sql, params)
                             if ok:
-                                st.success("✅ 수정 반영되었습니다. 서버 재시작 또는 몬스터 리로드 후 적용됩니다.")
+                                st.success("✅ 몬스터 정보가 수정 반영되었습니다. 서버 재시작 또는 몬스터 리로드 후 적용됩니다.")
                                 st.rerun()
                             else:
-                                st.error("❌ 수정 실패 (DB 오류)")
+                                st.error(f"❌ 수정 실패: {err}")
 
                     # ---------- 드랍 아이템 수정 (monster_drop) ----------
                     if has_monster_drop:
@@ -442,15 +442,15 @@ with tab3:
                                     st.text(f"• {item_name}  |  최소 {cmin} ~ 최대 {cmax}  |  확률 {ch}%")
                                 with col2:
                                     if st.button("삭제", key=del_key):
-                                        ok = db.execute_query(
+                                        ok, err = db.execute_query_ex(
                                             "DELETE FROM monster_drop WHERE monster_name=%s AND item_name=%s AND item_bress=%s AND item_en=%s",
                                             (selected, item_name, bress, en),
                                         )
                                         if ok:
-                                            st.success("삭제되었습니다.")
+                                            st.success("✅ 드랍 행이 삭제되었습니다.")
                                             st.rerun()
                                         else:
-                                            st.error("삭제 실패")
+                                            st.error(f"❌ 삭제 실패: {err}")
                                 with st.expander(f"✏️ 수정: {item_name}", expanded=False):
                                     new_cmin = st.number_input("최소 수량", min_value=1, value=int(cmin) if cmin is not None else 1, key=f"ecmin_{edit_key}")
                                     new_cmax = st.number_input("최대 수량", min_value=1, value=int(cmax) if cmax is not None else 1, key=f"ecmax_{edit_key}")
@@ -459,15 +459,15 @@ with tab3:
                                         if new_cmin > new_cmax:
                                             st.warning("최소 수량이 최대 수량보다 클 수 없습니다.")
                                         else:
-                                            ok = db.execute_query(
+                                            ok, err = db.execute_query_ex(
                                                 "UPDATE monster_drop SET count_min=%s, count_max=%s, chance=%s WHERE monster_name=%s AND item_name=%s AND item_bress=%s AND item_en=%s",
                                                 (new_cmin, new_cmax, str(new_chance), selected, item_name, bress, en),
                                             )
                                             if ok:
-                                                st.success("수정되었습니다.")
+                                                st.success("✅ 드랍 정보가 수정되었습니다.")
                                                 st.rerun()
                                             else:
-                                                st.error("수정 실패")
+                                                st.error(f"❌ 수정 실패: {err}")
                         else:
                             st.info("등록된 드랍이 없습니다. 아래에서 아이템을 검색해 추가하세요.")
 
@@ -507,18 +507,14 @@ with tab3:
                                     st.warning("최소 수량이 최대 수량보다 클 수 없습니다.")
                                 else:
                                     name_val = add_item_name
-                                    try:
-                                        ok = db.execute_query(
-                                            "INSERT INTO monster_drop (name, monster_name, item_name, item_bress, item_en, count_min, count_max, chance) VALUES (%s, %s, %s, 0, 0, %s, %s, %s)",
-                                            (name_val, selected, add_item_name, add_count_min, add_count_max, str(add_chance)),
-                                        )
-                                    except Exception as ex:
-                                        ok = False
-                                        st.error(f"추가 실패: {ex}")
+                                    ok, err = db.execute_query_ex(
+                                        "INSERT INTO monster_drop (name, monster_name, item_name, item_bress, item_en, count_min, count_max, chance) VALUES (%s, %s, %s, 0, 0, %s, %s, %s)",
+                                        (name_val, selected, add_item_name, add_count_min, add_count_max, str(add_chance)),
+                                    )
                                     if ok:
-                                        st.success(f"'{add_item_name}' 드랍이 추가되었습니다. 서버 리로드 페이지에서 monster_drop 리로드를 실행하세요.")
+                                        st.success(f"✅ '{add_item_name}' 드랍이 추가되었습니다. 서버 리로드 페이지에서 monster_drop 리로드를 실행하세요.")
                                         st.rerun()
                                     else:
-                                        st.error("추가 실패 (이미 동일 아이템 드랍이 있거나 DB 오류)")
+                                        st.error(f"❌ 드랍 추가 실패: {err}")
     except Exception as e:
         st.error(f"수정 오류: {e}")

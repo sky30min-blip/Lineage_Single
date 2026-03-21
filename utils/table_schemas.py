@@ -87,8 +87,8 @@ TABLE_CREATION_SQLS = {
     'gm_server_command': """
         CREATE TABLE IF NOT EXISTS `gm_server_command` (
           `id` INT NOT NULL AUTO_INCREMENT,
-          `command` VARCHAR(64) NOT NULL COMMENT 'server_open_wait, server_open, world_clear, character_save, kingdom_war, all_buff, robot_on, robot_off, event_poly, event_rank_poly, npc_despawn, npc_respawn',
-          `param` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '0/1 등, npc_despawn/npc_respawn 시 스폰 name',
+          `command` VARCHAR(64) NOT NULL COMMENT 'server_open_wait, server_open, world_clear, character_save, kingdom_war, all_buff, robot_on, robot_off, reload_robot, reload_robot_one, event_poly, event_rank_poly, npc_despawn, npc_respawn, reload',
+          `param` VARCHAR(64) NOT NULL DEFAULT '' COMMENT 'reload_robot_one 시: objId 숫자 / reload 시: npc,item,monster,...robot / 기타 명령별 파라미터',
           `executed` TINYINT NOT NULL DEFAULT 0,
           `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
           PRIMARY KEY (`id`),

@@ -40,7 +40,7 @@ else:
     page = st.number_input("페이지", min_value=1, max_value=max(1, (total + page_size - 1) // page_size), value=1, key="cmd_page")
     start = (page - 1) * page_size
     slice_df = df.iloc[start: start + page_size]
-    st.dataframe(slice_df, use_container_width=True, hide_index=True)
+    st.dataframe(slice_df, width='stretch', hide_index=True)
     st.caption(f"총 {total}건")
     st.download_button("CSV 다운로드", slice_df.to_csv(index=False).encode("utf-8-sig"), file_name="command_log.csv", mime="text/csv", key="cmd_csv")
 

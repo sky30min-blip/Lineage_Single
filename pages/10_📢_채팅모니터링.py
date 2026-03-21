@@ -42,10 +42,7 @@ def _ensure_tables():
         if tbl not in existing and tbl in required:
             sql = get_create_sql(tbl)
             if sql:
-                try:
-                    db.execute_query(sql)
-                except Exception:
-                    pass
+                _ok_c, _ = db.execute_query_ex(sql)
 
 
 def _fetch_chat_log(selected_channels: list):
@@ -183,11 +180,11 @@ if btn_create:
     for tbl in ("gm_chat_log", "gm_chat_send"):
         sql = get_create_sql(tbl)
         if sql:
-            try:
-                db.execute_query(sql)
+            ok_ct, err_ct = db.execute_query_ex(sql)
+            if ok_ct:
                 st.success(f"✅ {tbl} 생성됨")
-            except Exception as e:
-                st.error(f"❌ {tbl}: {e}")
+            else:
+                st.error(f"❌ {tbl} 생성 실패: {err_ct}")
     st.rerun()
 if btn_test and tbl_exists:
     try:
@@ -220,18 +217,16 @@ with send_col1:
 with send_col2:
     send_btn = st.button("전송", key="gm_chat_send")
 if send_btn and gm_msg and gm_msg.strip():
-    try:
-        with db.connection.cursor() as cur:
-            cur.execute("INSERT INTO gm_chat_send (msg, sent) VALUES (%s, 0)", (gm_msg.strip()[:500],))
-        db.connection.commit()
-        st.success("전송 요청되었습니다. 서버가 곧 전체 채팅으로 브로드캐스트합니다.")
-    except Exception as e:
-        st.error(f"전송 실패: {e}")
-        try:
-            _ensure_tables()
-            st.info("gm_chat_send 테이블을 생성했습니다. 다시 전송해 보세요.")
-        except Exception:
-            pass
+    ok_send, err_send = db.execute_query_ex(
+        "INSERT INTO gm_chat_send (msg, sent) VALUES (%s, 0)",
+        (gm_msg.strip()[:500],),
+    )
+    if ok_send:
+        st.success("✅ 전송 요청되었습니다. 서버가 곧 전체 채팅으로 브로드캐스트합니다.")
+    else:
+        st.error(f"❌ 전송 실패: {err_send}")
+        _ensure_tables()
+        st.info("테이블이 없었다면 위에서 생성을 시도했습니다. **채팅 테이블 생성** 후 다시 전송해 보세요.")
 
 with st.expander("❓ 채팅이 안 보이거나 전송이 안 될 때"):
     st.markdown("""

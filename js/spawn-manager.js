@@ -141,8 +141,11 @@ function generateSQL() {
     const respawnTime = parseInt(document.getElementById('respawnTime').value, 10) || 300;
     const moveDistance = parseInt(document.getElementById('moveDistance').value, 10) || 10;
     const heading = parseInt(document.getElementById('heading').value, 10) || 0;
-    const baseX = parseInt(document.getElementById('spawnX').value, 10) || 33000;
-    const baseY = parseInt(document.getElementById('spawnY').value, 10) || 33000;
+    // 0은 유효값(서버: random=true일 때 spawn_x=0 → 맵 전체 loc 범위 랜덤). || 33000 쓰면 0이 33000으로 바뀌는 버그.
+    const _px = parseInt(document.getElementById('spawnX').value, 10);
+    const _py = parseInt(document.getElementById('spawnY').value, 10);
+    const baseX = Number.isNaN(_px) ? 33000 : _px;
+    const baseY = Number.isNaN(_py) ? 33000 : _py;
     const rangeX = parseInt(document.getElementById('spawnRangeX').value, 10) || 20;
     const rangeY = parseInt(document.getElementById('spawnRangeY').value, 10) || 20;
 
@@ -158,11 +161,21 @@ function generateSQL() {
     const locName = escapeSql(locationName);
     const sqlQueries = [];
 
+    const fullMapRandom = baseX === 0 && baseY === 0;
+
     for (let i = 0; i < count; i++) {
-        const offsetX = Math.floor((Math.random() - 0.5) * rangeX * 2);
-        const offsetY = Math.floor((Math.random() - 0.5) * rangeY * 2);
-        const x = baseX + offsetX;
-        const y = baseY + offsetY;
+        let x;
+        let y;
+        if (fullMapRandom) {
+            // MonsterSpawnlistDatabase: random && x<=0 → 맵 locX1~locX2, locY1~locY2 전역 랜덤
+            x = 0;
+            y = 0;
+        } else {
+            const offsetX = Math.floor((Math.random() - 0.5) * rangeX * 2);
+            const offsetY = Math.floor((Math.random() - 0.5) * rangeY * 2);
+            x = baseX + offsetX;
+            y = baseY + offsetY;
+        }
         const uid = UID_BASE + i + 1;
         const locSize = moveDistance;
         // monster_spawnlist: 서버가 groups, monster_1~4 등 확장 컬럼을 쓰면 아래 전체 INSERT 사용

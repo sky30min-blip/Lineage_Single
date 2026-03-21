@@ -273,18 +273,17 @@ with tab3:
         # gm 컬럼이 없으면 먼저 추가 유도 (캐릭터 선택은 아래에서 항상 표시)
         if not has_gm_column:
             if st.button("📌 characters 테이블에 gm 컬럼 추가", key="btn_add_gm_col"):
-                try:
-                    db.execute_query(
-                        "ALTER TABLE characters ADD COLUMN gm INT NOT NULL DEFAULT 0 COMMENT '0=일반, 200=GM'"
-                    )
+                ok_a, err_a = db.execute_query_ex(
+                    "ALTER TABLE characters ADD COLUMN gm INT NOT NULL DEFAULT 0 COMMENT '0=일반, 200=GM'"
+                )
+                err_l = (err_a or "").lower()
+                if ok_a:
                     st.success("✅ gm 컬럼이 추가되었습니다. 페이지를 새로고침해 주세요.")
                     st.rerun()
-                except Exception as e:
-                    err = str(e).lower()
-                    if "duplicate" in err or "already exists" in err:
-                        st.info("ℹ️ gm 컬럼이 이미 있습니다.")
-                    else:
-                        st.error(f"❌ 추가 실패: {e}")
+                elif "duplicate" in err_l or "already exists" in err_l:
+                    st.info("ℹ️ gm 컬럼이 이미 있습니다.")
+                else:
+                    st.error(f"❌ 추가 실패: {err_a}")
             st.caption("gm 컬럼이 없으면 위 버튼으로 추가한 뒤 새로고침하세요. 아래에서 캐릭터를 선택해 권한을 부여할 수 있습니다.")
 
         # 캐릭터 선택 (목록이 있으면 항상 표시)
@@ -311,33 +310,27 @@ with tab3:
 
                 st.write("**GM 권한 부여**")
                 if st.button("GM 권한 부여", key="btn_grant_gm"):
-                    try:
-                        ok = db.execute_query(
-                            "UPDATE characters SET gm = 200 WHERE LOWER(name) = LOWER(%s)",
-                            (selected_char.strip(),),
-                        )
-                        if ok:
-                            st.success(f"✅ **{selected_char}** 캐릭터에 GM 권한을 부여했습니다. **재접속 후** 적용됩니다.")
-                            st.rerun()
-                        else:
-                            st.warning("반영되지 않았습니다. characters.gm 컬럼을 확인하세요.")
-                    except Exception as e:
-                        st.error(f"❌ 실패: {e}")
+                    ok_g, err_g = db.execute_query_ex(
+                        "UPDATE characters SET gm = 200 WHERE LOWER(name) = LOWER(%s)",
+                        (selected_char.strip(),),
+                    )
+                    if ok_g:
+                        st.success(f"✅ **{selected_char}** 캐릭터에 GM 권한을 부여했습니다. **재접속 후** 적용됩니다.")
+                        st.rerun()
+                    else:
+                        st.error(f"❌ GM 권한 부여 실패: {err_g}")
 
                 st.write("**GM 권한 해제**")
                 if st.button("GM 권한 해제", key="btn_revoke_gm", type="secondary"):
-                    try:
-                        ok = db.execute_query(
-                            "UPDATE characters SET gm = 0 WHERE LOWER(name) = LOWER(%s)",
-                            (selected_char.strip(),),
-                        )
-                        if ok:
-                            st.success(f"✅ **{selected_char}** 캐릭터의 GM 권한을 해제했습니다. **재접속 시** 반영됩니다.")
-                            st.rerun()
-                        else:
-                            st.warning("반영되지 않았습니다.")
-                    except Exception as e:
-                        st.error(f"❌ 실패: {e}")
+                    ok_r, err_r = db.execute_query_ex(
+                        "UPDATE characters SET gm = 0 WHERE LOWER(name) = LOWER(%s)",
+                        (selected_char.strip(),),
+                    )
+                    if ok_r:
+                        st.success(f"✅ **{selected_char}** 캐릭터의 GM 권한을 해제했습니다. **재접속 시** 반영됩니다.")
+                        st.rerun()
+                    else:
+                        st.error(f"❌ GM 권한 해제 실패: {err_r}")
             else:
                 st.warning("characters 테이블에 **gm** 컬럼이 없습니다. 위에서 'gm 컬럼 추가' 후 새로고침하면 이 캐릭터에 GM 권한을 부여할 수 있습니다.")
 

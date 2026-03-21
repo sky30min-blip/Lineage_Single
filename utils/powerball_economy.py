@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 """
 파워볼 GM 통계·일일 포상 계산 (서버 PowerballController.PAYOUT_RATE=1.9 와 맞춤).
-- 정산일: KST 달력 기준 powerball_results.created_at 구간으로 그날 순이익(풀 크기) 산출.
+- 정산일: KST 달력 기준으로, (powerball_results.created_at 이 해당일) **또는**
+  (powerball_bets.created_at 이 해당일) 인 행을 집계한다.
+  서버는 동일 회차에 대해 INSERT 대신 UPDATE 만 할 때 results.created_at 이 옛날로 남는 경우가 있어,
+  배팅일 기준을 같이 쓰지 않으면 일일 손익이 0으로만 보일 수 있다.
 - 포상 수혜자: 파워볼 순위 아님. characters 직업(class)별 level 상위 3명 (실행 시점 스냅샷).
 """
 from __future__ import annotations
@@ -224,8 +227,60 @@ def kst_day_sql_window(d: date) -> tuple[str, str]:
     return start, end
 
 
+def _sql_where_result_or_bet_in_window() -> str:
+    """
+    일일·기간 집계용. results.created_at 만 쓰면 UPDATE-only 결과 행이 영구히 과거 날짜에 묶일 수 있음.
+    """
+    return (
+        "((r.created_at >= %s AND r.created_at < %s) "
+        "OR (b.created_at >= %s AND b.created_at < %s))"
+    )
+
+
+def _params_result_or_bet_window(start: str, end: str) -> tuple[str, str, str, str]:
+    return (start, end, start, end)
+
+
+def _sql_under_over_resolve() -> str:
+    """under_over_type 컬럼 없을 때를 대비해 total_sum으로 보조."""
+    return "COALESCE(r.under_over_type, IF(r.total_sum <= 72, 0, 1))"
+
+
 def _sql_payout_expr() -> str:
-    return f"CASE WHEN b.pick_type = r.result_type THEN ROUND(b.bet_amount * {PAYOUT_RATE}) ELSE 0 END"
+    """홀/짝 + 언더/오버 당첨 시 1.9배 지급액(행 단위)."""
+    uo = _sql_under_over_resolve()
+    r = str(PAYOUT_RATE)
+    return (
+        "CASE "
+        f"WHEN b.pick_type IN (0, 1) AND b.pick_type = r.result_type THEN ROUND(b.bet_amount * {r}) "
+        f"WHEN b.pick_type = 2 AND {uo} = 0 THEN ROUND(b.bet_amount * {r}) "
+        f"WHEN b.pick_type = 3 AND {uo} = 1 THEN ROUND(b.bet_amount * {r}) "
+        "ELSE 0 END"
+    )
+
+
+def _sql_payout_expr_guarded() -> str:
+    """LEFT JOIN 시 r 없음(결과 미기록·회차 불일치)이어도 당첨액만 0으로 두고 배팅액은 집계."""
+    inner = _sql_payout_expr()
+    return f"(CASE WHEN r.round_id IS NULL THEN 0 ELSE ({inner}) END)"
+
+
+def _sql_oe_payout_guarded(rrate: str) -> str:
+    inner = (
+        f"CASE WHEN b.pick_type IN (0,1) AND b.pick_type = r.result_type "
+        f"THEN ROUND(b.bet_amount * {rrate}) ELSE 0 END"
+    )
+    return f"(CASE WHEN r.round_id IS NULL THEN 0 ELSE ({inner}) END)"
+
+
+def _sql_uo_payout_guarded(rrate: str) -> str:
+    uo = _sql_under_over_resolve()
+    inner = (
+        f"CASE WHEN b.pick_type = 2 AND {uo} = 0 THEN ROUND(b.bet_amount * {rrate}) "
+        f"WHEN b.pick_type = 3 AND {uo} = 1 THEN ROUND(b.bet_amount * {rrate}) "
+        "ELSE 0 END"
+    )
+    return f"(CASE WHEN r.round_id IS NULL THEN 0 ELSE ({inner}) END)"
 
 
 @dataclass
@@ -236,24 +291,38 @@ class DailySummary:
     server_profit: int
     bet_rows: int
     unique_chars: int
+    odd_even_bet: int = 0
+    odd_even_payout: int = 0
+    under_over_bet: int = 0
+    under_over_payout: int = 0
+    odd_even_rows: int = 0
+    under_over_rows: int = 0
 
 
 def fetch_daily_summary(db, d: date) -> Optional[DailySummary]:
     start, end = kst_day_sql_window(d)
-    payout_sql = _sql_payout_expr()
+    payout_sql = _sql_payout_expr_guarded()
+    rrate = str(PAYOUT_RATE)
+    oe_pay = _sql_oe_payout_guarded(rrate)
+    uo_pay = _sql_uo_payout_guarded(rrate)
     row = db.fetch_one(
         f"""
         SELECT
           COALESCE(SUM(b.bet_amount), 0) AS total_bet,
           COALESCE(SUM({payout_sql}), 0) AS total_payout,
           COUNT(*) AS bet_rows,
-          COUNT(DISTINCT b.char_id) AS uniq
+          COUNT(DISTINCT b.char_id) AS uniq,
+          COALESCE(SUM(CASE WHEN b.pick_type IN (0, 1) THEN b.bet_amount ELSE 0 END), 0) AS oe_bet,
+          COALESCE(SUM({oe_pay}), 0) AS oe_payout,
+          COALESCE(SUM(CASE WHEN b.pick_type IN (2, 3) THEN b.bet_amount ELSE 0 END), 0) AS uo_bet,
+          COALESCE(SUM({uo_pay}), 0) AS uo_payout,
+          COALESCE(SUM(CASE WHEN b.pick_type IN (0, 1) THEN 1 ELSE 0 END), 0) AS oe_rows,
+          COALESCE(SUM(CASE WHEN b.pick_type IN (2, 3) THEN 1 ELSE 0 END), 0) AS uo_rows
         FROM powerball_bets b
-        INNER JOIN powerball_results r ON r.round_id = b.round_id
-        WHERE b.is_processed = 1
-          AND r.created_at >= %s AND r.created_at < %s
+        LEFT JOIN powerball_results r ON r.round_id = b.round_id
+        WHERE {_sql_where_result_or_bet_in_window()}
         """,
-        (start, end),
+        _params_result_or_bet_window(start, end),
     )
     if row is None:
         return None
@@ -266,11 +335,17 @@ def fetch_daily_summary(db, d: date) -> Optional[DailySummary]:
         server_profit=tb - tp,
         bet_rows=int(row.get("bet_rows") or 0),
         unique_chars=int(row.get("uniq") or 0),
+        odd_even_bet=int(row.get("oe_bet") or 0),
+        odd_even_payout=int(row.get("oe_payout") or 0),
+        under_over_bet=int(row.get("uo_bet") or 0),
+        under_over_payout=int(row.get("uo_payout") or 0),
+        odd_even_rows=int(row.get("oe_rows") or 0),
+        under_over_rows=int(row.get("uo_rows") or 0),
     )
 
 
 def fetch_character_lifetime_stats(db, limit: int = 500) -> list[dict[str, Any]]:
-    payout_sql = _sql_payout_expr()
+    payout_sql = _sql_payout_expr_guarded()
     rows = db.fetch_all(
         f"""
         SELECT
@@ -282,9 +357,8 @@ def fetch_character_lifetime_stats(db, limit: int = 500) -> list[dict[str, Any]]
           COALESCE(SUM(b.bet_amount), 0) - COALESCE(SUM({payout_sql}), 0) AS server_side_net,
           COUNT(*) AS bet_count
         FROM powerball_bets b
-        INNER JOIN powerball_results r ON r.round_id = b.round_id
+        LEFT JOIN powerball_results r ON r.round_id = b.round_id
         LEFT JOIN characters c ON c.objID = b.char_id
-        WHERE b.is_processed = 1
         GROUP BY b.char_id, c.name, c.class
         ORDER BY total_bet DESC
         LIMIT %s
@@ -301,11 +375,125 @@ def fetch_character_lifetime_stats(db, limit: int = 500) -> list[dict[str, Any]]
     return out
 
 
+def fetch_character_stats_in_range(
+    db,
+    start_date: date,
+    end_date: date,
+    limit: int = 500,
+    name_query: str = "",
+) -> list[dict[str, Any]]:
+    """기간(시작일~종료일, KST 달력) 기준 캐릭터별 누적 손익."""
+    if start_date is None or end_date is None:
+        return []
+    d1, d2 = (start_date, end_date) if start_date <= end_date else (end_date, start_date)
+    start, _ = kst_day_sql_window(d1)
+    _, end = kst_day_sql_window(d2)
+    payout_sql = _sql_payout_expr_guarded()
+
+    sql = f"""
+        SELECT
+          b.char_id AS char_obj_id,
+          c.name AS char_name,
+          c.class AS class_id,
+          COALESCE(SUM(b.bet_amount), 0) AS total_bet,
+          COALESCE(SUM({payout_sql}), 0) AS total_payout,
+          COALESCE(SUM(b.bet_amount), 0) - COALESCE(SUM({payout_sql}), 0) AS server_side_net,
+          COUNT(*) AS bet_count
+        FROM powerball_bets b
+        LEFT JOIN powerball_results r ON r.round_id = b.round_id
+        LEFT JOIN characters c ON c.objID = b.char_id
+        WHERE {_sql_where_result_or_bet_in_window()}
+    """
+    params: list[Any] = list(_params_result_or_bet_window(start, end))
+
+    q = (name_query or "").strip()
+    if q:
+        sql += " AND c.name LIKE %s"
+        params.append(f"%{q}%")
+
+    sql += """
+        GROUP BY b.char_id, c.name, c.class
+        ORDER BY total_bet DESC
+        LIMIT %s
+    """
+    params.append(int(limit))
+
+    rows = db.fetch_all(sql, tuple(params))
+    out: list[dict[str, Any]] = []
+    for r in rows or []:
+        tb = int(r.get("total_bet") or 0)
+        tp = int(r.get("total_payout") or 0)
+        d = dict(r)
+        d["player_net"] = tp - tb
+        out.append(d)
+    return out
+
+
+def fetch_character_stats_by_day(
+    db,
+    start_date: date,
+    end_date: date,
+    limit: int = 2000,
+    name_query: str = "",
+) -> list[dict[str, Any]]:
+    """
+    캐릭터별·일별(KST 달력) 배팅·당첨·플레이어 순손익.
+    일자 버킷은 **배팅일** `DATE(b.created_at)` (같은 행이 OR 조건으로 들어올 때 플레이어가 돈 건 날과 맞춤).
+    결과 행이 없어도 배팅일 기준으로 포함(당첨액 0). `is_processed`와 무관.
+    """
+    if start_date is None or end_date is None:
+        return []
+    d1, d2 = (start_date, end_date) if start_date <= end_date else (end_date, start_date)
+    start, _ = kst_day_sql_window(d1)
+    _, end = kst_day_sql_window(d2)
+    payout_sql = _sql_payout_expr_guarded()
+    sql = f"""
+        SELECT
+          DATE(b.created_at) AS stat_day,
+          b.char_id AS char_obj_id,
+          c.name AS char_name,
+          c.class AS class_id,
+          COALESCE(SUM(b.bet_amount), 0) AS total_bet,
+          COALESCE(SUM({payout_sql}), 0) AS total_payout,
+          COALESCE(SUM(b.bet_amount), 0) - COALESCE(SUM({payout_sql}), 0) AS server_side_net,
+          COUNT(*) AS bet_count
+        FROM powerball_bets b
+        LEFT JOIN powerball_results r ON r.round_id = b.round_id
+        LEFT JOIN characters c ON c.objID = b.char_id
+        WHERE {_sql_where_result_or_bet_in_window()}
+    """
+    params: list[Any] = list(_params_result_or_bet_window(start, end))
+    q = (name_query or "").strip()
+    if q:
+        sql += " AND c.name LIKE %s"
+        params.append(f"%{q}%")
+    sql += """
+        GROUP BY DATE(b.created_at), b.char_id, c.name, c.class
+        ORDER BY stat_day DESC, total_bet DESC
+        LIMIT %s
+    """
+    params.append(int(limit))
+    rows = db.fetch_all(sql, tuple(params))
+    out: list[dict[str, Any]] = []
+    for rw in rows or []:
+        tb = int(rw.get("total_bet") or 0)
+        tp = int(rw.get("total_payout") or 0)
+        d = dict(rw)
+        d["player_net"] = tp - tb
+        sd = d.get("stat_day")
+        if sd is not None:
+            d["stat_day"] = sd.isoformat() if hasattr(sd, "isoformat") else str(sd)
+        out.append(d)
+    return out
+
+
 def rank_top3_by_level_for_class(db, class_id: int) -> list[dict[str, Any]]:
     """
     characters 직업별 레벨 상위 3명. 동일 레벨이면:
     1) exp(경험치) 높은 순 — 같은 레벨 안에서 다음 레벨에 더 가까운 쪽
     2) 그래도 같으면 objID 오름차순 — 완전 동점 시에도 항상 1·2·3위가 서로 다른 한 명씩만
+
+    GM 캐릭터(characters.gm != 0)는 순위·정산 대상에서 제외 (서버와 동일하게 캐릭터 단위 gm).
     """
     return db.fetch_all(
         """
@@ -317,6 +505,7 @@ def rank_top3_by_level_for_class(db, class_id: int) -> list[dict[str, Any]]:
           CAST(COALESCE(c.exp, 0) AS SIGNED) AS cha_exp
         FROM characters c
         WHERE c.class = %s
+          AND COALESCE(c.gm, 0) = 0
         ORDER BY c.`level` DESC, COALESCE(c.exp, 0) DESC, c.objID ASC
         LIMIT 3
         """,
@@ -430,7 +619,7 @@ def fetch_top3_powerball_by_class_for_day(
     MariaDB 구버전은 SELECT 별칭을 HAVING/ORDER BY에 쓰면 1247 오류 → 서브쿼리로 감쌈.
     """
     start, end = kst_day_sql_window(d)
-    payout_sql = _sql_payout_expr()
+    payout_sql = _sql_payout_expr_guarded()
     sql = f"""
         SELECT
           t.char_obj_id,
@@ -449,10 +638,9 @@ def fetch_top3_powerball_by_class_for_day(
             COALESCE(SUM({payout_sql}), 0) AS paid,
             COALESCE(SUM(b.bet_amount), 0) - COALESCE(SUM({payout_sql}), 0) AS contribution
           FROM powerball_bets b
-          INNER JOIN powerball_results r ON r.round_id = b.round_id
+          LEFT JOIN powerball_results r ON r.round_id = b.round_id
           INNER JOIN characters c ON c.objID = b.char_id
-          WHERE b.is_processed = 1
-            AND r.created_at >= %s AND r.created_at < %s
+          WHERE {_sql_where_result_or_bet_in_window()}
             AND c.class = %s
           GROUP BY b.char_id, c.name, c.class, c.`level`, c.exp
         ) AS t
@@ -460,7 +648,8 @@ def fetch_top3_powerball_by_class_for_day(
         ORDER BY t.contribution DESC, t.stake DESC
         LIMIT 3
         """
-    return db.fetch_all(sql, (start, end, class_id)) or []
+    p = _params_result_or_bet_window(start, end) + (class_id,)
+    return db.fetch_all(sql, p) or []
 
 
 def add_adena_inventory_delta(
