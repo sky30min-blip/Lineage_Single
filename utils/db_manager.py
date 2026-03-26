@@ -25,27 +25,43 @@ class DBManager:
             self.connect()
     
     def connect(self) -> bool:
-        """DB 연결"""
+        """DB 연결 (기존 연결은 ping 후 재사용, 끊겼을 때만 재연결)"""
         try:
+            if self.connection is not None:
+                try:
+                    self.connection.ping(reconnect=True)
+                    return True
+                except Exception:
+                    try:
+                        self.connection.close()
+                    except Exception:
+                        pass
+                    self.connection = None
+
             self.connection = pymysql.connect(
                 host=self.config['host'],
                 port=self.config['port'],
                 user=self.config['user'],
                 password=self.config['password'],
                 database=self.config['database'],
-                charset=self.config['charset'],
+                charset=self.config.get('charset', 'utf8mb4'),
                 cursorclass=pymysql.cursors.DictCursor,
                 init_command="SET SESSION time_zone = '+09:00'",
             )
             return True
         except Exception as e:
             print(f"DB 연결 실패: {e}")
+            self.connection = None
             return False
     
     def close(self):
         """DB 연결 종료"""
         if self.connection:
-            self.connection.close()
+            try:
+                self.connection.close()
+            except Exception:
+                pass
+            self.connection = None
     
     def execute_query_ex(self, sql: str, params: tuple = None) -> tuple[bool, str]:
         """
@@ -125,23 +141,34 @@ class DBManager:
     
     def test_connection(self) -> tuple[bool, str]:
         """
-        DB 연결 테스트
-        
-        Returns:
-            (성공 여부, 메시지)
+        DB 연결 테스트 (매번 새 pymysql.connect 하지 않음 — 기존 연결로 SELECT 1).
         """
         try:
-            if not self.connect():
-                return False, "연결 실패"
-            
+            if not self.connection:
+                if not self.connect():
+                    return False, "연결 실패"
+
+            with self.connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+
             result = self.fetch_one("SELECT VERSION() as version")
             if result:
-                version = result.get('version', 'Unknown')
+                version = result.get("version", "Unknown")
                 return True, f"MariaDB {version}"
-            else:
-                return False, "버전 확인 실패"
+            return True, "연결됨"
         except Exception as e:
-            return False, str(e)
+            try:
+                if not self.connect():
+                    return False, f"재연결 실패: {e}"
+                with self.connection.cursor() as cursor:
+                    cursor.execute("SELECT 1")
+                result = self.fetch_one("SELECT VERSION() as version")
+                if result:
+                    version = result.get("version", "Unknown")
+                    return True, f"MariaDB {version}"
+                return True, "재연결 성공"
+            except Exception as e2:
+                return False, f"연결 오류: {e2}"
     
     def get_all_tables(self) -> List[str]:
         """전체 테이블 목록 조회"""

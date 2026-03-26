@@ -17,11 +17,19 @@ LINEAGE_CONF_PATH = os.path.join(_BASE, "2.싱글리니지 팩", "lineage.conf")
 
 
 def read_notice():
-    """notice.txt UTF-8로 읽기"""
+    """notice.txt 읽기 (UTF-8 우선, 실패 시 Windows 한글 메모장 기본인 CP949)"""
     if not os.path.isfile(NOTICE_PATH):
         return None, "파일 없음"
+    for enc in ("utf-8-sig", "utf-8", "cp949", "euc-kr"):
+        try:
+            with open(NOTICE_PATH, "r", encoding=enc) as f:
+                return f.read(), None
+        except UnicodeDecodeError:
+            continue
+        except Exception as e:
+            return None, str(e)
     try:
-        with open(NOTICE_PATH, "r", encoding="utf-8") as f:
+        with open(NOTICE_PATH, "r", encoding="utf-8", errors="replace") as f:
             return f.read(), None
     except Exception as e:
         return None, str(e)

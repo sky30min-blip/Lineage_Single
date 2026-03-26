@@ -7,6 +7,9 @@ venv/
 .env
 *.log
 
+# 로컬 DB 오버라이드 (비밀번호 등)
+api/config.local.php
+
 # IDE
 .idea/
 .vscode/

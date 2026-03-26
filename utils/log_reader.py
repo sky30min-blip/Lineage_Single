@@ -59,24 +59,47 @@ def list_log_dates(subdir: str) -> List[str]:
     out.sort(reverse=True)
     return out
 
-def _decode_log_file(path: str, max_lines: int) -> List[str]:
-    """여러 인코딩으로 시도해 로그 파일 읽기. (서버가 CP949로 저장하는 경우 대비)"""
-    encodings = ["utf-8", "cp949", "euc-kr", "utf-8-sig"]
-    for enc in encodings:
+def _decode_raw_bytes(raw: bytes) -> str:
+    """
+    윈도우 서버 로그는 보통 CP949(MS949), 최신은 UTF-8 일 수 있음.
+    errors='replace' 로 먼저 읽으면 잘못된 인코딩이어도 예외가 안 나서 한글이 ĳ 같은 깨짐으로만 보임 → strict 순서로 판별.
+    """
+    if not raw:
+        return ""
+    if raw.startswith(b"\xef\xbb\xbf"):
         try:
-            with open(path, "r", encoding=enc, errors="replace") as f:
-                lines = []
-                for line in f:
-                    line = line.rstrip("\n\r")
-                    if line:
-                        line = _fix_garbled_time(line)
-                        lines.append(line)
-                    if len(lines) >= max_lines:
-                        break
-                return lines
-        except Exception:
+            return raw.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            pass
+    for enc in ("utf-8", "cp949", "euc-kr"):
+        try:
+            return raw.decode(enc)
+        except UnicodeDecodeError:
             continue
-    return []
+    return raw.decode("utf-8", errors="replace")
+
+
+# 하루 로그가 비정상적으로 클 때 메모리 보호 (필요 시 앞부분만 디코딩)
+_MAX_LOG_BYTES = 32 * 1024 * 1024
+
+
+def _decode_log_file(path: str, max_lines: int) -> List[str]:
+    """여러 인코딩으로 시도해 로그 파일 읽기. (CP949/UTF-8 자동 판별)"""
+    try:
+        with open(path, "rb") as f:
+            raw = f.read(_MAX_LOG_BYTES)
+    except OSError:
+        return []
+    text = _decode_raw_bytes(raw)
+    lines: List[str] = []
+    for line in text.splitlines():
+        line = line.rstrip("\r")
+        if line:
+            line = _fix_garbled_time(line)
+            lines.append(line)
+        if len(lines) >= max_lines:
+            break
+    return lines
 
 
 def _fix_garbled_time(line: str) -> str:

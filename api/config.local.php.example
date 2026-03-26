@@ -1,0 +1,12 @@
+<?php
+/**
+ * 이 파일을 config.local.php 로 복사한 뒤 값만 수정하세요.
+ * mysql.conf 를 못 찾거나 Docker 포트가 다를 때 사용합니다.
+ */
+return [
+    // 'host' => '127.0.0.1',
+    // 'port' => 3306,
+    // 'dbname' => 'lin200',
+    // 'user' => 'root',
+    // 'password' => '1307',
+];
