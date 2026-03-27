@@ -457,6 +457,8 @@ public class Util {
 					result = false;
 				if (!Lineage.is_aden_teleport && World.isAden(o.getHomeX(), o.getHomeY(), o.getMap()))
 					result = false;
+				if (!Lineage.is_welldone_teleport && World.isWelldone(o.getHomeX(), o.getHomeY(), o.getMap()))
+					result = false;
 				
 				if (--max < 0) {
 					o.setHomeX(o.getX());

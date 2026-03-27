@@ -11,6 +11,7 @@ import lineage.database.ItemDatabase;
 import lineage.database.ServerDatabase;
 import lineage.database.MonsterDatabase;
 import lineage.database.MonsterDropDatabase;
+import lineage.database.MonsterSpawnlistDatabase;
 import lineage.database.MonsterSkillDatabase;
 import lineage.database.NpcDatabase;
 import lineage.database.NpcShopDatabase;
@@ -203,6 +204,9 @@ public class GmDeliveryController {
 						} else if ("background_spawnlist".equals(p)) {
 							BackgroundDatabase.reload();
 							lineage.share.System.println("[gm_server_command] reload: background_spawnlist 테이블 리로드 완료");
+						} else if ("monster_spawnlist".equals(p) || "all_spawn".equals(p) || "전체스폰".equals(p)) {
+							MonsterSpawnlistDatabase.reload();
+							lineage.share.System.println("[gm_server_command] reload: monster_spawnlist(전체스폰) 리로드 완료");
 						} else {
 							lineage.share.System.println("[gm_server_command] reload: 알 수 없는 param=" + param);
 						}

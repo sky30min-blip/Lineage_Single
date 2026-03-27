@@ -1029,6 +1029,36 @@ public class CommandController {
 				} else if (key.equalsIgnoreCase(Lineage.command + "위치") || key.equalsIgnoreCase(Lineage.command + "좌표")) {
 					ChattingController.toChatting(o, String.format("X좌표: [%d] Y좌표: [%d] 맵번호: [%d]", o.getX(), o.getY(), o.getMap()), Lineage.CHATTING_MODE_MESSAGE);
 					return true;
+				} else if (key.equalsIgnoreCase(Lineage.command + "웰던개방해") || key.equalsIgnoreCase(Lineage.command + "웰던개방")) {
+					Lineage.is_welldone_teleport = true;
+					ChattingController.toChatting(o, "웰던 지역 텔레포트가 개방되었습니다.", Lineage.CHATTING_MODE_MESSAGE);
+					return true;
+				} else if (key.equalsIgnoreCase(Lineage.command + "웰던봉인해") || key.equalsIgnoreCase(Lineage.command + "웰던봉인")) {
+					Lineage.is_welldone_teleport = false;
+					ChattingController.toChatting(o, "웰던 지역 텔레포트가 봉인되었습니다.", Lineage.CHATTING_MODE_MESSAGE);
+					return true;
+				} else if (key.equalsIgnoreCase(Lineage.command + "하이네개방해") || key.equalsIgnoreCase(Lineage.command + "하이네개방")) {
+					Lineage.is_heine_teleport = true;
+					ChattingController.toChatting(o, "하이네 지역 텔레포트가 개방되었습니다.", Lineage.CHATTING_MODE_MESSAGE);
+					return true;
+				} else if (key.equalsIgnoreCase(Lineage.command + "하이네봉인해") || key.equalsIgnoreCase(Lineage.command + "하이네봉인")) {
+					Lineage.is_heine_teleport = false;
+					ChattingController.toChatting(o, "하이네 지역 텔레포트가 봉인되었습니다.", Lineage.CHATTING_MODE_MESSAGE);
+					return true;
+				} else if (key.equalsIgnoreCase(Lineage.command + "아덴개방해") || key.equalsIgnoreCase(Lineage.command + "아덴개방")) {
+					Lineage.is_aden_teleport = true;
+					ChattingController.toChatting(o, "아덴 지역 텔레포트가 개방되었습니다.", Lineage.CHATTING_MODE_MESSAGE);
+					return true;
+				} else if (key.equalsIgnoreCase(Lineage.command + "아덴봉인해") || key.equalsIgnoreCase(Lineage.command + "아덴봉인")) {
+					Lineage.is_aden_teleport = false;
+					ChattingController.toChatting(o, "아덴 지역 텔레포트가 봉인되었습니다.", Lineage.CHATTING_MODE_MESSAGE);
+					return true;
+				} else if (key.equalsIgnoreCase(Lineage.command + "영토개방상태")) {
+					ChattingController.toChatting(o, String.format("웰던:%s 하이네:%s 아덴:%s",
+							Lineage.is_welldone_teleport ? "개방" : "봉인",
+							Lineage.is_heine_teleport ? "개방" : "봉인",
+							Lineage.is_aden_teleport ? "개방" : "봉인"), Lineage.CHATTING_MODE_MESSAGE);
+					return true;
 				} else if (key.equalsIgnoreCase(Lineage.command + "봇")) {
 					String name = st.nextToken();
 					PcInstance pc = World.findPc(name);
@@ -3847,7 +3877,7 @@ public class CommandController {
 
 		info.clear();
 		// 서버명
-		info.add("??서버");
+		info.add(ServerDatabase.getName() != null ? ServerDatabase.getName() : "호두서버");
 		// 운영자 ID
 		info.add("메티스");
 

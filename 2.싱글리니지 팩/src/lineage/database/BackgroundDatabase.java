@@ -132,6 +132,9 @@ public final class BackgroundDatabase {
 						if ("heine".equals(rs.getString("title"))) {
 							o.setTitle( "게시판" );
 						}
+						if ("powerball_reward".equals(rs.getString("title"))) {
+							o.setTitle("파워볼 게시판");
+						}
 						if (rs.getString("title").equalsIgnoreCase("trade"))
 							tradeBoard = b;
 						if (rs.getString("title").equalsIgnoreCase("server"))
@@ -214,6 +217,8 @@ public final class BackgroundDatabase {
 							BoardInstance b = (BoardInstance) o;
 
 							b.setType(rs.getString("title"));
+							if ("powerball_reward".equalsIgnoreCase(rs.getString("title")))
+								o.setTitle("파워볼 게시판");
 
 							if (b.getType().equalsIgnoreCase("trade"))
 								tradeBoard = b;

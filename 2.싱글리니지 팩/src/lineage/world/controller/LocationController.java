@@ -6,8 +6,10 @@ import lineage.network.packet.server.S_ObjectLock;
 import lineage.plugin.PluginController;
 import lineage.share.Lineage;
 import lineage.util.Util;
+import lineage.world.World;
 import lineage.world.object.object;
 import lineage.world.object.instance.ItemInstance;
+import lineage.world.object.instance.PcInstance;
 
 public class LocationController {
 
@@ -129,6 +131,35 @@ public class LocationController {
 			o.toSender(S_ObjectLock.clone(BasePacketPooling.getPool(S_ObjectLock.class), 0x09));
 		}
 		return false;
+	}
+
+	/**
+	 * 에피소드8 봉인 지역(웰던/하이네/아덴) 텔레포트 목적지 차단 체크.
+	 * - false인 지역은 텔레포트 목적지로 사용할 수 없음.
+	 */
+	static public boolean isBlockedEpisode8TeleportDestination(object o, int x, int y, int map, boolean message) {
+		if (!(o instanceof PcInstance))
+			return false;
+
+		PcInstance pc = (PcInstance) o;
+		// 운영자는 예외 허용
+		if (pc.getGm() > 0)
+			return false;
+
+		boolean blocked = false;
+		if (!Lineage.is_welldone_teleport && World.isWelldone(x, y, map))
+			blocked = true;
+		if (!Lineage.is_heine_teleport && World.isHeine(x, y, map))
+			blocked = true;
+		if (!Lineage.is_aden_teleport && World.isAden(x, y, map))
+			blocked = true;
+
+		if (blocked) {
+			if (message)
+				ChattingController.toChatting(pc, "이동할 수 없습니다.", Lineage.CHATTING_MODE_MESSAGE);
+			pc.toSender(S_ObjectLock.clone(BasePacketPooling.getPool(S_ObjectLock.class), 0x09));
+		}
+		return blocked;
 	}
 
 	/**

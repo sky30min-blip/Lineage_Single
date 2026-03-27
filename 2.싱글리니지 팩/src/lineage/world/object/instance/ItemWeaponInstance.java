@@ -190,9 +190,16 @@ public class ItemWeaponInstance extends ItemIllusionInstance {
 			
 			if (Lineage.is_weapon_speed) {
 				if (!cha.checkSpear()) {
-					if (SpriteFrameDatabase.findGfxMode(cha.getGfx(), item.getGfxMode()))
-						// 변신상태일 경우 spr_frame 테이블에서 해당 gfx에 모드가 있을경우 변경
-						cha.setGfxMode(item.getGfxMode());
+					int baseMode = getBaseGfxMode(cha);
+					int weaponMode = item.getGfxMode();
+					int targetMode = baseMode + weaponMode;
+					// 기본모드 + 무기모드로 계산해 착용/해제가 역연산으로 일치하도록 고정.
+					if (SpriteFrameDatabase.findGfxMode(cha.getGfx(), targetMode))
+						cha.setGfxMode(targetMode);
+					else if (SpriteFrameDatabase.findGfxMode(cha.getGfx(), weaponMode))
+						cha.setGfxMode(weaponMode);
+					else
+						cha.setGfxMode(targetMode);
 				}
 			} else {
 				if (cha.getGfx() == cha.getClassGfx())
@@ -210,18 +217,8 @@ public class ItemWeaponInstance extends ItemIllusionInstance {
 			inv.setSlot(item.getSlot(), null);
 			
 			if (Lineage.is_weapon_speed) {
-				if (SpriteFrameDatabase.findGfxMode(cha.getGfx(), cha.getGfxMode() - item.getGfxMode())) {
-					// 변신상태일 경우 무기 해제시 변신의 기본 모드로 변경
-					if ((cha.getGfx() != cha.getClassGfx())
-						&& (cha.getGfx() != Lineage.royal_male_gfx && cha.getGfx() != Lineage.royal_female_gfx
-						&& cha.getGfx() != Lineage.knight_male_gfx && cha.getGfx() != Lineage.knight_female_gfx
-						&& cha.getGfx() != Lineage.elf_male_gfx && cha.getGfx() != Lineage.elf_female_gfx
-						&& cha.getGfx() != Lineage.wizard_male_gfx && cha.getGfx() != Lineage.wizard_female_gfx)) {
-						cha.setGfxMode(PolyDatabase.getPolyGfx(cha.getGfx()).getGfxMode());
-					} else {
-						cha.setGfxMode(cha.getGfxMode() - item.getGfxMode());
-					}
-				}
+				// 해제 시에는 항상 기본모드로 강제 복구 (계산 누적으로 무장 모션 고착 방지)
+				cha.setGfxMode(getBaseGfxMode(cha));
 			} else {
 				if (cha.getGfx() == cha.getClassGfx()) {
 					// 변신상태가 아닐때만 변경하도록 함.
@@ -234,6 +231,21 @@ public class ItemWeaponInstance extends ItemIllusionInstance {
 		}
 			
 		cha.toSender(S_InventoryEquipped.clone(BasePacketPooling.getPool(S_InventoryEquipped.class), this));
+	}
+
+	private int getBaseGfxMode(Character cha) {
+		if ((cha.getGfx() != cha.getClassGfx())
+			&& (cha.getGfx() != Lineage.royal_male_gfx && cha.getGfx() != Lineage.royal_female_gfx
+			&& cha.getGfx() != Lineage.knight_male_gfx && cha.getGfx() != Lineage.knight_female_gfx
+			&& cha.getGfx() != Lineage.elf_male_gfx && cha.getGfx() != Lineage.elf_female_gfx
+			&& cha.getGfx() != Lineage.wizard_male_gfx && cha.getGfx() != Lineage.wizard_female_gfx)) {
+			try {
+				return PolyDatabase.getPolyGfx(cha.getGfx()).getGfxMode();
+			} catch (Exception e) {
+				return cha.getClassGfxMode();
+			}
+		}
+		return cha.getClassGfxMode();
 	}
 	
 	/**

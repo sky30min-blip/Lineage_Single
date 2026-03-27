@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
+import java.util.TimeZone;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
@@ -35,6 +36,7 @@ public class PowerballNpc extends ShopInstance {
 
 	private static final long MIN_BET = 50000L;
 	private static final long MAX_BET = 5000000L;
+	private static final int PREV_ROUND_CLAIM_LOCK_SEC = 10;
 	/** 타이머에서 회차/남은시간 갱신용 (NPC는 CharacterController 리스트에 없음) */
 	private static final List<PowerballNpc> INSTANCES = new CopyOnWriteArrayList<PowerballNpc>();
 
@@ -164,6 +166,10 @@ public class PowerballNpc extends ShopInstance {
 			else act = "over";
 			pc.toSender(S_HyperText.clone(BasePacketPooling.getPool(S_HyperText.class), this,
 				"powerball", act, 0, 100000, (int) MIN_BET, MAX_BET, null));
+			if (itemName.equals("언더 쿠폰"))
+				ChattingController.toChatting(pc, "[파워볼] 언더쿠폰은 합72 이하입니다.", Lineage.CHATTING_MODE_MESSAGE);
+			else if (itemName.equals("오버 쿠폰"))
+				ChattingController.toChatting(pc, "[파워볼] 오버쿠폰은 합72 이상입니다.", Lineage.CHATTING_MODE_MESSAGE);
 			return;
 		}
 		// 그 외 아이템은 일반 상점 처리하지 않음 (파워볼은 쿠폰만)
@@ -226,6 +232,10 @@ public class PowerballNpc extends ShopInstance {
 					}
 				} catch (NumberFormatException e) { continue; }
 				if (roundId <= 0) continue;
+				if (isPrevRoundClaimLocked(roundId)) {
+					ChattingController.toChatting(pc, "[파워볼] 현재 결과 종합중입니다.", Lineage.CHATTING_MODE_MESSAGE);
+					continue;
+				}
 
 				int resultType = PowerballDatabase.getResultForRound(roundId);
 				int underOverType = PowerballDatabase.getUnderOverForRound(roundId);
@@ -297,6 +307,21 @@ public class PowerballNpc extends ShopInstance {
 				// 그 외 아이템은 파워볼 NPC에서 매입 안 함
 			}
 		}
+	}
+
+	/**
+	 * 전 회차 쿠폰은 다음 회차 시작 후 10초가 지나야 매입 허용.
+	 * 예) 새 회차 00~09초(남은 4:51~5:00)에는 전 회차 매입 불가, 10초(남은 4:50)부터 가능.
+	 */
+	private boolean isPrevRoundClaimLocked(int couponRoundId) {
+		int currentRound = PowerballController.getCurrentRound();
+		if (couponRoundId != currentRound - 1)
+			return false;
+		Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul"), Locale.KOREA);
+		int min = cal.get(Calendar.MINUTE);
+		int sec = cal.get(Calendar.SECOND);
+		int elapsedInRoundSec = (min % 5) * 60 + sec;
+		return elapsedInRoundSec < PREV_ROUND_CLAIM_LOCK_SEC;
 	}
 
 	/** 당첨금/환불금 지급. 인벤에 아데나가 없어도(0원으로 다 쓴 경우) 새 아데나 아이템을 만들어 지급. */

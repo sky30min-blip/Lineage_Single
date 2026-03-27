@@ -125,6 +125,7 @@ import lineage.world.controller.FriendController;
 import lineage.world.controller.InventoryController;
 import lineage.world.controller.KingdomController;
 import lineage.world.controller.LetterController;
+import lineage.world.controller.LocationController;
 import lineage.world.controller.MagicDollController;
 import lineage.world.controller.PartyController;
 import lineage.world.controller.PcMarketController;
@@ -1719,6 +1720,11 @@ public boolean toLvStat(boolean packet) {
 		CharactersDatabase.readSkill(this);
 		// 인벤토리 추출 및 전송
 		CharactersDatabase.readInventory(this);
+		// 인벤 기준 무기 모션 동기화 (DB 저장 gfxMode 잔존값으로 무장 모션 고착되는 현상 방지)
+		if (getInventory() != null && getInventory().getSlot(Lineage.SLOT_WEAPON) != null)
+			setGfxMode(getClassGfxMode() + getInventory().getSlot(Lineage.SLOT_WEAPON).getItem().getGfxMode());
+		else
+			setGfxMode(getClassGfxMode());
 		// 차단 리스트 추출 및 전송
 		CharactersDatabase.readBlockList(this);
 		// 팀대전 오류 확인.
@@ -2107,6 +2113,9 @@ public boolean toLvStat(boolean packet) {
 			toSender(S_ObjectLock.clone(BasePacketPooling.getPool(S_ObjectLock.class), 0x09));
 			return;
 		}
+		if (LocationController.isBlockedEpisode8TeleportDestination(this, x, y, map, true)) {
+			return;
+		}
 		homeX = x;
 		homeY = y;
 		homeMap = map;
@@ -2134,6 +2143,9 @@ public boolean toLvStat(boolean packet) {
 			toSender(S_ObjectLock.clone(BasePacketPooling.getPool(S_ObjectLock.class), 0x09));
 			return;
 		}
+		if (LocationController.isBlockedEpisode8TeleportDestination(this, x, y, map, true)) {
+			return;
+		}
 		// 2.00이하 버전에서 텔레포트후 sp, mr 이 정상표현 안되는 문제로 인해 추가.
 		// if (Lineage.server_version <= 200)
 		// toSender(S_CharacterSpMr.clone(BasePacketPooling.getPool(S_CharacterSpMr.class),
@@ -2159,6 +2171,9 @@ public boolean toLvStat(boolean packet) {
 		if (isFishing()) {
 			ChattingController.toChatting(this, "낚시중엔 텔레포트가 불가능합니다.", Lineage.CHATTING_MODE_MESSAGE);
 			toSender(S_ObjectLock.clone(BasePacketPooling.getPool(S_ObjectLock.class), 0x09));
+			return;
+		}
+		if (LocationController.isBlockedEpisode8TeleportDestination(this, x, y, map, true)) {
 			return;
 		}
 		// 2.00이하 버전에서 텔레포트후 sp, mr 이 정상표현 안되는 문제로 인해 추가.

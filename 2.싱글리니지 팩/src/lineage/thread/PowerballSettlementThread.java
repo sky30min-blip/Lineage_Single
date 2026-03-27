@@ -32,6 +32,8 @@ public class PowerballSettlementThread implements Runnable {
 			try {
 				PowerballController.runPeriodicLogic();
 				PowerballController.doSettlement();
+				PowerballController.runAutoRewardSettlementIfDue();
+				PowerballController.refreshRewardBoardPost();
 			} catch (Exception e) {
 				lineage.share.System.printf("%s.run()\r\n%s\r\n", PowerballSettlementThread.class.getSimpleName(), e.toString());
 			}

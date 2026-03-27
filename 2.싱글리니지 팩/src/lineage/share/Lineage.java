@@ -1493,6 +1493,8 @@ public final class Lineage {
 	static public boolean is_heine_teleport;
 	// 아덴 랜덤텔레포트 여부.
 	static public boolean is_aden_teleport;
+	// 웰던 랜덤텔레포트 여부.
+	static public boolean is_welldone_teleport;
 
 	// 잠수용 허수아비 사용여부
 	static public boolean is_rest_cracker;
@@ -3380,6 +3382,8 @@ public final class Lineage {
 						is_heine_teleport = value.equalsIgnoreCase("true");
 					else if (key.equalsIgnoreCase("is_aden_teleport"))
 						is_aden_teleport = value.equalsIgnoreCase("true");
+					else if (key.equalsIgnoreCase("is_welldone_teleport"))
+						is_welldone_teleport = value.equalsIgnoreCase("true");
 
 					else if (key.equalsIgnoreCase("boss_live_time"))
 						boss_live_time = Integer.valueOf(value);

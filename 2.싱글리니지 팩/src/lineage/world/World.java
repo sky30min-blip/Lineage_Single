@@ -424,6 +424,13 @@ public final class World {
 	static public boolean isAden(int x, int y, int map) {	
 		return x >= 33775 && x <= 34316 && y >= 32730 && y <= 33524 && map == 4;
 	}
+
+	/**
+	 * 웰던영토 여부 확인.
+	 */
+	static public boolean isWelldone(int x, int y, int map) {
+		return x >= 33536 && x <= 33856 && y >= 32191 && y <= 32575 && map == 4;
+	}
 	
 	/**
 	 * 잠수용 허수아비 위치 확인.
