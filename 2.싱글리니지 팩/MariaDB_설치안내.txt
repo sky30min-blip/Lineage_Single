@@ -1,0 +1,29 @@
+[MariaDB로 서버 돌리기]
+
+■ 이 PC에 한 작업 (자동)
+  - winget 으로 MariaDB 12.2.2 (x64) 설치됨
+  - 경로: C:\Program Files\MariaDB 12.2
+  - Docker 등이 3306 을 쓰는 경우를 대비해 Windows 설치본 설정 파일의 포트를 3307 로 맞춤
+    파일: C:\Program Files\MariaDB 12.2\data\my.ini
+
+■ 지금 리니지 서버(mysql.conf = localhost:3306)가 붙는 DB
+  - 127.0.0.1:3306 에 응답하는 쪽(예: Docker/WSL MariaDB)이 사용 중입니다.
+  - 해당 인스턴스에 lin200 DB가 있으면 그대로 게임 서버 구동 가능합니다.
+
+■ Windows에 깐 MariaDB를 "서비스"로 쓰려면 (관리자 1회)
+  - MariaDB_Windows서비스_관리자실행.bat 을 마우스 오른쪽 → 관리자 권한으로 실행
+  - 서비스 이름: MariaDB122 , 포트: my.ini 기준 (현재 3307)
+  - 접속 예:
+    "C:\Program Files\MariaDB 12.2\bin\mysql.exe" -u root -h 127.0.0.1 -P 3307 -p
+  - root 비밀번호는 MSI 설치 시 설정한 값. 리니지와 맞추려면 mysql.conf 의 pw 와 동일하게 맞추거나 반대로 mysql.conf 수정.
+
+■ 리니지를 Windows MariaDB(3307)만 쓰게 바꿀 때
+  - mysql.conf 의 url 포트를 3307 로 변경
+  - CREATE DATABASE lin200 ... 후 db 폴더 SQL 덤프 임포트
+  - 금칙어: db\fix_ban_word.sql
+
+■ 수동 설치를 원할 때
+  - https://mariadb.org/download/ MSI
+
+※ lib 에 mariadb-java-client-2.7.11.jar 필요 (서버스타트.bat classpath)
+※ is_donation = true 이면 donation DB 도 생성·맞춤

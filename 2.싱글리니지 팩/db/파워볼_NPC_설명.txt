@@ -1,0 +1,41 @@
+========================================
+  파워볼 NPC 만들기 - 적용 방법
+========================================
+
+■ 이미 적용된 것
+  - PowerballNpc.java (lineage.world.object.npc.PowerballNpc)
+  - NpcSpawnlistDatabase에 type "파워볼" 등록
+  - PowerballController.doBet() 으로 5만~500만 배팅 처리
+  - 명령어 .배팅 홀/짝 금액 도 동일 규칙 사용
+
+■ DB 적용
+  1. db/powerball_npc.sql 실행
+     - npc 테이블에 '파워볼' 추가 (type='파워볼', gfxid 등)
+     - npc_spawnlist에 스폰 한 줄 추가 (기란 33400,32800 맵4 예시)
+  2. 스폰 위치 수정
+     - npc_spawnlist에서 name='powerball_1' 인 행의 locX, locY, locMap을 원하는 좌표로 변경
+
+■ 클라이언트 HTML (powerball1)
+  서버가 S_Html로 "powerball1" 문자열을 보내고, 리스트 1개(현재 회차)를 넘깁니다.
+  클라이언트 쪽 HTML이 있어야 대화창이 뜹니다.
+
+  - 대화창 제목/내용: "파워볼 - 제 %0 회차" 등으로 회차 표시
+  - 링크는 반드시 아래 action으로 보내야 합니다.
+    홀: powerball-hol-50000, powerball-hol-100000, powerball-hol-500000, powerball-hol-1000000, powerball-hol-5000000
+    짝: powerball-jjak-50000, powerball-jjak-100000, powerball-jjak-500000, powerball-jjak-1000000, powerball-jjak-5000000
+
+  예시 (클라이언트 HTML 문법에 맞게 수정 필요):
+    제 %0 회차 배팅
+    [홀 5만] [홀 10만] [홀 50만] [홀 100만] [홀 500만]
+    [짝 5만] [짝 10만] [짝 50만] [짝 100만] [짝 500만]
+
+  ※ 실제 클라이언트의 HTML 파일 위치·문법은 사용 중인 클라이언트에 따라 다릅니다.
+    (예: data/html/, bypass -h powerball-hol-50000 형태 등)
+
+■ 서버 재시작
+  - npc / npc_spawnlist 수정 후에는 서버 재시작 또는 NPC 리로드 후 맵에 파워볼 NPC가 나타납니다.
+
+■ 요약
+  - DB: powerball_npc.sql 실행 → 스폰 좌표만 수정
+  - 클라이언트: powerball1 HTML 추가 후 링크 action을 위와 같이 설정
+  - 배팅 금액: 50,000 ~ 5,000,000 아데나 (PowerballController와 동일)

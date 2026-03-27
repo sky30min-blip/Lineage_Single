@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="L1J" default="all" basedir=".">
+    <description>
+        This script will build the allnight server.
+    </description>
+
+    <!-- Set Property -->
+    <property name="src.dir" value="src" />
+    <property name="lib.dir" value="lib" />
+    <property name="build.dir" value="build" />
+    <property name="jarfile" value="server.jar" />
+
+	<path id="classpath">
+		<fileset dir="${lib.dir}">
+			<include name="HikariCP-2.6.2.jar" />
+			<include name="json-simple-1.1.1.jar" />
+			<include name="log4j-1.2.16.jar" />
+			<include name="mchange-commons-java-0.2.3.jar" />
+			<include name="mysql-connector-java-5.1.22-bin.jar" />
+			<include name="netty-3.9.9.Final.jar" />
+			<include name="org.eclipes.swt.win32.win32.x86_64_3.7.1.v3738a.jar" />
+			<include name="slf4j-api-1.6.1.jar" />
+			<include name="slf4j-log4j12-1.6.1.jar" />
+			<include name="sIf4j-api-1.6.1.jar" />
+			<include name="netty-3.9.9.FinaI.jar" />
+			<include name="Iog4j-1.2.16.jar" />
+			
+			<include name="swt-3.5.1-win32-win32-x86.jar" />
+		</fileset>
+	</path>
+
+	<!-- Set DefaultTarget -->
+	<target name="all" depends="clean,compile,jar,clean2" />
+
+
+	<!-- clean Target -->
+	<target name="clean">
+		<delete dir="${build.dir}" />
+	</target>
+
+	<!-- Compile Target  encoding="UTF-8" -->
+	 <target name="compile">
+	        <mkdir dir="${build.dir}" />
+	 	<javac destdir="${build.dir}"
+	 	       fork="true"
+	 	       optimize="on"
+	 	       encoding="UTF-8"
+	 	       includeantruntime="false">
+	 	    <src path="${src.dir}" />
+	 	    <classpath refid="classpath" />
+	 	    <compilerarg value="-J-Xmx2048m"/>
+	 	    <compilerarg value="-J-Xms512m"/>
+	 	    <compilerarg value="-J-Xss2m"/>
+	 	</javac>
+	    </target>
+
+    <!-- jar Target -->
+    <target name="jar">
+        <jar manifest="${src.dir}/META-INF/MANIFEST.MF" basedir="${build.dir}" jarfile="${jarfile}" />
+    </target>
+
+    <!-- clean Target -->
+    <target name="clean2">
+        <delete dir="${build.dir}" />
+    </target>
+
+</project>

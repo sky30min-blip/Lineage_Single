@@ -1,0 +1,36 @@
+package kuberaitem;
+
+import lineage.database.AccountDatabase;
+import lineage.network.packet.ClientBasePacket;
+import lineage.share.Lineage;
+import lineage.util.Util;
+import lineage.world.controller.ChattingController;
+import lineage.world.object.Character;
+import lineage.world.object.instance.ItemInstance;
+import lineage.world.object.instance.PcInstance;
+
+public class autohuntreset2 extends ItemInstance {
+
+	static synchronized public ItemInstance clone(ItemInstance item) {
+		if (item == null)
+			item = new autohuntreset();
+		return item;
+	}
+
+	@Override
+	public void toClick(Character cha, ClientBasePacket cbp) {
+		PcInstance pc = (PcInstance)cha;
+		
+		if (cha.getInventory() != null) {
+			
+	
+			pc.auto_hunt_account_time = pc.auto_hunt_account_time+this.getItem().getSmallDmg();
+			pc.setAuto_count( pc.getAuto_count()+1);
+			AccountDatabase.updateauto(1,pc.getAccountUid());
+
+
+			ChattingController.toChatting(cha, String.format("자동사냥 %d분이 충전 되었습니다.", Util.convertSecondsToMinutes(this.getItem().getSmallDmg())), Lineage.CHATTING_MODE_MESSAGE);
+			cha.getInventory().count(this, getCount()-1, true);
+		}
+	}
+}

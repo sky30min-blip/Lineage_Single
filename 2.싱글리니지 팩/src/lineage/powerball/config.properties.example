@@ -1,0 +1,43 @@
+# 파워볼 게임 설정 파일
+# config.properties
+
+# 게임 주기 설정 (밀리초)
+powerball.betting.duration=240000     # 4분 (240,000ms)
+powerball.waiting.duration=30000      # 30초
+powerball.draw.duration=30000         # 30초
+
+# 베팅 금액 설정
+powerball.bet.min=50000               # 최소 5만 아데나
+powerball.bet.max=5000000             # 최대 500만 아데나
+powerball.bet.daily.limit=50000000    # 일일 베팅 한도
+
+# 배당률 설정
+powerball.payout.rate=1.9             # 당첨 시 1.9배
+
+# 전광판 설정
+powerball.display.map.id=777         # 전광판 맵 ID
+powerball.display.x=33000            # 시작 X 좌표
+powerball.display.y=33000            # 시작 Y 좌표
+
+# NPC 그래픽 ID
+powerball.npc.normal.ball=70000      # 노란 구체
+powerball.npc.power.ball.odd=70001   # 빨간 구체 (홀)
+powerball.npc.power.ball.even=70002  # 파란 구체 (짝)
+
+# 데이터베이스 설정
+powerball.db.enabled=true            # DB 저장 활성화
+powerball.db.log.bets=true           # 베팅 로그 저장
+powerball.db.log.results=true        # 결과 로그 저장
+
+# 보안 설정
+powerball.security.ip.check=false    # IP 중복 베팅 체크
+powerball.security.max.bets.per.round=10  # 회차당 최대 베팅 횟수
+
+# 공지 설정
+powerball.broadcast.start=true       # 게임 시작 공지
+powerball.broadcast.result=true      # 결과 발표 공지
+powerball.broadcast.countdown=true   # 카운트다운 공지
+
+# 디버그 설정
+powerball.debug.enabled=false        # 디버그 모드
+powerball.debug.log.level=INFO       # 로그 레벨

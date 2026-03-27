@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+Desktop.ini
+.cursor/
+
+# 로컬 임시·디버그
+_*.txt
+
+# build / logs
+**/log/
+**/logs/
+**/bin/
+**/build/
+**/*.class
+**/server.jar
+
+# large client assets
+3.싱글리니지 클라이언트/
+4. 접속기 제작/
+3.싱글리니지 클라이언트/_zena_safe_backup/
+3.싱글리니지 클라이언트/ddraw.ini
+
+# local misc
+*.inv
+
+# setup binaries
+1.서버 구축 자료/

@@ -1,0 +1,10 @@
+백업 시각: 2026-03-21 (로컬)
+내용: 파워볼 쿠폰 금액 누적 UI (powerball_buy.html + PcInstance / PowerballNpc 수정) 및 해당 빌드 server.jar
+
+파일:
+- PcInstance.java  (powerballBetAmount, powerballSelectedCoupon, showPowerballBuyHtml)
+- PowerballNpc.java (handlePowerballBuyAccumUi, toBuy → HTML UI)
+- powerball_buy.html, README_powerball_buy.txt (있을 경우)
+- server.jar
+
+복원: 원본 경로에 덮어쓰기 후 필요 시 compile.bat 재실행.

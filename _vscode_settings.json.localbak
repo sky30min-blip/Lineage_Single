@@ -1,0 +1,37 @@
+{
+  "java.jdt.ls.java.home": "D:\\jdk8",
+  "java.configuration.runtimes": [
+    {
+      "name": "JavaSE-1.8",
+      "path": "D:\\jdk8",
+      "default": true
+    }
+  ],
+  "java.errors.incompleteClasspath.severity": "ignore",
+  "java.import.exclusions": [
+    "**/node_modules/**",
+    "**/gm_tool/**",
+    "**/scripts/**",
+    "**/_tools/**"
+  ],
+  "python.analysis.diagnosticMode": "openFilesOnly",
+  "python.analysis.diagnosticSeverityOverrides": {
+    "reportUnknownMemberType": "none",
+    "reportUnknownArgumentType": "none",
+    "reportUnknownVariableType": "none",
+    "reportUnknownParameterType": "none",
+    "reportMissingTypeStubs": "none",
+    "reportImplicitStringConcatenation": "none",
+    "reportUnusedImport": "warning",
+    "reportUnusedVariable": "warning"
+  },
+  "python.analysis.exclude": [
+    "**/2.싱글리니지 팩/**",
+    "**/_tools/**",
+    "**/apache-ant*/**"
+  ],
+  "files.watcherExclude": {
+    "**/2.싱글리니지 팩/bin/**": true,
+    "**/gm_tool/__pycache__/**": true
+  }
+}

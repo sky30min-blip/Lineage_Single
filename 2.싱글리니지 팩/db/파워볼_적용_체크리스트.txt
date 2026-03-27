@@ -1,0 +1,44 @@
+============================================
+ 파워볼 NPC 수정 사항이 게임에 반영되려면
+============================================
+
+■ 소스 코드는 이미 수정되어 있습니다.
+  - PowerballNpc.java: 상점·금액입력·쿠폰지급·매입·회차표시
+  - PowerballController.java: 쿠폰 인벤 지급, 정산 시 공지만
+  - PowerballDatabase.java: claimed, getBetByCharRound 등
+  - PowerBallDisplayBall.java: 맵 전광판용 NPC (클릭 무반응)
+  - PowerBallDisplayManager.java: 전광판 NPC 6개 스폰·숫자 갱신
+
+■ 아래 3가지를 모두 해야 게임에서 바뀐 것처럼 보입니다.
+
+1) DB 적용 (한 번씩 실행)
+   - powerball_tables.sql  → powerball_results, powerball_bets 테이블
+   - powerball_npc.sql     → npc + npc_spawnlist에 파워볼 NPC (type='파워볼')
+   - powerball_shop.sql    → item·npc_shop 홀/짝 쿠폰
+   - powerball_claimed.sql → powerball_bets에 claimed 컬럼
+   - (선택) run_powerball_shop.py 등
+
+2) 서버 빌드  [※ 이미 실행 완료: ant all → server.jar 생성됨]
+   - compile.bat 또는 ant -f build.xml all
+   - 수정한 .java가 .class로 반영되어야 함
+
+3) 서버 재시작
+   - 기동 중인 서버를 끄고, 서버스타트.bat으로 새 server.jar 실행
+   - 재시작 후 맵 4 전광판 위치에 NPC 6개(일반볼5+파워볼1)가 스폰됨
+
+■ 확인 방법
+  - NPC 클릭 시 "상점" 창에 "홀 쿠폰", "짝 쿠폰"이 보이는지
+  - 쿠폰 선택 시 금액 입력창(5만~500만)이 뜨는지
+  - NPC 이름 옆에 [제N회차 MM:SS] 같은 표시가 나오는지
+
+■ DB에서 NPC 타입 확인
+  SELECT name, type FROM npc WHERE name = '파워볼';
+  → type 이 '파워볼' 이어야 합니다.
+
+■ 배치 (현재 설정)
+  - 전광판 NPC 6개: 맵 4, 맨 오른쪽(6번) 기준 9시 방향. 1번(33440,32795)~6번(33445,32800). gfx 887(엘바 이/이올라). 6시 방향. 공격 불가. 결과는 맵 4 유저 전원에게 전송, 왼쪽부터 1초 간격 표시, 배팅 마감 30초 진입 시 숨김(-).
+  - 파워볼 상점 NPC: 위치는 DB(npc_spawnlist)에서만 결정됨. 전광판 6개 앞(6시) 한 칸 중앙 = 맵 4 (33443, 32801), heading 4. powerball_npc.sql 적용 후 서버 재시작 필수.
+
+■ 배팅 방식
+  - 직접 베팅: NPC 클릭 → 보드에서 "홀 5만" 등 버튼 → 아데나 즉시 차감 → 당첨 시 1.9배 자동 지급.
+  - 쿠폰 방식: 상점에서 홀/짝 쿠폰 구매 → 추첨 후 NPC "판매(매입)"로 쿠폰 넘기면 당첨금 지급.

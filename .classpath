@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="2.싱글리니지 팩/src"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="2.싱글리니지 팩/lib/HikariCP-2.6.2.jar"/>
+	<classpathentry kind="lib" path="2.싱글리니지 팩/lib/json-simple-1.1.1.jar"/>
+	<classpathentry kind="lib" path="2.싱글리니지 팩/lib/log4j-1.2.16.jar"/>
+	<classpathentry kind="lib" path="2.싱글리니지 팩/lib/mchange-commons-java-0.2.3.jar"/>
+	<classpathentry kind="lib" path="2.싱글리니지 팩/lib/mysql-connector-java-5.1.22-bin.jar"/>
+	<classpathentry kind="lib" path="2.싱글리니지 팩/lib/mariadb-java-client-3.3.3.jar"/>
+	<classpathentry kind="lib" path="2.싱글리니지 팩/lib/org.eclipse.swt.win32.win32.x86_64_3.7.1.v3738a.jar"/>
+	<classpathentry kind="lib" path="2.싱글리니지 팩/lib/slf4j-api-1.6.1.jar"/>
+	<classpathentry kind="lib" path="2.싱글리니지 팩/lib/slf4j-log4j12-1.6.1.jar"/>
+	<classpathentry kind="lib" path="2.싱글리니지 팩/lib/swt-3.5.1-win32-win32-x86.jar"/>
+	<classpathentry kind="lib" path="2.싱글리니지 팩/lib/netty-3.9.9.Final.jar"/>
+	<classpathentry kind="lib" path="2.싱글리니지 팩/lib/commons-text-1.8.jar"/>
+	<classpathentry kind="output" path="2.싱글리니지 팩/bin"/>
+</classpath>
