@@ -128,7 +128,7 @@ def main():
                 out = os.path.join(OUTPUT_DIR, f"{gfx}.png")
                 img.save(out, "PNG")
                 saved += 1
-        except Exception as e:
+        except Exception:
             pass
     print(f"저장: {saved}개 → {OUTPUT_DIR}")
 

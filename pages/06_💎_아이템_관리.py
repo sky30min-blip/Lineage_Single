@@ -136,6 +136,7 @@ with tab2:
         with col1:
             st.markdown("#### 기본 정보")
             새이름 = st.text_input("아이템 이름", value=원본이름, key="edit_name", help="DB item 테이블의 고유 이름. 다른 아이템과 중복되면 안 됩니다.")
+            새NAMEID = st.text_input("NAMEID", value=str(item.get('NAMEID') or ''), key="edit_nameid", help=IH["NAMEID"])
             인벤ID = st.number_input("인벤ID (아이콘)", value=int(item.get('인벤ID') or 0), min_value=0, key="edit_invgfx", help=IH["인벤ID"])
             구분1 = st.text_input("구분1", value=str(item.get('구분1') or ''), key="edit_type1", help=IH["구분1"])
             구분2 = st.text_input("구분2", value=str(item.get('구분2') or ''), key="edit_type2", help=IH["구분2"])
@@ -281,7 +282,7 @@ with tab2:
         if st.button("💾 수정 저장", type="primary"):
             성공, upd_err = db.execute_query_ex("""
                 UPDATE item SET
-                    `아이템이름`=%s, `인벤ID`=%s, `구분1`=%s, `구분2`=%s, `재질`=%s, `무게`=%s,
+                    `아이템이름`=%s, NAMEID=%s, `인벤ID`=%s, `구분1`=%s, `구분2`=%s, `재질`=%s, `무게`=%s,
                     level_min=%s, level_max=%s, ac=%s, `작은 몬스터`=%s, `큰 몬스터`=%s,
                     `공격성공율`=%s, `추가타격치`=%s,
                     `군주`=%s, `기사`=%s, `요정`=%s, `마법사`=%s, `다크엘프`=%s, `용기사`=%s, `환술사`=%s,
@@ -291,7 +292,7 @@ with tab2:
                     `거래`=%s, `드랍`=%s, `겹침`=%s, `판매`=%s, `창고`=%s, `손상`=%s,
                     `이펙트ID`=%s, delay=%s
                 WHERE `아이템이름`=%s
-            """, (새이름, 인벤ID, 구분1, 구분2, 재질, 무게, 최소레벨, 최대레벨,
+            """, (새이름, 새NAMEID, 인벤ID, 구분1, 구분2, 재질, 무게, 최소레벨, 최대레벨,
                   방어력, 소형데미지, 대형데미지, 명중, 추가데미지,
                   군주, 기사, 요정, 마법사, 다엘, 용기사, 환술사,
                   인첸트가능, 안전인첸트, 최고인챈, attribute_crystal,

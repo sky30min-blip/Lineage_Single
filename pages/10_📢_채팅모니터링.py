@@ -9,7 +9,7 @@ import time
 import streamlit as st
 from utils.db_manager import get_db
 from utils.table_schemas import get_create_sql, get_all_required_tables
-from utils.log_reader import read_chatting_log_lines, list_chatting_log_dates, parse_chatting_line, get_chatting_log_dir
+from utils.log_reader import read_chatting_log_lines, list_chatting_log_dates, parse_chatting_line
 
 # DB 연결 확인
 db = get_db()

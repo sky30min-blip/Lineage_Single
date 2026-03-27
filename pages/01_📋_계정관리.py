@@ -5,7 +5,6 @@
 
 import re
 import streamlit as st
-import pandas as pd
 from utils.db_manager import get_db
 
 # DB 연결 확인

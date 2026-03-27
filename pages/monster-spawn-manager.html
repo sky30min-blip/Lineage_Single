@@ -28,6 +28,34 @@
         }
         .header h1 { font-size: 28px; margin-bottom: 8px; }
         .header p { opacity: 0.9; font-size: 14px; }
+        .status-row {
+            margin-top: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.18);
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            color: #fff;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #f1c40f;
+            box-shadow: 0 0 0 2px rgba(255,255,255,0.25);
+        }
+        .status-badge.ok .status-dot { background: #2ecc71; }
+        .status-badge.fail .status-dot { background: #e74c3c; }
         
         .content { padding: 24px; }
         
@@ -254,6 +282,12 @@
         <div class="header">
             <h1>🎮 몬스터 스폰 관리</h1>
             <p>사냥터/던전별 몬스터 배치를 쉽게 관리하세요</p>
+            <div class="status-row">
+                <div id="apiStatusBadge" class="status-badge">
+                    <span class="status-dot"></span>
+                    <span id="apiStatusText">API 상태 확인 중...</span>
+                </div>
+            </div>
         </div>
         
         <div class="content">
@@ -370,6 +404,23 @@
                         </tr>
                     </tbody>
                 </table>
+            </div>
+
+            <!-- 6. 서버 적용 -->
+            <div class="section">
+                <div class="section-title">6️⃣ 서버 적용 (전체스폰 리로드)</div>
+                <p style="font-size:13px;color:#666; margin-bottom:12px;">
+                    5번에서 개수/리스폰을 수정한 뒤 아래 버튼을 누르면 서버에 전체스폰 리로드 명령을 보냅니다.
+                </p>
+                <div class="btn-group" style="margin-top:0;">
+                    <button class="btn btn-success" onclick="requestAllSpawnReload()">🔄 전체스폰 리로드</button>
+                </div>
+                <p id="reloadHint" style="font-size:12px;color:#999; margin-top:10px;">
+                    서버가 gm_server_command 큐를 폴링하는 주기에 따라 수 초 내 적용됩니다.
+                </p>
+                <p id="reloadStatus" style="font-size:12px;color:#999; margin-top:6px;">
+                    처리 상태: 대기 없음
+                </p>
             </div>
         </div>
     </div>

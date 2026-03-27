@@ -44,16 +44,6 @@ EQUIPMENT_TABLES = (
     "weapon_cursed", "armor_cursed",
 )
 
-# 운영자 세트 아이템 (착용 시 GM 권한 부여) — 한 번에 지급용
-OPERATOR_SET_ITEMS = [
-    "오크족 망토",
-    "오크족 투구",
-    "오크족 고리 갑옷",
-    "오크족 사슬 갑옷",
-    "우럭하이 방패",
-]
-
-
 def _tables_with_column(db, column_name: str) -> frozenset:
     """
     스키마에 실제 존재하는 컬럼을 가진 테이블만 반환.
@@ -237,54 +227,6 @@ def _search_items_union(db, search_term, limit=50):
         return labels, rows, None, label_to_name
     except Exception as e:
         return [], [], str(e), {}
-
-
-def _grant_operator_set(db, cha_name, cha_obj_id):
-    """
-    운영자 세트 5종을 해당 캐릭터에게 지급.
-    Returns (success: bool, message: str).
-    """
-    failed = []
-    delivery_ok = True
-    try:
-        with db.connection.cursor() as cursor:
-            for item_name in OPERATOR_SET_ITEMS:
-                pile = _get_item_pile(db, item_name)
-                if pile is not None:
-                    quantity = 1 if pile else 0
-                else:
-                    quantity = 0 if _is_equipment_item(db, item_name) else 1
-                try:
-                    cursor.execute(
-                        "SELECT IFNULL(MAX(objId), 0) + 1 AS next_id FROM characters_inventory"
-                    )
-                    row = cursor.fetchone()
-                    next_obj_id = row["next_id"] if row else 1
-                    cursor.execute(
-                        """INSERT INTO characters_inventory
-                           (objId, cha_objId, cha_name, name, count, en, quantity, equipped)
-                           VALUES (%s, %s, %s, %s, 1, 0, %s, 0)""",
-                        (next_obj_id, cha_obj_id, cha_name, item_name, quantity),
-                    )
-                    try:
-                        cursor.execute(
-                            "INSERT INTO gm_item_delivery (cha_objId, objId, delivered) VALUES (%s, %s, 0)",
-                            (cha_obj_id, next_obj_id),
-                        )
-                    except Exception:
-                        delivery_ok = False
-                except Exception as e:
-                    failed.append(f"{item_name}: {e}")
-        if failed:
-            if db.connection:
-                db.connection.rollback()
-            return False, "; ".join(failed)
-        db.connection.commit()
-        return True, "no_delivery_table" if not delivery_ok else None
-    except Exception as e:
-        if db.connection:
-            db.connection.rollback()
-        return False, str(e)
 
 
 def _grant_item(db, cha_name, cha_obj_id, item_name, count, en, force_equipment=False):
@@ -474,30 +416,6 @@ with tab1:
     else:
         names = [r["name"] for r in char_list]
         selected_char = st.selectbox("캐릭터 선택", names, key="item_char", help="아이템을 넣을 대상 캐릭터")
-
-        # 운영자 세트 일괄 지급 (기본 펼침으로 노출)
-        st.markdown("---")
-        st.markdown("#### 👑 운영자 세트 지급")
-        with st.expander("운영자 세트 5종 한 번에 지급 (펼치기/접기)", expanded=True):
-            st.caption("아래 5종 장비를 착용하면 게임 내 운영자(GM) 권한이 부여됩니다. 캐릭터 선택 후 버튼을 누르면 해당 캐릭터 인벤에 한 번에 지급됩니다.")
-            for i, item in enumerate(OPERATOR_SET_ITEMS, 1):
-                st.markdown(f"{i}. {item}")
-            if st.button("운영자 세트 지급", key="grant_operator_set"):
-                char_info = db.fetch_one(
-                    "SELECT objID FROM characters WHERE name = %s", (selected_char,)
-                )
-                cha_obj_id = char_info.get("objID") or char_info.get("obj_id") if char_info else None
-                if not cha_obj_id:
-                    st.error("❌ 캐릭터 objID를 찾을 수 없습니다.")
-                else:
-                    ok, err = _grant_operator_set(db, selected_char, cha_obj_id)
-                    if ok:
-                        st.session_state["item_grant_success"] = "✅ 아이템(운영자 세트 5종)이 지급되었습니다. 착용 후 운영자 권한이 적용됩니다."
-                        if err == "no_delivery_table":
-                            st.session_state["item_grant_warning"] = "no_delivery_table"
-                        st.rerun()
-                    else:
-                        st.error(f"❌ 지급 실패: {err}")
 
         st.write("**아이템 검색**")
         st.caption(

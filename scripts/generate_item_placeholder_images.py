@@ -12,7 +12,7 @@ GM_TOOL_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, GM_TOOL_ROOT)
 os.chdir(GM_TOOL_ROOT)
 
-import pymysql
+import pymysql  # noqa: E402
 
 try:
     from PIL import Image, ImageDraw, ImageFont
@@ -20,7 +20,7 @@ except ImportError:
     print("Pillow 필요: pip install Pillow")
     sys.exit(1)
 
-import config
+import config  # noqa: E402
 
 OUTPUT_DIR = os.path.join(GM_TOOL_ROOT, "images", "item")
 SIZE = 32  # 32x32 (게임 인벤 아이콘 크기)

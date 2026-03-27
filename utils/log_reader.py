@@ -129,7 +129,7 @@ def clear_log_file(subdir: str, date_str: Optional[str] = None) -> tuple:
     if not os.path.isfile(path):
         return False, f"해당 날짜 파일이 없습니다: {date_str}.log"
     try:
-        with open(path, "w", encoding="utf-8") as f:
+        with open(path, "w", encoding="utf-8"):
             pass
         return True, f"{date_str}.log 내용을 비웠습니다."
     except Exception as e:

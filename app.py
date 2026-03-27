@@ -27,10 +27,10 @@ with st.sidebar:
     is_connected, message = db.test_connection()
     
     if is_connected:
-        st.success(f"✅ DB 연결됨")
+        st.success("✅ DB 연결됨")
         st.caption(message)
     else:
-        st.error(f"❌ DB 연결 실패")
+        st.error("❌ DB 연결 실패")
         st.caption(message)
         st.stop()
     st.divider()

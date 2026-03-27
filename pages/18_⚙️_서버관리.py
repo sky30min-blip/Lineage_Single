@@ -328,7 +328,6 @@ with tab5:
             rows = db.fetch_all("SELECT * FROM monster_spawnlist")
             if not rows:
                 return None, "monster_spawnlist 테이블이 비어 있거나 없습니다."
-            cols = list(rows[0].keys())
             lines = [
                 "SET FOREIGN_KEY_CHECKS=0;",
                 "-- Table structure for `monster_spawnlist`",

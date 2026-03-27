@@ -2,6 +2,8 @@
 파워볼 일일 통계·캐릭터 누적·클래스별 포상 정산 (GM 툴).
 """
 from datetime import date, datetime, timedelta
+from pathlib import Path
+import re
 
 import pandas as pd
 import streamlit as st
@@ -11,7 +13,6 @@ from utils.powerball_economy import (
     PAYOUT_RATE,
     RewardClassSelection,
     build_reward_preview,
-    default_reward_selection,
     describe_pool_with_selection,
     execute_daily_rewards,
     fetch_character_stats_by_day,
@@ -163,9 +164,9 @@ def _pb_streamlit_diag_lines() -> list[str]:
     try:
         import pyarrow as pa  # noqa: F401
 
-        lines.append(f"PyArrow: **{pa.__version__}** (설치됨)")
+        lines.append(f"PyArrow: **{pa.__version__}** (설치됨, 선택)")
     except Exception as e:
-        lines.append(f"PyArrow: **없음** ({e})")
+        lines.append(f"PyArrow: **없음** ({e}) — `streamlit-autorefresh` 자동 갱신에는 불필요")
     return lines
 
 
@@ -173,16 +174,12 @@ def _pb_run_live_refresh_hooks() -> str:
     """
     반환: 'fragment' | 'autorefresh' | 'none'
     - fragment: 일부 UI만 주기 rerun (가장 가벼움)
-    - autorefresh: 패키지로 전체 스크립트 주기 rerun
+    - autorefresh: streamlit-autorefresh로 전체 스크립트 주기 rerun (PyArrow 불필요)
     - none: 수동 새로고침만
     """
     dec = _pb_fragment_decorator()
     if dec is not None:
         return "fragment"
-    try:
-        import pyarrow  # noqa: F401 — Streamlit 커스텀 컴포넌트(autorefresh) 전제
-    except ImportError:
-        return "none"
     try:
         from streamlit_autorefresh import st_autorefresh
 
@@ -192,12 +189,51 @@ def _pb_run_live_refresh_hooks() -> str:
     except ImportError:
         return "none"
     except Exception:
-        # PyArrow/Streamlit 버전 불일치 등으로 컴포넌트 등록 실패
         return "none"
 
 
 _PB_LIVE_MODE = _pb_run_live_refresh_hooks()
 st.session_state["_pb_live_mode"] = _PB_LIVE_MODE
+
+
+def _update_lineage_conf_payout(new_rate: float) -> tuple[bool, str]:
+    conf_path = Path(r"D:\Lineage_Single\2.싱글리니지 팩\lineage.conf")
+    try:
+        text = conf_path.read_text(encoding="utf-8", errors="ignore")
+    except Exception as e:
+        return False, f"lineage.conf 읽기 실패: {e}"
+
+    line = f"powerball_payout_rate\t\t\t\t= {new_rate:.2f}"
+    if re.search(r"(?im)^\s*powerball_payout_rate\s*=", text):
+        text2 = re.sub(r"(?im)^\s*powerball_payout_rate\s*=.*$", line, text)
+    else:
+        text2 = text.rstrip() + "\n" + line + "\n"
+
+    try:
+        conf_path.write_text(text2, encoding="utf-8")
+        return True, "lineage.conf 반영 완료"
+    except Exception as e:
+        return False, f"lineage.conf 저장 실패: {e}"
+
+
+def _update_gm_config_payout(new_rate: float) -> tuple[bool, str]:
+    cfg_path = Path(__file__).resolve().parents[1] / "config.py"
+    try:
+        text = cfg_path.read_text(encoding="utf-8", errors="ignore")
+    except Exception as e:
+        return False, f"config.py 읽기 실패: {e}"
+
+    line = f"POWERBALL_PAYOUT_RATE = {new_rate:.2f}"
+    if re.search(r"(?m)^\s*POWERBALL_PAYOUT_RATE\s*=", text):
+        text2 = re.sub(r"(?m)^\s*POWERBALL_PAYOUT_RATE\s*=.*$", line, text)
+    else:
+        text2 = text.rstrip() + "\n" + line + "\n"
+
+    try:
+        cfg_path.write_text(text2, encoding="utf-8")
+        return True, "config.py 반영 완료"
+    except Exception as e:
+        return False, f"config.py 저장 실패: {e}"
 
 # pip 메타 vs 실제 import 버전 불일치 (1.55 기록 + 1.31 로드 같은 꼬임)
 try:
@@ -230,8 +266,8 @@ if _PB_LIVE_MODE == "none":
         "그 외에는 `pip` 한 Python과 `streamlit run` Python이 다른 경우가 많습니다."
     )
     st.sidebar.info(
-        "**해결:** 저장소 루트에서 **`run-gm-tool.ps1`** (자동으로 streamlit 정리·재설치) 또는 "
-        "**`gm_tool\\scripts\\repair_streamlit.ps1`** 후 **같은 Python**으로 `streamlit run` 을 다시 실행하세요. "
+        "**해결:** (1) **`st.fragment` 없음**이면 `pip install streamlit-autorefresh` 후 같은 Python으로 GM 툴 재실행. "
+        "(2) 저장소 루트 **`run-gm-tool.ps1`** 또는 **`gm_tool\\scripts\\repair_streamlit.ps1`** 로 Streamlit 정리. "
         "탭 안 **「DB 새로고침」** 으로 수동 갱신도 가능합니다."
     )
     with st.sidebar.expander("🔧 자동 갱신 진단 (복사해 두기)", expanded=True):
@@ -488,8 +524,8 @@ if "powerball_reward_run" not in tables or "powerball_reward_line" not in tables
                 parts.append(f"powerball_reward_line: {err_b}")
             st.error("❌ 생성 실패 — " + " | ".join(parts))
 
-tab1, tab2, tab3, tab4 = st.tabs(
-    ["📅 일일 손익", "👤 캐릭터 누적", "🏆 일일 포상 정산", "📜 정산 이력"]
+tab1, tab2, tab3, tab4, tab5 = st.tabs(
+    ["📅 일일 손익", "👤 캐릭터 누적", "🏆 일일 포상 정산", "📜 정산 이력", "💸 배당 수정"]
 )
 
 if "pb_daily_date" not in st.session_state:
@@ -713,3 +749,29 @@ with tab4:
             )
         elif run:
             st.caption("라인 상세가 없습니다.")
+
+with tab5:
+    st.subheader("💸 파워볼 배당률 수정")
+    st.caption("서버 `lineage.conf`의 `powerball_payout_rate`와 GM 툴 `config.py`를 함께 갱신합니다.")
+
+    current_rate = float(getattr(gm_config, "POWERBALL_PAYOUT_RATE", 1.9))
+    new_rate = st.number_input(
+        "배당률 (예: 1.90)",
+        min_value=1.00,
+        max_value=10.00,
+        value=float(current_rate),
+        step=0.01,
+        format="%.2f",
+        help="당첨 시 지급액 = 배팅금 × 배당률",
+        key="pb_edit_payout_rate",
+    )
+    st.info(f"현재 GM 툴 기준 배당률: **{current_rate:.2f}배**")
+
+    if st.button("💾 배당률 저장", type="primary", key="pb_save_payout_rate"):
+        ok1, msg1 = _update_lineage_conf_payout(float(new_rate))
+        ok2, msg2 = _update_gm_config_payout(float(new_rate))
+        if ok1 and ok2:
+            st.success(f"✅ 저장 완료: {new_rate:.2f}배")
+            st.caption("반영 순서: **서버 재시작 + 서버 컴파일(소스 수정 시)**, GM 툴 새로고침")
+        else:
+            st.error(f"❌ 저장 실패\n- {msg1}\n- {msg2}")

@@ -4,7 +4,6 @@
 기본 N=0, size=50 → 첫 50개만 추출. N=1 이면 다음 50개.
 """
 import os
-import sys
 import json
 import argparse
 

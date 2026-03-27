@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Any, Optional
+import config as gm_config
 
 # lineage.share.Lineage 와 동일
 CLASS_ROYAL = 0
@@ -20,7 +21,7 @@ CLASS_ELF = 2
 CLASS_WIZARD = 3
 CLASS_DARKELF = 4
 
-PAYOUT_RATE = 1.9
+PAYOUT_RATE = float(getattr(gm_config, "POWERBALL_PAYOUT_RATE", 1.9))
 
 # (슬롯 접두어, class 컬럼 값, 표시명)
 FOUR_CLASS_POOL: tuple[tuple[str, int, str], ...] = (
@@ -221,9 +222,14 @@ def payout_schedule_for_selection(
 
 
 def kst_day_sql_window(d: date) -> tuple[str, str]:
-    """DB datetime이 한국 현지 시각(naive)으로 적재된다고 가정."""
-    start = f"{d.isoformat()} 00:00:00"
-    end = (d + timedelta(days=1)).isoformat() + " 00:00:00"
+    """
+    KST 달력 하루를 DB created_at 경계로 변환.
+    현재 운영 DB가 UTC CURRENT_TIMESTAMP를 쓰므로 KST-9h를 적용한다.
+    """
+    start_utc = datetime(d.year, d.month, d.day) - timedelta(hours=9)
+    end_utc = start_utc + timedelta(days=1)
+    start = start_utc.strftime("%Y-%m-%d %H:%M:%S")
+    end = end_utc.strftime("%Y-%m-%d %H:%M:%S")
     return start, end
 
 

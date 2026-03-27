@@ -3,12 +3,14 @@
 각 공지마다 출력 간격(분)을 따로 설정할 수 있습니다. 형식: 분|메시지
 """
 import os
-import re
 import streamlit as st
 
 st.set_page_config(page_title="공지사항", page_icon="📢", layout="wide")
 st.title("📢 공지사항")
-st.caption("월드 채팅에 올라가는 **주기 공지**를 편집합니다. **각 공지마다 출력 간격(분)**을 따로 설정할 수 있습니다. 형식: `분|메시지` (예: 5|환영합니다.)")
+st.caption(
+    "월드 채팅에 올라가는 **주기 공지**는 `notice.txt`(UTF-8)에서 읽습니다. 형식: `분|메시지`. "
+    "여기서 다루지 않는 공지(타임이벤트·월드보스 등)는 **「기타 자동 공지」** 탭을 보세요."
+)
 
 # 경로 (프로젝트 루트 기준)
 _BASE = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -188,8 +190,10 @@ else:
     entries = parse_entries(content or "")
     notice_indices = [i for i, e in enumerate(entries) if e["type"] == "notice"]
 
-# 탭: 목록·수정·삭제 / 추가 / 전체 편집 / 이벤트 공지사항
-tab1, tab2, tab3, tab4 = st.tabs(["📋 목록 보기·수정·삭제", "➕ 공지 추가", "✏️ 전체 편집", "⏰ 이벤트 공지사항"])
+# 탭: 목록·수정·삭제 / 추가 / 전체 편집 / 이벤트 공지사항 / 기타(코드·설정)
+tab1, tab2, tab3, tab4, tab5 = st.tabs(
+    ["📋 목록 보기·수정·삭제", "➕ 공지 추가", "✏️ 전체 편집", "⏰ 이벤트 공지사항", "📡 기타 자동 공지 (코드)"]
+)
 
 with tab1:
     st.subheader("📋 현재 공지 목록 (공지별 출력 간격)")
@@ -398,6 +402,26 @@ with tab4:
                 except Exception as e:
                     st.session_state["event_feedback"] = ("error", f"저장 실패: {e}")
                 st.rerun()
+
+with tab5:
+    st.subheader("📡 이 페이지(notice.txt)에 없는 월드 채팅 공지들")
+    st.markdown(
+        """
+서버는 아래도 **별도로** 전체 채팅에 메시지를 올립니다. 삭제·수정은 **대부분 `lineage.conf` 또는 Java 소스**에서 해야 합니다.
+
+| 출처 | 내용 예시 | 끄거나 바꾸는 법 |
+|------|-----------|-------------------|
+| **`lineage.conf`** `time_event_time` 등 | 타임이벤트(메티스 멘트, 주사위) | 이 페이지 **「이벤트 공지사항」** 탭에서 시각 삭제 또는 `time_event_time` 비우기 |
+| **`lineage.conf`** `is_world_clean`, `world_clean_time` | 월드맵 청소 카운트다운 | `is_world_clean = false` |
+| **Java** `WorldBossController` | 월드보스 레이드 안내 | 소스 수정 또는 GM 명령 비활성 |
+| **Java** `NoticeController` + `lineage.conf` | 기란 공성전 시간 안내 | `is_kingdom_war_notice = false` 등 |
+| **Java** `CommandController` (오픈 대기 종료 시) | 서버 오픈 환영 멘트 일괄 | 소스의 해당 문자열 수정 |
+| **`lineage.conf`** `open_wait` | 오픈 대기중 테스트 서버 멘트 | `open_wait` 관련 설정 끄기 |
+| **DB** `server_notice` 등 | 접속 시 팝업 공지 | DB/GMTool 다른 메뉴 |
+
+**출석체크**는 `lineage.conf`에 `attendance_check_enabled = false` 로 두면 NPC·접속시간 알림이 꺼집니다. (기본 반영됨)
+"""
+    )
 
 st.divider()
 st.caption(f"공지: `{NOTICE_PATH}`  |  이벤트: `{LINEAGE_CONF_PATH}`  |  각 공지는 설정한 간격(분)마다 따로 출력됩니다.")

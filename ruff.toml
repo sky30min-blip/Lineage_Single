@@ -1,0 +1,3 @@
+# Streamlit 페이지에서 흔한 한 줄 if/for 패턴은 스타일 경고만 유발하므로 무시
+[lint]
+ignore = ["E701", "E702"]

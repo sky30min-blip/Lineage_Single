@@ -5,6 +5,8 @@
  */
 let selectedMonster = null;
 const UID_BASE = 900000; // 생성되는 INSERT의 uid 시작값 (기존 데이터와 겹치지 않게 조정 가능)
+let apiStatusTimer = null;
+let reloadStatusTimer = null;
 function getApiBase() {
     if (typeof window === 'undefined') return '';
     if (window.location.protocol === 'http:' || window.location.protocol === 'https:') return window.location.origin + '/';
@@ -16,13 +18,51 @@ function getMonsterList() { return window.effectiveMonsterData || (typeof monste
 
 document.addEventListener('DOMContentLoaded', function() {
     buildMapSelect();
+    checkApiConnection();
     fetchMonstersThenLoad();
     // 1번 맵 선택 시 5번 스폰 목록 갱신 (인라인 onchange 대신 JS 바인딩으로 확실히 연결)
     var mapSel = document.getElementById('mapSelect');
     if (mapSel) mapSel.addEventListener('change', function() { loadMapSpawns(); });
     // 초기 상태: 맵 미선택 시 5번 안내 문구 표시
     loadMapSpawns();
+    if (apiStatusTimer) clearInterval(apiStatusTimer);
+    apiStatusTimer = setInterval(checkApiConnection, 15000);
 });
+
+function setApiStatus(connected, text) {
+    var badge = document.getElementById('apiStatusBadge');
+    var label = document.getElementById('apiStatusText');
+    if (!badge || !label) return;
+    badge.classList.remove('ok', 'fail');
+    if (connected === true) badge.classList.add('ok');
+    else if (connected === false) badge.classList.add('fail');
+    label.textContent = text || (connected ? 'API 연결됨' : 'API 연결 안됨');
+}
+
+function checkApiConnection() {
+    var base = getApiBase();
+    var apiUrl = base + 'api/spawn-api.php';
+    setApiStatus(null, 'API 상태 확인 중...');
+    fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'action=list_monsters'
+    })
+    .then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+    })
+    .then(function(data) {
+        if (data && data.success) {
+            setApiStatus(true, 'API 연결됨');
+        } else {
+            setApiStatus(false, 'API 응답 오류');
+        }
+    })
+    .catch(function() {
+        setApiStatus(false, 'API 연결 안됨');
+    });
+}
 
 function buildMapSelect() {
     var sel = document.getElementById('mapSelect');
@@ -136,7 +176,13 @@ function selectMonster(monster) {
 
 function generateSQL() {
     const mapId = document.getElementById('mapSelect').value;
-    const locationName = document.getElementById('locationName').value || '스폰 지점';
+    const mapSelectEl = document.getElementById('mapSelect');
+    const locationInput = document.getElementById('locationName');
+    const locationRaw = locationInput ? String(locationInput.value || '').trim() : '';
+    const selectedMapName = (mapSelectEl && mapSelectEl.options && mapSelectEl.selectedIndex >= 0)
+        ? String(mapSelectEl.options[mapSelectEl.selectedIndex].text || '').trim()
+        : '';
+    const locationName = locationRaw || selectedMapName || '스폰 지점';
     const count = parseInt(document.getElementById('spawnCount').value, 10) || 10;
     const respawnTime = parseInt(document.getElementById('respawnTime').value, 10) || 300;
     const moveDistance = parseInt(document.getElementById('moveDistance').value, 10) || 10;
@@ -300,13 +346,29 @@ function loadMapSpawns() {
         }
         if (spawns.length > 0) {
             tbody.innerHTML = spawns.map(function(s) {
+                var respMin = s.re_spawn_min != null ? parseInt(s.re_spawn_min, 10) : 0;
+                if (isNaN(respMin) || respMin < 0) respMin = 0;
+                var respMax = s.re_spawn_max != null ? parseInt(s.re_spawn_max, 10) : respMin;
+                if (isNaN(respMax) || respMax < 0) respMax = respMin;
                 return '<tr>' +
                     '<td>' + escapeHtml(s.name || '-') + '</td>' +
                     '<td>' + escapeHtml(s.monster || '-') + '</td>' +
-                    '<td>' + (s.count != null ? s.count : '-') + '</td>' +
+                    '<td><input type="number" min="1" max="10000" id="count_' + s.uid + '" value="' + (s.count != null ? s.count : 1) + '" style="width:90px;padding:4px 6px;border:1px solid #ccc;border-radius:4px;"></td>' +
                     '<td>' + (s.spawn_x != null && s.spawn_y != null ? s.spawn_x + ', ' + s.spawn_y : '-') + '</td>' +
-                    '<td>' + (s.re_spawn_min != null ? s.re_spawn_min + '초' : '-') + '</td>' +
-                    '<td><button type="button" class="delete-btn" onclick="deleteSpawn(' + s.uid + ')">삭제</button></td>' +
+                    '<td>' +
+                        '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
+                            '<input type="number" min="0" max="86400" id="respawn_min_' + s.uid + '" value="' + respMin + '" style="width:78px;padding:4px 6px;border:1px solid #ccc;border-radius:4px;">' +
+                            '<span>~</span>' +
+                            '<input type="number" min="0" max="86400" id="respawn_max_' + s.uid + '" value="' + respMax + '" style="width:78px;padding:4px 6px;border:1px solid #ccc;border-radius:4px;">' +
+                            '<span style="font-size:12px;color:#666;">초</span>' +
+                        '</div>' +
+                    '</td>' +
+                    '<td>' +
+                        '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+                            '<button type="button" class="delete-btn" style="background:#28a745;" onclick="updateSpawn(' + s.uid + ')">저장</button>' +
+                            '<button type="button" class="delete-btn" onclick="deleteSpawn(' + s.uid + ')">삭제</button>' +
+                        '</div>' +
+                    '</td>' +
                     '</tr>';
             }).join('');
         } else {
@@ -318,6 +380,153 @@ function loadMapSpawns() {
     .catch(function() {
         tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #c00;">API에 연결할 수 없습니다.</td></tr>' +
             '<tr><td colspan="6" style="text-align: center; font-size: 11px; color: #999;">이 페이지를 PHP 서버에서 열어주세요 (예: http://localhost:8765/gm_tool/pages/...). gm_tool/api/config.php 에 DB 설정을 확인하세요.</td></tr>';
+    });
+}
+
+function updateSpawn(uid) {
+    var countEl = document.getElementById('count_' + uid);
+    var minEl = document.getElementById('respawn_min_' + uid);
+    var maxEl = document.getElementById('respawn_max_' + uid);
+    if (!countEl || !minEl || !maxEl) {
+        alert('수정 입력 필드를 찾을 수 없습니다.');
+        return;
+    }
+
+    var count = parseInt(countEl.value, 10);
+    var respawnMin = parseInt(minEl.value, 10);
+    var respawnMax = parseInt(maxEl.value, 10);
+
+    if (isNaN(count) || count < 1 || count > 10000) {
+        alert('개수는 1~10000 사이로 입력하세요.');
+        countEl.focus();
+        return;
+    }
+    if (isNaN(respawnMin) || isNaN(respawnMax) || respawnMin < 0 || respawnMax < 0) {
+        alert('리스폰 시간은 0 이상의 숫자로 입력하세요.');
+        minEl.focus();
+        return;
+    }
+    if (respawnMin > respawnMax) {
+        alert('리스폰 최소값은 최대값보다 클 수 없습니다.');
+        minEl.focus();
+        return;
+    }
+
+    const apiUrl = getApiBase() + 'api/spawn-api.php';
+    const body = 'action=update_spawn'
+        + '&uid=' + encodeURIComponent(uid)
+        + '&count=' + encodeURIComponent(count)
+        + '&re_spawn_min=' + encodeURIComponent(respawnMin)
+        + '&re_spawn_max=' + encodeURIComponent(respawnMax);
+
+    fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert('수정되었습니다.');
+            loadMapSpawns();
+        } else {
+            alert('오류: ' + (data.error || '수정 실패'));
+        }
+    })
+    .catch(() => alert('API 호출 실패'));
+}
+
+function requestAllSpawnReload() {
+    if (!confirm('전체스폰 리로드를 요청할까요?\n(현재 월드의 일반 몬스터 스폰이 재적용됩니다)')) return;
+    const apiUrl = getApiBase() + 'api/spawn-api.php';
+    const body = 'action=reload_all_spawn';
+    fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            const hint = document.getElementById('reloadHint');
+            const status = document.getElementById('reloadStatus');
+            if (hint) {
+                const now = new Date();
+                const hh = String(now.getHours()).padStart(2, '0');
+                const mm = String(now.getMinutes()).padStart(2, '0');
+                const ss = String(now.getSeconds()).padStart(2, '0');
+                hint.style.color = '#2e7d32';
+                hint.textContent = '리로드 요청 전송 완료 (' + hh + ':' + mm + ':' + ss + '). 서버 폴링 후 적용됩니다.';
+            }
+            if (status) {
+                status.style.color = '#c77700';
+                status.textContent = '처리 상태: 대기중 (서버가 명령을 아직 처리하지 않음)';
+            }
+            if (data.request_id) {
+                startReloadStatusPolling(data.request_id);
+            }
+            alert(data.message || '전체스폰 리로드 요청을 전송했습니다.');
+        } else {
+            alert('오류: ' + (data.error || '리로드 요청 실패'));
+        }
+    })
+    .catch(() => alert('API 호출 실패'));
+}
+
+function startReloadStatusPolling(requestId) {
+    if (reloadStatusTimer) {
+        clearInterval(reloadStatusTimer);
+        reloadStatusTimer = null;
+    }
+    checkReloadStatus(requestId, 0);
+    reloadStatusTimer = setInterval(function() {
+        checkReloadStatus(requestId, 1);
+    }, 2000);
+}
+
+function checkReloadStatus(requestId, silent) {
+    const apiUrl = getApiBase() + 'api/spawn-api.php';
+    const body = 'action=reload_status&id=' + encodeURIComponent(requestId);
+    fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body
+    })
+    .then(r => r.json())
+    .then(data => {
+        const status = document.getElementById('reloadStatus');
+        if (!status) return;
+        if (!data.success) {
+            status.style.color = '#c62828';
+            status.textContent = '처리 상태: 확인 실패 - ' + (data.error || '알 수 없음');
+            if (reloadStatusTimer) {
+                clearInterval(reloadStatusTimer);
+                reloadStatusTimer = null;
+            }
+            return;
+        }
+        if (data.executed) {
+            status.style.color = '#2e7d32';
+            status.textContent = '처리 상태: 처리완료 (서버가 전체스폰 리로드를 실행함)';
+            if (reloadStatusTimer) {
+                clearInterval(reloadStatusTimer);
+                reloadStatusTimer = null;
+            }
+            // 처리 완료 시 목록 갱신
+            loadMapSpawns();
+        } else {
+            status.style.color = '#c77700';
+            status.textContent = '처리 상태: 대기중 (서버 폴링 주기 대기)';
+        }
+    })
+    .catch(function() {
+        if (!silent) {
+            const status = document.getElementById('reloadStatus');
+            if (status) {
+                status.style.color = '#c62828';
+                status.textContent = '처리 상태: 조회 실패 (API 연결 확인 필요)';
+            }
+        }
     });
 }
 
