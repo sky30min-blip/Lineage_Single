@@ -728,6 +728,7 @@ with tab4:
             st.dataframe(
                 pd.DataFrame(lines),
                 hide_index=True,
+                width="stretch",
                 column_config={
                     "rank_in_class": st.column_config.NumberColumn("순위", format="%d"),
                     "amount": st.column_config.NumberColumn("지급액", format=_NUM_COMMA),

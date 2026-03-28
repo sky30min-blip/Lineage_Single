@@ -62,24 +62,31 @@ with tab1:
 
 with tab2:
     st.subheader("데이터베이스 현황")
-    sql_tables = """
-        SELECT 'accounts' AS 테이블, COUNT(*) AS 레코드수 FROM accounts
-        UNION ALL SELECT 'characters', COUNT(*) FROM characters
-        UNION ALL SELECT 'characters_inventory', COUNT(*) FROM characters_inventory
-        UNION ALL SELECT 'monster_spawnlist', COUNT(*) FROM monster_spawnlist
-        UNION ALL SELECT 'npc_spawnlist', COUNT(*) FROM npc_spawnlist
-        UNION ALL SELECT 'item', COUNT(*) FROM item
-        UNION ALL SELECT 'weapon', COUNT(*) FROM weapon
-        UNION ALL SELECT 'armor', COUNT(*) FROM armor
-    """
+    # 싱글 DB는 `item` 한 테이블에 무기·방어구가 있고 `weapon`/`armor` 테이블이 없을 수 있음
+    _want = [
+        "accounts",
+        "characters",
+        "characters_inventory",
+        "monster_spawnlist",
+        "npc_spawnlist",
+        "item",
+        "weapon",
+        "armor",
+    ]
+    _have = set(db.get_all_tables())
+    _parts = [
+        f"SELECT '{t}' AS 테이블, COUNT(*) AS 레코드수 FROM `{t}`"
+        for t in _want
+        if t in _have
+    ]
     try:
-        rows = db.fetch_all(sql_tables.strip())
+        rows = db.fetch_all(" UNION ALL ".join(_parts)) if _parts else []
         if rows:
             df = pd.DataFrame(rows)
-            st.dataframe(df, hide_index=True)
+            st.dataframe(df, hide_index=True, width="stretch")
             fig = px.bar(df, x="테이블", y="레코드수", title="주요 테이블 레코드 수")
             fig.update_layout(xaxis_tickangle=-45)
-            st.plotly_chart(fig)
+            st.plotly_chart(fig, width="stretch")
         else:
             st.warning("조회 결과가 없습니다.")
     except Exception as e:

@@ -42,6 +42,33 @@ EQUIPMENT_TABLES = (
     "weapon_cursed", "armor_cursed",
 )
 
+
+def _inventory_equipment_name_set(db) -> set:
+    """인벤에서 장비(수량) 표시용 이름 집합. weapon/armor 테이블 없으면 `item`.`구분1` 기준."""
+    weapon_names = set()
+    armor_names = set()
+    if db.table_exists("weapon"):
+        for r in db.fetch_all("SELECT name FROM weapon"):
+            if r.get("name"):
+                weapon_names.add(r["name"])
+    if db.table_exists("armor"):
+        for r in db.fetch_all("SELECT name FROM armor"):
+            if r.get("name"):
+                armor_names.add(r["name"])
+    eq = weapon_names | armor_names
+    if eq or not db.table_exists("item"):
+        return eq
+    try:
+        for r in db.fetch_all(
+            "SELECT `아이템이름` AS n FROM item WHERE `구분1` IN ('weapon','armor')"
+        ):
+            if r.get("n"):
+                eq.add(r["n"])
+    except Exception:
+        pass
+    return eq
+
+
 def _tables_with_column(db, column_name: str) -> frozenset:
     """
     스키마에 실제 존재하는 컬럼을 가진 테이블만 반환.
@@ -463,11 +490,12 @@ with tab1:
             df_display = pd.DataFrame(st.session_state["item_search_results_rows"])
             df_display = df_display.rename(columns={"tbl": "구분", "name": "아이템명"})
             df_display = df_display[["구분", "아이템명"]]
-            st.dataframe(df_display, hide_index=True)
+            st.dataframe(df_display, hide_index=True, width="stretch")
         elif st.session_state["item_search_results"]:
             st.dataframe(
                 pd.DataFrame({"아이템명": st.session_state["item_search_results"]}),
                 hide_index=True,
+                width="stretch",
             )
 
         with st.expander("🔧 DB 테이블/컬럼 확인 (검색이 안 될 때)"):
@@ -485,7 +513,7 @@ with tab1:
                     try:
                         cols = db.get_table_structure(sample)
                         if cols:
-                            st.dataframe(pd.DataFrame(cols), hide_index=True)
+                            st.dataframe(pd.DataFrame(cols), hide_index=True, width="stretch")
                     except Exception:
                         pass
 
@@ -575,16 +603,7 @@ with tab2:
                 (selected_char2,),
             )
             if rows:
-                # weapon, armor 테이블에서 장비 아이템명 목록 조회 (테이블 있을 때만)
-                weapon_names = set()
-                armor_names = set()
-                if db.table_exists("weapon"):
-                    for r in db.fetch_all("SELECT name FROM weapon"):
-                        weapon_names.add(r["name"])
-                if db.table_exists("armor"):
-                    for r in db.fetch_all("SELECT name FROM armor"):
-                        armor_names.add(r["name"])
-                equipment_names = weapon_names | armor_names
+                equipment_names = _inventory_equipment_name_set(db)
 
                 def _bress_label(v):
                     try:
@@ -616,24 +635,19 @@ with tab2:
                 df = df.reindex(
                     columns=["아이템ID", "아이템명", "개수", "인챈트", "축복저주", "장착여부"]
                 )
-                st.dataframe(df, hide_index=True)
+                st.dataframe(df, hide_index=True, width="stretch")
             else:
                 st.info("인벤토리에 아이템이 없습니다.")
 
             st.write("**장비 (수량) 표시 수정**")
             st.caption("게임에서 장비가 '레이피어(1)'처럼 보이면, 아래 버튼으로 DB의 quantity를 0으로 바꿀 수 있습니다. 적용 후 재접속하면 됩니다.")
             if st.button("이 캐릭터 인벤의 장비 quantity → 0으로 수정", key="fix_equipment_qty"):
-                weapon_names = set()
-                armor_names = set()
-                if db.table_exists("weapon"):
-                    for r in db.fetch_all("SELECT name FROM weapon"):
-                        weapon_names.add(r["name"])
-                if db.table_exists("armor"):
-                    for r in db.fetch_all("SELECT name FROM armor"):
-                        armor_names.add(r["name"])
-                equipment_names = weapon_names | armor_names
+                equipment_names = _inventory_equipment_name_set(db)
                 if not equipment_names:
-                    st.warning("weapon/armor 테이블을 찾을 수 없습니다. 아래에 수동으로 아이템명을 입력해 수정하세요.")
+                    st.warning(
+                        "장비 아이템명 목록을 만들 수 없습니다. (weapon/armor 테이블 없음·item 구분1 조회 실패) "
+                        "아래에 수동으로 아이템명을 입력해 수정하세요."
+                    )
                 else:
                     try:
                         with db.connection.cursor() as cur:

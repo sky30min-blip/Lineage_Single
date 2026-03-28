@@ -22,6 +22,7 @@ from utils.gm_db_options import (
 from utils.boss_spawn_schedule import (
     BOSS_SPAWN_PRESETS,
     build_spawn_x_y_map,
+    ensure_spawn_enabled_column,
     fetch_boss_row,
     get_notify_column_name,
     list_boss_spawn_columns,
@@ -86,7 +87,7 @@ with tab1:
                 mask = df["이름"].astype(str).str.contains(search.strip(), case=False, na=False) | \
                        df["NAME_ID"].astype(str).str.contains(search.strip(), case=False, na=False)
                 df = df.loc[mask]
-            st.dataframe(df, height=400)
+            st.dataframe(df, height=400, width="stretch")
             st.caption(f"총 {len(df)}건 (최대 500건 표시)")
         else:
             st.info("몬스터가 없거나 조회에 실패했습니다.")
@@ -486,7 +487,7 @@ with tab3:
                                 )
                             st.dataframe(
                                 pd.DataFrame(_tbl),
-                                use_container_width=True,
+                                width="stretch",
                                 height=min(420, max(120, 36 + len(_tbl) * 35)),
                             )
                             for d in drops:
@@ -681,13 +682,22 @@ with tab3:
 with tab4:
     st.subheader("⏰ 보스 리젠 (monster_spawnlist_boss)")
     st.caption(
-        "요일·시각·좌표(X,Y,map)를 바꿉니다. **스폰 시각** 또는 **요일**을 비우면 해당 보스는 **시간 스폰되지 않습니다.** "
-        "저장 후 서버에서 **monster_spawnlist_boss 리로드** 또는 **재기동**이 필요합니다."
+        "요일·시각·좌표(X,Y,map)를 바꿉니다. **보스마다「시간 리젠 활성화」** 로 on/off 할 수 있습니다(끄면 스케줄은 DB에 남고 서버만 스폰하지 않음). "
+        "예전 방식으로 **스폰 시각·요일을 비우면** 역시 스폰되지 않습니다. "
+        "저장 후 서버에서 **보스 스폰 테이블 리로드** 또는 **재기동**이 필요합니다. (게임 내 운영자: `.리로드 보스` — `lineage.conf`의 command 접두사 기준). "
+        "**0시~0시 59분**(예: 00:05) 스폰은 예전 서버 코드 버그로 보스가 바로 지워지거나 알림이 어긋날 수 있어, 최신 `BossController` 패치를 적용하세요."
     )
     if not has_boss_spawn:
         st.warning("monster_spawnlist_boss 테이블이 없습니다. DB 스키마를 확인하세요.")
     else:
+        if not ensure_spawn_enabled_column(db):
+            st.warning(
+                "⚠️ `spawn_enabled` 컬럼을 자동 추가하지 못했습니다. "
+                "DB 계정에 ALTER 권한을 주거나, `2.싱글리니지 팩/db/monster_spawnlist_boss_add_spawn_enabled.sql` 을 수동 실행한 뒤 이 페이지를 새로고침하세요. "
+                "그 전까지는 **시간 리젠 on/off 체크**를 쓸 수 없습니다(시각·요일 비우기 방식만 해당)."
+            )
         all_cols = list_boss_spawn_columns(db)
+        boss_spawn_en_col = "spawn_enabled" in all_cols
         notify_col = get_notify_column_name(db)
         if notify_col not in all_cols:
             notify_col = "스폰알림여부"
@@ -713,7 +723,10 @@ with tab4:
             fd = row_to_form_defaults(row, preset)
             x0, y0, m0 = parse_first_xyz(fd["spawn_x_y_map"])
             mark = "✅" if row else "⚪"
-            with st.expander(f"{mark} {preset['label']} (`{pk}`)", expanded=False):
+            en_icon = ""
+            if boss_spawn_en_col:
+                en_icon = "🟢 " if fd.get("spawn_enabled", True) else "⏸ "
+            with st.expander(f"{mark} {en_icon}{preset['label']} (`{pk}`)", expanded=False):
                 st.caption("DB에 등록됨" if row else "DB에 없음 — 저장 시 **INSERT** 됩니다.")
                 with st.form(f"boss_spawn_{idx}_{pk}"):
                     f_monster = st.text_input(
@@ -740,6 +753,14 @@ with tab4:
                         help="예: 월, 화, 수, 목, 금, 토, 일. **비우면 요일이 없어 스폰되지 않습니다.**",
                         key=f"bs_d_{idx}",
                     )
+                    f_respawn_on = True
+                    if boss_spawn_en_col:
+                        f_respawn_on = st.checkbox(
+                            "시간 리젠 활성화",
+                            value=fd.get("spawn_enabled", True),
+                            key=f"bs_en_{idx}",
+                            help="끄면 DB의 시각·요일은 그대로 두고 **서버가 이 보스만 시간 스폰하지 않습니다.** 다시 켜면 리로드 후 예정대로 스폰됩니다.",
+                        )
                     f_group = st.text_input(
                         "group_monster (고급, 비우면 미사용)",
                         value=fd["group_monster"],
@@ -765,35 +786,70 @@ with tab4:
                             sd_norm = normalize_spawn_days(f_day)
                             nval = 1 if f_notify else 0
                             qn = notify_col.replace("`", "")
+                            has_spawn_en = boss_spawn_en_col
+                            en_val = 1 if f_respawn_on else 0
                             if row:
-                                sql = (
-                                    f"UPDATE monster_spawnlist_boss SET monster=%s, spawn_x_y_map=%s, "
-                                    f"spawn_time=%s, spawn_day=%s, group_monster=%s, `{qn}`=%s WHERE name=%s"
-                                )
-                                params = (
-                                    f_monster.strip(),
-                                    sxym,
-                                    st_norm,
-                                    sd_norm,
-                                    (f_group or "").strip(),
-                                    nval,
-                                    pk,
-                                )
+                                if has_spawn_en:
+                                    sql = (
+                                        f"UPDATE monster_spawnlist_boss SET monster=%s, spawn_x_y_map=%s, "
+                                        f"spawn_time=%s, spawn_day=%s, group_monster=%s, `{qn}`=%s, spawn_enabled=%s WHERE name=%s"
+                                    )
+                                    params = (
+                                        f_monster.strip(),
+                                        sxym,
+                                        st_norm,
+                                        sd_norm,
+                                        (f_group or "").strip(),
+                                        nval,
+                                        en_val,
+                                        pk,
+                                    )
+                                else:
+                                    sql = (
+                                        f"UPDATE monster_spawnlist_boss SET monster=%s, spawn_x_y_map=%s, "
+                                        f"spawn_time=%s, spawn_day=%s, group_monster=%s, `{qn}`=%s WHERE name=%s"
+                                    )
+                                    params = (
+                                        f_monster.strip(),
+                                        sxym,
+                                        st_norm,
+                                        sd_norm,
+                                        (f_group or "").strip(),
+                                        nval,
+                                        pk,
+                                    )
                             else:
-                                sql = (
-                                    f"INSERT INTO monster_spawnlist_boss "
-                                    f"(name, monster, spawn_x_y_map, spawn_time, spawn_day, group_monster, `{qn}`) "
-                                    f"VALUES (%s,%s,%s,%s,%s,%s,%s)"
-                                )
-                                params = (
-                                    pk,
-                                    f_monster.strip(),
-                                    sxym,
-                                    st_norm,
-                                    sd_norm,
-                                    (f_group or "").strip(),
-                                    nval,
-                                )
+                                if has_spawn_en:
+                                    sql = (
+                                        f"INSERT INTO monster_spawnlist_boss "
+                                        f"(name, monster, spawn_x_y_map, spawn_time, spawn_day, group_monster, `{qn}`, spawn_enabled) "
+                                        f"VALUES (%s,%s,%s,%s,%s,%s,%s,%s)"
+                                    )
+                                    params = (
+                                        pk,
+                                        f_monster.strip(),
+                                        sxym,
+                                        st_norm,
+                                        sd_norm,
+                                        (f_group or "").strip(),
+                                        nval,
+                                        en_val,
+                                    )
+                                else:
+                                    sql = (
+                                        f"INSERT INTO monster_spawnlist_boss "
+                                        f"(name, monster, spawn_x_y_map, spawn_time, spawn_day, group_monster, `{qn}`) "
+                                        f"VALUES (%s,%s,%s,%s,%s,%s,%s)"
+                                    )
+                                    params = (
+                                        pk,
+                                        f_monster.strip(),
+                                        sxym,
+                                        st_norm,
+                                        sd_norm,
+                                        (f_group or "").strip(),
+                                        nval,
+                                    )
                             ok, err = db.execute_query_ex(sql, params)
                             if ok:
                                 queue_feedback(

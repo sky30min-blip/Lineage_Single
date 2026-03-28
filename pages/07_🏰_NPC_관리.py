@@ -489,7 +489,7 @@ with tab6:
                     (npc_name,)
                 )
                 if 판매목록:
-                    st.dataframe(판매목록, height=300)
+                    st.dataframe(판매목록, height=300, width="stretch")
                 else:
                     st.caption("판매 물품 없음")
 
@@ -564,7 +564,7 @@ with tab6:
                     (npc_name,)
                 )
                 if 매입목록:
-                    st.dataframe(매입목록, height=300)
+                    st.dataframe(매입목록, height=300, width="stretch")
                 else:
                     st.caption("매입 물품 없음")
 

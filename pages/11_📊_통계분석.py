@@ -88,7 +88,7 @@ with tab1:
             color_discrete_sequence=["#1f77b4"],
         )
         fig.update_layout(xaxis_title="레벨", yaxis_title="캐릭터 수")
-        st.plotly_chart(fig)
+        st.plotly_chart(fig, width="stretch")
 
         st.subheader("레벨 구간별 통계")
         total = df_level["캐릭터 수"].sum()
@@ -104,7 +104,7 @@ with tab1:
             cnt = int(df_level[(df_level["레벨"] >= low) & (df_level["레벨"] <= high)]["캐릭터 수"].sum())
             range_data.append({"구간": label, "인원(명)": cnt})
         range_df = pd.DataFrame(range_data)
-        st.dataframe(range_df, hide_index=True)
+        st.dataframe(range_df, hide_index=True, width="stretch")
     else:
         st.info("데이터가 없습니다.")
 
@@ -131,7 +131,7 @@ with tab2:
             title="직업별 캐릭터 분포",
             hole=0.3,
         )
-        st.plotly_chart(fig2)
+        st.plotly_chart(fig2, width="stretch")
 
         st.subheader("직업별 평균 레벨")
         try:
@@ -145,7 +145,7 @@ with tab2:
                 )
                 df_avg["평균 레벨"] = df_avg["avg_level"].round(1)
                 df_avg = df_avg[["직업", "평균 레벨", "count"]].rename(columns={"count": "캐릭터 수"})
-                st.dataframe(df_avg, hide_index=True)
+                st.dataframe(df_avg, hide_index=True, width="stretch")
             else:
                 st.info("데이터가 없습니다.")
         except Exception as e:
@@ -171,7 +171,7 @@ with tab3:
             df_rank = df_rank[["순위", "name", "level", "직업"]].rename(
                 columns={"name": "캐릭터명", "level": "레벨"}
             )
-            st.dataframe(df_rank, hide_index=True)
+            st.dataframe(df_rank, hide_index=True, width="stretch")
         else:
             st.info("데이터가 없습니다.")
     except Exception as e:
@@ -193,7 +193,7 @@ with tab3:
             df_adena = df_adena[["순위", "cha_name", "total_adena"]].rename(
                 columns={"cha_name": "캐릭터명", "total_adena": "아데나"}
             )
-            st.dataframe(df_adena, hide_index=True)
+            st.dataframe(df_adena, hide_index=True, width="stretch")
         else:
             st.info("데이터가 없습니다.")
     except Exception as e:
@@ -210,7 +210,7 @@ with tab3:
             df_pk = df_pk[["순위", "name", "pkcount"]].rename(
                 columns={"name": "캐릭터명", "pkcount": "PK 수"}
             )
-            st.dataframe(df_pk, hide_index=True)
+            st.dataframe(df_pk, hide_index=True, width="stretch")
         else:
             st.info("PK 데이터가 없습니다.")
     except Exception:

@@ -54,7 +54,7 @@ if keyword.strip():
 
 st.success(f"조회 결과: {len(df):,}건 (전체 {len(df_all):,}건)")
 
-st.dataframe(df, hide_index=True, use_container_width=True)
+st.dataframe(df, hide_index=True, width="stretch")
 
 st.download_button(
     "⬇️ 현재 결과 CSV 다운로드",

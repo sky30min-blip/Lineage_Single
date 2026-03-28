@@ -41,7 +41,7 @@ with tab1:
             lambda x: config.CLASS_NAMES.get(int(x) if x is not None else 0, str(x))
         )
         df = df.rename(columns={"name": "캐릭터명", "level": "레벨", "class": "직업", "account": "계정"})
-        st.dataframe(df)
+        st.dataframe(df, width="stretch")
         st.caption(f"총 {len(df)}명")
     else:
         st.info("캐릭터가 없습니다.")

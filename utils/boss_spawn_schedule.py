@@ -141,7 +141,7 @@ def get_notify_column_name(db) -> str:
     )
     if not rows:
         return "스폰알림여부"
-    known = {"name", "monster", "spawn_x_y_map", "spawn_time", "spawn_day", "group_monster"}
+    known = {"name", "monster", "spawn_x_y_map", "spawn_time", "spawn_day", "group_monster", "spawn_enabled"}
     for r in rows:
         cn = (r.get("cn") or r.get("COLUMN_NAME") or "").strip()
         if cn and cn not in known:
@@ -204,6 +204,34 @@ def fetch_boss_row(db, name: str) -> Optional[Dict[str, Any]]:
     return db.fetch_one("SELECT * FROM monster_spawnlist_boss WHERE name = %s", (name,))
 
 
+def ensure_spawn_enabled_column(db) -> bool:
+    """monster_spawnlist_boss.spawn_enabled 없으면 추가. 성공 또는 이미 있으면 True."""
+    cols = list_boss_spawn_columns(db)
+    if "spawn_enabled" in cols:
+        return True
+    ok, _err = db.execute_query_ex(
+        "ALTER TABLE monster_spawnlist_boss ADD COLUMN spawn_enabled TINYINT(1) NOT NULL DEFAULT 1 "
+        "COMMENT '1=리젠활성 0=비활성' AFTER group_monster",
+        (),
+    )
+    return ok
+
+
+def _spawn_enabled_bool(row: Optional[Dict[str, Any]], preset: Dict[str, Any]) -> bool:
+    if not row:
+        try:
+            return int(preset.get("spawn_enabled", 1)) != 0
+        except (TypeError, ValueError):
+            return True
+    v = row.get("spawn_enabled")
+    if v is None:
+        return True
+    try:
+        return int(v) != 0
+    except (TypeError, ValueError):
+        return True
+
+
 def row_to_form_defaults(row: Dict[str, Any], preset: Dict[str, Any]) -> Dict[str, Any]:
     if not row:
         return {
@@ -213,10 +241,11 @@ def row_to_form_defaults(row: Dict[str, Any], preset: Dict[str, Any]) -> Dict[st
             "spawn_day": preset["spawn_day"],
             "group_monster": preset.get("group_monster") or "",
             "notify": bool(int(preset.get("notify", 1))),
+            "spawn_enabled": _spawn_enabled_bool(None, preset),
         }
     notify_val = None
     for k, v in row.items():
-        if k not in ("name", "monster", "spawn_x_y_map", "spawn_time", "spawn_day", "group_monster"):
+        if k not in ("name", "monster", "spawn_x_y_map", "spawn_time", "spawn_day", "group_monster", "spawn_enabled"):
             notify_val = v
             break
     try:
@@ -230,4 +259,5 @@ def row_to_form_defaults(row: Dict[str, Any], preset: Dict[str, Any]) -> Dict[st
         "spawn_day": str(row.get("spawn_day") or preset["spawn_day"]),
         "group_monster": str(row.get("group_monster") or ""),
         "notify": n == 1,
+        "spawn_enabled": _spawn_enabled_bool(row, preset),
     }

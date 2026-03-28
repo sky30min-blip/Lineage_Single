@@ -817,7 +817,10 @@ with tab3:
 
 # ---------- 탭 4: 사용 제한 초기화 ----------
 with tab4:
-    st.write("DB 업데이트로 초기화합니다. 서버에 접속 중인 캐릭터는 서버 재시작 또는 재접속 후 반영됩니다.")
+    st.write(
+        "DB 업데이트로 초기화합니다. 서버에 접속 중인 캐릭터는 **재접속**해야 화면에 반영됩니다. "
+        "(기란감옥 남은 시간은 DB에 **초** 단위로 저장됩니다.)"
+    )
     giran_min = _read_conf_int("giran_dungeon_time", 60)
     auto_min = _read_conf_int("auto_hunt_time", 1440)
     col_a, col_b = st.columns(2)
@@ -829,9 +832,14 @@ with tab4:
     # 기란감옥 이용시간
     c1 = st.checkbox("기란감옥 이용시간 초기화 실행 확인", key="c_giran_time")
     if st.button("🔄 기란감옥 이용시간 초기화", key="btn_giran_time", disabled=not c1):
-        ok_g, err_g = db.execute_query_ex("UPDATE accounts SET giran_dungeon_time=%s", (giran_val,))
+        # 서버(Lineage.giran_dungeon_time)는 conf 분×60 → DB에 초 단위 저장. GM 입력(분)도 동일하게 초로 넣어야 함.
+        giran_sec = int(giran_val) * 60
+        ok_g, err_g = db.execute_query_ex("UPDATE accounts SET giran_dungeon_time=%s", (giran_sec,))
         if ok_g:
-            queue_feedback("success", "✅ accounts.giran_dungeon_time 초기화 완료.")
+            queue_feedback(
+                "success",
+                f"✅ accounts.giran_dungeon_time = **{giran_sec}초** ({giran_val}분) 전 계정 반영. 접속 중이면 재접속하세요.",
+            )
             st.rerun()
         else:
             st.error(f"❌ 실패: {err_g}")
@@ -1058,13 +1066,13 @@ with tab7:
 
         st.markdown("**✅ 현재 DB에 존재(초기화 대상)**")
         if exist_rows:
-            st.dataframe(pd.DataFrame(exist_rows), hide_index=True, use_container_width=True)
+            st.dataframe(pd.DataFrame(exist_rows), hide_index=True, width="stretch")
         else:
             st.info("초기화 대상 중 현재 DB에 존재하는 테이블이 없습니다.")
 
         st.markdown("**⚠️ 문서 기준이나 현재 DB에 없음(건너뜀)**")
         if missing_rows:
-            st.dataframe(pd.DataFrame(missing_rows), hide_index=True, use_container_width=True)
+            st.dataframe(pd.DataFrame(missing_rows), hide_index=True, width="stretch")
         else:
             st.caption("문서 기준 대상 테이블이 모두 DB에 존재합니다.")
 

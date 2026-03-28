@@ -337,7 +337,8 @@ def _set_robot_spawn_one(db, obj_id: int, spawn_on: bool) -> tuple[bool, str]:
 def _ensure_robot_exp_column(db) -> None:
     """구버전 `_robot`에 `exp`가 없으면 추가 (서버·GM 툴 INSERT 공통)."""
     ok, err = db.execute_query_ex(
-        "ALTER TABLE `_robot` ADD COLUMN `exp` DOUBLE NOT NULL DEFAULT 0 COMMENT '누적 경험치' AFTER `level`"
+        "ALTER TABLE `_robot` ADD COLUMN `exp` DOUBLE NOT NULL DEFAULT 0 COMMENT '누적 경험치' AFTER `level`",
+        quiet_mysql_errno=(1060,),
     )
     if ok:
         return
@@ -356,7 +357,8 @@ def _ensure_robot_book_robot_obj_id_column(db) -> None:
         return
     ok, err = db.execute_query_ex(
         "ALTER TABLE `_robot_book` ADD COLUMN `robot_objId` INT NOT NULL DEFAULT 0 "
-        "COMMENT '0=전체 무인 PC 공통, 특정 objId=해당 봇만'"
+        "COMMENT '0=전체 무인 PC 공통, 특정 objId=해당 봇만'",
+        quiet_mysql_errno=(1060,),
     )
     if ok:
         return

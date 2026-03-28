@@ -63,10 +63,17 @@ class DBManager:
                 pass
             self.connection = None
     
-    def execute_query_ex(self, sql: str, params: tuple = None) -> tuple[bool, str]:
+    def execute_query_ex(
+        self,
+        sql: str,
+        params: tuple = None,
+        *,
+        quiet_mysql_errno: tuple[int, ...] = (),
+    ) -> tuple[bool, str]:
         """
         INSERT, UPDATE, DELETE 등 실행. UI 피드백용으로 (성공 여부, 오류 메시지) 반환.
         성공 시 두 번째 값은 빈 문자열.
+        quiet_mysql_errno: 예상되는 MySQL 오류 번호(예: 1060 중복 컬럼)는 콘솔 로그 생략.
         """
         try:
             self._ensure_connection()
@@ -78,9 +85,11 @@ class DBManager:
             if self.connection:
                 self.connection.rollback()
             err = str(e)
-            print(f"쿼리 실행 실패: {err}")
-            print(f"SQL: {sql}")
-            print(f"Params: {params}")
+            errno = e.args[0] if getattr(e, "args", None) and isinstance(e.args[0], int) else None
+            if errno not in quiet_mysql_errno:
+                print(f"쿼리 실행 실패: {err}")
+                print(f"SQL: {sql}")
+                print(f"Params: {params}")
             return False, err
 
     def execute_query(self, sql: str, params: tuple = None) -> bool:

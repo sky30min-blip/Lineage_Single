@@ -81,7 +81,7 @@ with tab_conn:
         page = st.number_input("페이지", min_value=1, max_value=max_page, value=1, key="log_connect_page")
         start = (page - 1) * page_size
         slice_df = df.iloc[start : start + page_size]
-        st.dataframe(slice_df, hide_index=True)
+        st.dataframe(slice_df, hide_index=True, width="stretch")
         st.caption(f"총 {total}건 (페이지당 {page_size}건)")
         col1, col2, _ = st.columns([1, 1, 2])
         with col1:
