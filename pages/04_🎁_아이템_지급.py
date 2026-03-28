@@ -227,11 +227,21 @@ def _search_items_union(db, search_term, limit=50):
         return [], [], str(e), {}
 
 
-def _grant_item(db, cha_name, cha_obj_id, item_name, count, en, force_equipment=False):
+def _grant_item(
+    db,
+    cha_name,
+    cha_obj_id,
+    item_name,
+    count,
+    en,
+    force_equipment=False,
+    bress=1,
+):
     """
     아이템 지급: INSERT.
     아이템 테이블의 '겹침' 컬럼으로 판단. 겹침=true → quantity=1, 겹침=false → quantity=0.
     '겹침'이 없으면 weapon/armor 테이블 여부 또는 force_equipment로 판단.
+    bress: 인벤 축복 플래그(서버 bless와 동일) — 0=축복, 1=일반, 2=저주.
     """
     pile = _get_item_pile(db, item_name)
     if pile is not None:
@@ -254,9 +264,18 @@ def _grant_item(db, cha_name, cha_obj_id, item_name, count, en, force_equipment=
                 next_obj_id = row["next_id"] if row else 1
                 cursor.execute(
                     """INSERT INTO characters_inventory
-                       (objId, cha_objId, cha_name, name, count, en, quantity, equipped)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, 0)""",
-                    (next_obj_id, cha_obj_id, cha_name, item_name, insert_count, en, quantity),
+                       (objId, cha_objId, cha_name, name, count, en, quantity, equipped, bress)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, 0, %s)""",
+                    (
+                        next_obj_id,
+                        cha_obj_id,
+                        cha_name,
+                        item_name,
+                        insert_count,
+                        en,
+                        quantity,
+                        int(bress),
+                    ),
                 )
                 try:
                     cursor.execute(
@@ -490,6 +509,19 @@ with tab1:
             key="item_force_equipment",
             help="겹침 판정이 애매할 때 체크하면 무기/방어구처럼 quantity=0으로 넣어 (1) 표시를 막습니다.",
         )
+        bless_opt = st.selectbox(
+            "축복·저주 (인벤 bress / 서버 bless)",
+            options=[
+                (1, "일반 (1)"),
+                (0, "축복 (0) — [축] 표시"),
+                (2, "저주 (2) — [저주] 표시"),
+            ],
+            format_func=lambda x: x[1],
+            index=0,
+            key="item_bress_select",
+            help="장비·주문서 모두 인벤에 들어갈 때 적용됩니다. item 마스터에는 없고 **지급·드랍 시** 이 값으로 구분합니다.",
+        )
+        item_bress = bless_opt[0]
         st.caption("아이템 테이블에 '겹침' 컬럼이 있으면 자동으로 적용됩니다. 없을 때만 위 체크 또는 weapon/armor 테이블로 판단합니다.")
 
         if st.button("지급", key="item_grant_btn") and selected_char and selected_item:
@@ -506,8 +538,14 @@ with tab1:
                     selected_item, selected_item
                 )
                 ok, err = _grant_item(
-                    db, selected_char, cha_obj_id, grant_name, count, en,
+                    db,
+                    selected_char,
+                    cha_obj_id,
+                    grant_name,
+                    count,
+                    en,
                     force_equipment=force_equipment,
+                    bress=item_bress,
                 )
                 if ok:
                     if err == "no_delivery_table":
@@ -530,7 +568,7 @@ with tab2:
 
         if selected_char2:
             rows = db.fetch_all(
-                """SELECT objId, name, count, en, equipped
+                """SELECT objId, name, count, en, equipped, bress
                    FROM characters_inventory
                    WHERE cha_name = %s
                    ORDER BY objId DESC""",
@@ -548,11 +586,23 @@ with tab2:
                         armor_names.add(r["name"])
                 equipment_names = weapon_names | armor_names
 
+                def _bress_label(v):
+                    try:
+                        b = int(v)
+                    except (TypeError, ValueError):
+                        return "?"
+                    if b == 0:
+                        return "축복"
+                    if b == 2:
+                        return "저주"
+                    return "일반"
+
                 for r in rows:
                     if r["name"] in equipment_names:
                         r["display_name"] = r["name"]
                     else:
                         r["display_name"] = f"{r['name']} ({r['count']})"
+                    r["축복저주"] = _bress_label(r.get("bress"))
                 df = pd.DataFrame(rows)
                 df = df.rename(
                     columns={
@@ -563,7 +613,9 @@ with tab2:
                         "equipped": "장착여부",
                     }
                 )
-                df = df.reindex(columns=["아이템ID", "아이템명", "개수", "인챈트", "장착여부"])
+                df = df.reindex(
+                    columns=["아이템ID", "아이템명", "개수", "인챈트", "축복저주", "장착여부"]
+                )
                 st.dataframe(df, hide_index=True)
             else:
                 st.info("인벤토리에 아이템이 없습니다.")

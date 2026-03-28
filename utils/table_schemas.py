@@ -35,12 +35,11 @@ TABLE_CREATION_SQLS = {
     """,
     'ban_word': """
         CREATE TABLE IF NOT EXISTS `ban_word` (
-          `id` INT NOT NULL AUTO_INCREMENT,
-          `word` VARCHAR(50) NOT NULL,
-          PRIMARY KEY (`id`),
-          UNIQUE KEY `word` (`word`)
+          `uid` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+          `chat` VARCHAR(255) NOT NULL DEFAULT '',
+          PRIMARY KEY (`uid`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        COMMENT='채팅 금지어 목록';
+        COMMENT='채팅 금지어 (서버 BanWordDatabase: 컬럼 chat)';
     """,
     'gm_item_delivery': """
         CREATE TABLE IF NOT EXISTS `gm_item_delivery` (
@@ -172,7 +171,7 @@ TABLE_CREATION_SQLS = {
 # 기본 데이터 삽입 SQL (선택)
 TABLE_INITIAL_DATA = {
     'ban_word': """
-        INSERT IGNORE INTO `ban_word` (`word`) VALUES
+        INSERT IGNORE INTO `ban_word` (`chat`) VALUES
         ('시발'),
         ('개새끼'),
         ('병신');

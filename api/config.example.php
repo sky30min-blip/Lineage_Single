@@ -6,7 +6,7 @@
 return [
     'host' => 'localhost',
     'port' => 3306,
-    'dbname' => 'l1jdb',
+    'dbname' => 'lin200',
     'user' => 'root',
     'password' => '',  // 실제 비밀번호로 변경
     'charset' => 'utf8mb4',

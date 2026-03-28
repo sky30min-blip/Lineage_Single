@@ -1,18 +1,105 @@
 # -*- coding: utf-8 -*-
 """
 리니지 싱글 서버 GM 툴 - 데이터베이스·경로·Streamlit 설정
-DB는 환경변수(GM_DB_*)로 덮어쓸 수 있습니다. 기본은 lin200.
+- DB는 MariaDB(MySQL 호환 프로토콜). 연결은 pymysql 로 처리( MariaDB 공식 호환 ).
+- 싱글 팩 mysql.conf(이름만 mysql, 내용은 MariaDB jdbc url) 의 url / id / pw 를 읽어 PHP API 와 동일.
+- 환경변수 GM_DB_* 가 있으면 최우선.
 """
 import os
+import re
+from pathlib import Path
+from typing import Optional
 
-DB_CONFIG = {
-    "host": os.environ.get("GM_DB_HOST", "127.0.0.1"),
-    "port": int(os.environ.get("GM_DB_PORT", "3306")),
-    "user": os.environ.get("GM_DB_USER", "root"),
-    "password": os.environ.get("GM_DB_PASSWORD", "1307"),
-    "database": os.environ.get("GM_DB_NAME", "lin200"),
-    "charset": os.environ.get("GM_DB_CHARSET", "utf8mb4"),
-}
+
+def _find_pack_mysql_conf() -> Optional[Path]:
+    """Lineage_Single/2.*.../mysql.conf"""
+    root = Path(__file__).resolve().parent.parent
+    explicit = root / "2.싱글리니지 팩" / "mysql.conf"
+    if explicit.is_file():
+        return explicit
+    try:
+        for p in root.iterdir():
+            if p.is_dir() and not p.name.startswith(".") and p.name != "gm_tool":
+                cand = p / "mysql.conf"
+                if cand.is_file():
+                    return cand
+    except OSError:
+        pass
+    return None
+
+
+def _parse_mysql_conf(path: Path) -> dict:
+    """jdbc url + id + pw 파싱 (api/config.php 와 동일 규칙)."""
+    out: dict = {}
+    try:
+        raw = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return out
+    if raw.startswith("\ufeff"):
+        raw = raw[1:]
+    url = ""
+    user = ""
+    password = ""
+    for line in raw.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        m = re.match(r"^\s*url\s*=\s*(.+)$", line, re.I)
+        if m:
+            url = m.group(1).strip()
+            continue
+        m = re.match(r"^\s*id\s*=\s*(.+)$", line, re.I)
+        if m:
+            user = m.group(1).strip()
+            continue
+        m = re.match(r"^\s*pw\s*=\s*(.+)$", line, re.I)
+        if m:
+            password = m.group(1).strip()
+            continue
+    # jdbc:mariadb://host:port/dbname?...
+    if url:
+        mm = re.search(r"(?:mysql|mariadb)://([^:/]+):(\d+)/([^?]+)", url, re.I)
+        if mm:
+            out["host"] = mm.group(1).strip()
+            out["port"] = int(mm.group(2))
+            out["database"] = mm.group(3).strip()
+    if user:
+        out["user"] = user
+    if password:
+        out["password"] = password
+    return out
+
+
+def _build_db_config() -> dict:
+    # Docker MariaDB(l1j-db) 기본값. 윈도우 MariaDB 직접 쓰면 mysql.conf 에 포트·비번·DB 맞춤.
+    base = {
+        "host": "127.0.0.1",
+        "port": 3308,
+        "user": "root",
+        "password": "1307",
+        "database": "l1jdb",
+        "charset": "utf8mb4",
+    }
+    mc = _find_pack_mysql_conf()
+    if mc is not None:
+        parsed = _parse_mysql_conf(mc)
+        base.update(parsed)
+    if os.environ.get("GM_DB_HOST"):
+        base["host"] = os.environ["GM_DB_HOST"].strip()
+    if os.environ.get("GM_DB_PORT"):
+        base["port"] = int(os.environ["GM_DB_PORT"])
+    if os.environ.get("GM_DB_USER"):
+        base["user"] = os.environ["GM_DB_USER"].strip()
+    if os.environ.get("GM_DB_PASSWORD") is not None:
+        base["password"] = os.environ["GM_DB_PASSWORD"]
+    if os.environ.get("GM_DB_NAME"):
+        base["database"] = os.environ["GM_DB_NAME"].strip()
+    if os.environ.get("GM_DB_CHARSET"):
+        base["charset"] = os.environ["GM_DB_CHARSET"].strip()
+    return base
+
+
+DB_CONFIG = _build_db_config()
 
 # 서버 경로
 SERVER_PATH = r"D:\Lineage_Single\2.싱글리니지 팩\서버스타트.bat"

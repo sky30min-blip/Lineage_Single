@@ -15,6 +15,10 @@ is_connected, msg = db.test_connection()
 if not is_connected:
     st.error(f"❌ DB 연결 실패: {msg}")
     st.stop()
+st.caption(
+    f"MariaDB 연결: `{config.DB_CONFIG['host']}:{config.DB_CONFIG['port']}` · 스키마 **`{config.DB_CONFIG['database']}`** "
+    "(`mysql.conf` url 과 동일)"
+)
 show_pending_feedback()
 
 # 탭 구성

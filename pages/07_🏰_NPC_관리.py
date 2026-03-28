@@ -1,6 +1,6 @@
 """
 NPC 관리 페이지 (NPC 목록, NPC 추가, NPC 배치 제거, 상점 관리)
-- 상점: 리니지 서버 npc_shop / item 테이블 사용 (l1jdb)
+- 상점: 리니지 서버 npc_shop / item 테이블 사용 (lin200)
 """
 from __future__ import annotations
 
@@ -629,7 +629,7 @@ with tab6:
 
     except Exception as e:
         st.error(f"상점 조회/수정 중 오류: {e}")
-        st.caption("npc_shop, item 테이블이 l1jdb에 있는지 확인하세요.")
+        st.caption("npc_shop, item 테이블이 lin200에 있는지 확인하세요.")
 
 # ========== tab7: 스폰 위치 수정 (npc_spawnlist에 등록된 NPC만, 위치 편집) ==========
 with tab7:

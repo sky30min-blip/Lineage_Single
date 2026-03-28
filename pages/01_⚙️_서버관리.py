@@ -3,10 +3,19 @@
 웹에서 누르면 gm_server_command 테이블에 요청을 넣고, 게임 서버가 폴링해 실행합니다.
 """
 import os
+
+import pandas as pd
 import streamlit as st
 from utils.db_manager import get_db
-from utils.table_schemas import get_create_sql
 from utils.gm_feedback import show_pending_feedback, queue_feedback
+from utils.season_reset import (
+    ACCOUNT_PROGRESS_COLUMNS,
+    RESET_TABLE_DESCRIPTIONS,
+    SEASON_RESET_TABLES,
+    auto_backup_before_reset,
+    run_season_reset,
+)
+from utils.table_schemas import get_create_sql
 
 db = get_db()
 is_connected, msg = db.test_connection()
@@ -433,9 +442,17 @@ def _event_row_enabled(row: dict) -> int:
 
 
 # ---------- 탭 1: 서버 제어 ----------
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    "🖥️ 서버 제어", "👥 플레이어 관리", "🎭 이벤트 관리", "🔄 사용 제한 초기화", "📝 SQL 생성", "📊 서버 배율·최고레벨"
-])
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
+    [
+        "🖥️ 서버 제어",
+        "👥 플레이어 관리",
+        "🎭 이벤트 관리",
+        "🔄 사용 제한 초기화",
+        "📝 SQL 생성",
+        "📊 서버 배율·최고레벨",
+        "🧨 시즌 초기화",
+    ]
+)
 
 with tab1:
     st.write("**서버/월드 조작** — 버튼 누르면 서버가 곧 실행합니다 (폴링 간격 내).")
@@ -1014,6 +1031,75 @@ with tab6:
                 st.rerun()
             else:
                 st.error(err)
+
+# ---------- 탭 7: 시즌 원클릭 초기화 (계정 유지) ----------
+with tab7:
+    st.subheader("🧨 시즌 원클릭 초기화 (계정 유지)")
+    st.error(
+        "유저 **플레이 데이터**를 삭제합니다. `accounts` 로그인 계정은 유지하고, "
+        "캐릭터·인벤·창고·거래·파워볼·복구 큐 등을 초기화합니다. 실행 전 **반드시 백업**을 확인하세요."
+    )
+    st.caption("자동으로 `mysqldump` 전체 백업을 시도한 뒤 TRUNCATE 를 진행합니다.")
+
+    with st.expander("초기화 대상 테이블 보기"):
+        existing_tables = set(db.get_all_tables())
+        exist_rows = []
+        missing_rows = []
+
+        for t in SEASON_RESET_TABLES:
+            row = {
+                "테이블명": t,
+                "초기화 내용": RESET_TABLE_DESCRIPTIONS.get(t, "유저 플레이 데이터"),
+            }
+            if t in existing_tables:
+                exist_rows.append(row)
+            else:
+                missing_rows.append(row)
+
+        st.markdown("**✅ 현재 DB에 존재(초기화 대상)**")
+        if exist_rows:
+            st.dataframe(pd.DataFrame(exist_rows), hide_index=True, use_container_width=True)
+        else:
+            st.info("초기화 대상 중 현재 DB에 존재하는 테이블이 없습니다.")
+
+        st.markdown("**⚠️ 문서 기준이나 현재 DB에 없음(건너뜀)**")
+        if missing_rows:
+            st.dataframe(pd.DataFrame(missing_rows), hide_index=True, use_container_width=True)
+        else:
+            st.caption("문서 기준 대상 테이블이 모두 DB에 존재합니다.")
+
+        st.caption(
+            "추가 동작: accounts 진행성 컬럼만 0으로 리셋 "
+            f"({', '.join(ACCOUNT_PROGRESS_COLUMNS)})"
+        )
+
+    confirm_check = st.checkbox("위 내용을 확인했고, 시즌 초기화를 진행합니다.", key="season_confirm_check")
+    confirm_text = st.text_input("확인 문구 입력", placeholder="시즌초기화", key="season_confirm_text")
+
+    btn_col, msg_col = st.columns([1, 2])
+    with btn_col:
+        run_reset = st.button("🔥 원클릭 시즌 초기화 실행", type="primary", key="season_run_btn")
+    with msg_col:
+        st.caption("실행 시 mysqldump 백업 후 테이블을 비웁니다.")
+
+    if run_reset:
+        if not confirm_check:
+            st.error("체크박스를 먼저 선택해주세요.")
+        elif confirm_text.strip() != "시즌초기화":
+            st.error("확인 문구가 일치하지 않습니다. `시즌초기화` 를 정확히 입력하세요.")
+        else:
+            b_ok, b_msg, b_path = auto_backup_before_reset(db)
+            if not b_ok:
+                st.error("❌ " + b_msg)
+                st.stop()
+            st.success(f"✅ {b_msg}: `{b_path}`")
+
+            ok, msg = run_season_reset(db)
+            if ok:
+                st.success("✅ " + msg)
+                st.info("다음 단계: 서버 재시작 후 필요 시 **서버 리로드**에서 `전체스폰 리로드`를 실행하세요.")
+            else:
+                st.error("❌ 시즌 초기화 실패: " + msg)
 
 with st.expander("❓ 웹 GM 툴에서 서버 명령이 동작하는 방법"):
     st.markdown("""

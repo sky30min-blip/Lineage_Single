@@ -2,6 +2,9 @@
 몬스터 관리 - monster 테이블 조회/추가/수정 (나비켓과 동일한 상세 설정)
 서버 MonsterDatabase가 읽는 컬럼 기준.
 """
+import hashlib
+
+import pandas as pd
 import streamlit as st
 from utils.db_manager import get_db
 from utils.gm_feedback import show_pending_feedback, queue_feedback
@@ -15,6 +18,17 @@ from utils.gm_db_options import (
     resolve_int_selection,
     resolve_string_selection,
     string_field_options,
+)
+from utils.boss_spawn_schedule import (
+    BOSS_SPAWN_PRESETS,
+    build_spawn_x_y_map,
+    fetch_boss_row,
+    get_notify_column_name,
+    list_boss_spawn_columns,
+    normalize_spawn_days,
+    normalize_spawn_times,
+    parse_first_xyz,
+    row_to_form_defaults,
 )
 
 st.set_page_config(page_title="몬스터 관리", page_icon="🐉", layout="wide")
@@ -44,11 +58,14 @@ try:
         st.warning("monster 테이블이 없습니다. 서버 DB 스키마를 확인하세요.")
         st.stop()
     has_monster_drop = "monster_drop" in tables
+    has_boss_spawn = "monster_spawnlist_boss" in tables
 except Exception as e:
     st.error(f"테이블 목록 조회 실패: {e}")
     st.stop()
 
-tab1, tab2, tab3 = st.tabs(["📋 몬스터 목록", "➕ 몬스터 추가", "✏️ 몬스터 수정"])
+tab1, tab2, tab3, tab4 = st.tabs(
+    ["📋 몬스터 목록", "➕ 몬스터 추가", "✏️ 몬스터 수정", "⏰ 보스 리젠"]
+)
 
 # ========== 탭1: 목록 ==========
 with tab1:
@@ -255,81 +272,84 @@ with tab3:
                 if not row:
                     st.warning("해당 몬스터를 찾을 수 없습니다.")
                 else:
-                    with st.form("monster_edit_form"):
+                    # Streamlit은 위젯 key가 같으면 이전 세션 값을 유지하고 value=는 무시함.
+                    # 선택 몬스터마다 key 접미사를 달아 폼이 DB 값으로 갱신되게 함.
+                    _edit_sk = hashlib.md5(selected.encode("utf-8")).hexdigest()[:16]
+                    with st.form(f"monster_edit_form_{_edit_sk}"):
                         st.markdown("**기본 정보**")
                         c1, c2, c3 = st.columns(3)
                         with c1:
-                            edit_name = st.text_input("이름 (name)", value=str(row.get("name") or ""), key="edit_mname", help=MH["name"])
-                            edit_name_id = st.text_input("name_id", value=str(row.get("name_id") or ""), key="edit_nameid", help=MH["name_id"])
-                            edit_gfx = st.number_input("gfx", value=int(row.get("gfx") or 0), min_value=0, key="edit_gfx", help=MH["gfx"])
+                            edit_name = st.text_input("이름 (name)", value=str(row.get("name") or ""), key=f"edit_mname_{_edit_sk}", help=MH["name"])
+                            edit_name_id = st.text_input("name_id", value=str(row.get("name_id") or ""), key=f"edit_nameid_{_edit_sk}", help=MH["name_id"])
+                            edit_gfx = st.number_input("gfx", value=int(row.get("gfx") or 0), min_value=0, key=f"edit_gfx_{_edit_sk}", help=MH["gfx"])
                             _cur_gm = int(row.get("gfx_mode") or 0)
                             _edit_gm_opts, _edit_gm_i = int_field_options(distinct_monster_ints(db, "gfx_mode"), _cur_gm)
                             edit_gfx_mode_sel = st.selectbox(
                                 "gfx_mode (DB 목록)",
                                 _edit_gm_opts,
                                 index=min(_edit_gm_i, len(_edit_gm_opts) - 1),
-                                key="edit_gfx_mode_sel",
+                                key=f"edit_gfx_mode_sel_{_edit_sk}",
                                 help=MH["gfx_mode"],
                             )
                             edit_gfx_mode_custom = _cur_gm
                             if edit_gfx_mode_sel == CUSTOM_NUM_LABEL:
                                 edit_gfx_mode_custom = st.number_input(
-                                    "gfx_mode 직접 입력", value=_cur_gm, key="edit_gfx_mode_custom"
+                                    "gfx_mode 직접 입력", value=_cur_gm, key=f"edit_gfx_mode_custom_{_edit_sk}"
                                 )
                             edit_gfx_mode = resolve_int_selection(edit_gfx_mode_sel, edit_gfx_mode_custom)
-                            edit_level = st.number_input("level", value=int(row.get("level") or 1), min_value=1, max_value=99, key="edit_level", help=MH["level"])
+                            edit_level = st.number_input("level", value=int(row.get("level") or 1), min_value=1, max_value=99, key=f"edit_level_{_edit_sk}", help=MH["level"])
                         with c2:
-                            edit_hp = st.number_input("hp", value=int(row.get("hp") or 50), min_value=1, key="edit_hp", help=MH["hp"])
-                            edit_mp = st.number_input("mp", value=int(row.get("mp") or 10), min_value=0, key="edit_mp", help=MH["mp"])
-                            edit_exp = st.number_input("exp", value=int(row.get("exp") or 0), min_value=0, key="edit_exp", help=MH["exp"])
-                            edit_boss = st.selectbox("boss", ["false", "true"], index=1 if str(row.get("boss") or "").lower() == "true" else 0, key="edit_boss", help=MH["boss"])
+                            edit_hp = st.number_input("hp", value=int(row.get("hp") or 50), min_value=1, key=f"edit_hp_{_edit_sk}", help=MH["hp"])
+                            edit_mp = st.number_input("mp", value=int(row.get("mp") or 10), min_value=0, key=f"edit_mp_{_edit_sk}", help=MH["mp"])
+                            edit_exp = st.number_input("exp", value=int(row.get("exp") or 0), min_value=0, key=f"edit_exp_{_edit_sk}", help=MH["exp"])
+                            edit_boss = st.selectbox("boss", ["false", "true"], index=1 if str(row.get("boss") or "").lower() == "true" else 0, key=f"edit_boss_{_edit_sk}", help=MH["boss"])
                             _cur_bc = str(row.get("boss_class") or "").strip()
                             _edit_bc_opts, _edit_bc_i = string_field_options(distinct_monster_strings(db, "boss_class"), _cur_bc)
                             edit_boss_class_sel = st.selectbox(
                                 "boss_class (DB 목록)",
                                 _edit_bc_opts,
                                 index=min(_edit_bc_i, len(_edit_bc_opts) - 1),
-                                key="edit_boss_class_sel",
+                                key=f"edit_boss_class_sel_{_edit_sk}",
                                 help=MH["boss_class"],
                             )
                             edit_boss_class_custom = _cur_bc
                             if edit_boss_class_sel == CUSTOM_STR_LABEL:
                                 edit_boss_class_custom = st.text_input(
-                                    "boss_class 직접 입력", value=_cur_bc, key="edit_boss_class_custom"
+                                    "boss_class 직접 입력", value=_cur_bc, key=f"edit_boss_class_custom_{_edit_sk}"
                                 )
                             edit_boss_class = resolve_string_selection(edit_boss_class_sel, edit_boss_class_custom)
                         with c3:
-                            edit_lawful = st.number_input("lawful", value=int(row.get("lawful") or 0), key="edit_lawful", help=MH["lawful"])
-                            edit_mr = st.number_input("mr", value=int(row.get("mr") or 0), key="edit_mr", help=MH["mr"])
-                            edit_ac = st.number_input("ac", value=int(row.get("ac") or 0), key="edit_ac", help=MH["ac"])
+                            edit_lawful = st.number_input("lawful", value=int(row.get("lawful") or 0), key=f"edit_lawful_{_edit_sk}", help=MH["lawful"])
+                            edit_mr = st.number_input("mr", value=int(row.get("mr") or 0), key=f"edit_mr_{_edit_sk}", help=MH["mr"])
+                            edit_ac = st.number_input("ac", value=int(row.get("ac") or 0), key=f"edit_ac_{_edit_sk}", help=MH["ac"])
                             _size = str(row.get("size") or "small").lower()
                             if _size not in ("small", "medium", "large"):
                                 _size = "small"
-                            edit_size = st.selectbox("size", ["small", "medium", "large"], index=["small", "medium", "large"].index(_size), key="edit_size", help=MH["size"])
+                            edit_size = st.selectbox("size", ["small", "medium", "large"], index=["small", "medium", "large"].index(_size), key=f"edit_size_{_edit_sk}", help=MH["size"])
                             _cur_fam = str(row.get("family") or "").strip()
                             _edit_fam_opts, _edit_fam_i = string_field_options(distinct_monster_strings(db, "family"), _cur_fam)
                             edit_family_sel = st.selectbox(
                                 "family (DB 목록)",
                                 _edit_fam_opts,
                                 index=min(_edit_fam_i, len(_edit_fam_opts) - 1),
-                                key="edit_family_sel",
+                                key=f"edit_family_sel_{_edit_sk}",
                                 help=MH["family"],
                             )
                             edit_family_custom = _cur_fam
                             if edit_family_sel == CUSTOM_STR_LABEL:
                                 edit_family_custom = st.text_input(
-                                    "family 직접 입력", value=_cur_fam, key="edit_family_custom"
+                                    "family 직접 입력", value=_cur_fam, key=f"edit_family_custom_{_edit_sk}"
                                 )
                             edit_family = resolve_string_selection(edit_family_sel, edit_family_custom)
 
                         st.markdown("**스탯 (str, dex, con, int, wis, cha)**")
                         s1, s2, s3, s4, s5, s6 = st.columns(6)
-                        with s1: edit_str = st.number_input("str", value=int(row.get("str") or 10), key="edit_str", help=MH["str"])
-                        with s2: edit_dex = st.number_input("dex", value=int(row.get("dex") or 10), key="edit_dex", help=MH["dex"])
-                        with s3: edit_con = st.number_input("con", value=int(row.get("con") or 10), key="edit_con", help=MH["con"])
-                        with s4: edit_int = st.number_input("int", value=int(row.get("int") or 10), key="edit_int", help=MH["int"])
-                        with s5: edit_wis = st.number_input("wis", value=int(row.get("wis") or 10), key="edit_wis", help=MH["wis"])
-                        with s6: edit_cha = st.number_input("cha", value=int(row.get("cha") or 10), key="edit_cha", help=MH["cha"])
+                        with s1: edit_str = st.number_input("str", value=int(row.get("str") or 10), key=f"edit_str_{_edit_sk}", help=MH["str"])
+                        with s2: edit_dex = st.number_input("dex", value=int(row.get("dex") or 10), key=f"edit_dex_{_edit_sk}", help=MH["dex"])
+                        with s3: edit_con = st.number_input("con", value=int(row.get("con") or 10), key=f"edit_con_{_edit_sk}", help=MH["con"])
+                        with s4: edit_int = st.number_input("int", value=int(row.get("int") or 10), key=f"edit_int_{_edit_sk}", help=MH["int"])
+                        with s5: edit_wis = st.number_input("wis", value=int(row.get("wis") or 10), key=f"edit_wis_{_edit_sk}", help=MH["wis"])
+                        with s6: edit_cha = st.number_input("cha", value=int(row.get("cha") or 10), key=f"edit_cha_{_edit_sk}", help=MH["cha"])
 
                         st.markdown("**공격/행동**")
                         a1, a2, a3 = st.columns(3)
@@ -340,13 +360,13 @@ with tab3:
                                 "atk_type (DB 목록)",
                                 _edit_at_opts,
                                 index=min(_edit_at_i, len(_edit_at_opts) - 1),
-                                key="edit_atk_type_sel",
+                                key=f"edit_atk_type_sel_{_edit_sk}",
                                 help=MH["atk_type"],
                             )
                             edit_atk_type_custom = _cur_at
                             if edit_atk_type_sel == CUSTOM_NUM_LABEL:
                                 edit_atk_type_custom = st.number_input(
-                                    "atk_type 직접 입력", value=_cur_at, key="edit_atk_type_custom"
+                                    "atk_type 직접 입력", value=_cur_at, key=f"edit_atk_type_custom_{_edit_sk}"
                                 )
                             edit_atk_type = resolve_int_selection(edit_atk_type_sel, edit_atk_type_custom)
                             _cur_ar = int(row.get("atk_range") or 0)
@@ -355,42 +375,42 @@ with tab3:
                                 "atk_range (DB 목록)",
                                 _edit_ar_opts,
                                 index=min(_edit_ar_i, len(_edit_ar_opts) - 1),
-                                key="edit_atk_range_sel",
+                                key=f"edit_atk_range_sel_{_edit_sk}",
                                 help=MH["atk_range"],
                             )
                             edit_atk_range_custom = _cur_ar
                             if edit_atk_range_sel == CUSTOM_NUM_LABEL:
                                 edit_atk_range_custom = st.number_input(
-                                    "atk_range 직접 입력", value=_cur_ar, key="edit_atk_range_custom"
+                                    "atk_range 직접 입력", value=_cur_ar, key=f"edit_atk_range_custom_{_edit_sk}"
                                 )
                             edit_atk_range = resolve_int_selection(edit_atk_range_sel, edit_atk_range_custom)
                         with a2:
-                            edit_atk_invis = st.selectbox("atk_invis", ["false", "true"], index=1 if str(row.get("atk_invis") or "").lower() == "true" else 0, key="edit_atk_invis", help=MH["atk_invis"])
-                            edit_atk_poly = st.selectbox("atk_poly", ["false", "true"], index=1 if str(row.get("atk_poly") or "").lower() == "true" else 0, key="edit_atk_poly", help=MH["atk_poly"])
+                            edit_atk_invis = st.selectbox("atk_invis", ["false", "true"], index=1 if str(row.get("atk_invis") or "").lower() == "true" else 0, key=f"edit_atk_invis_{_edit_sk}", help=MH["atk_invis"])
+                            edit_atk_poly = st.selectbox("atk_poly", ["false", "true"], index=1 if str(row.get("atk_poly") or "").lower() == "true" else 0, key=f"edit_atk_poly_{_edit_sk}", help=MH["atk_poly"])
                         with a3:
-                            edit_arrowGfx = st.number_input("arrowGfx", value=int(row.get("arrowGfx") or 0), min_value=0, key="edit_arrowGfx", help=MH["arrowGfx"])
+                            edit_arrowGfx = st.number_input("arrowGfx", value=int(row.get("arrowGfx") or 0), min_value=0, key=f"edit_arrowGfx_{_edit_sk}", help=MH["arrowGfx"])
 
                         st.markdown("**플래그 (true/false)**")
                         f1, f2, f3 = st.columns(3)
                         with f1:
-                            edit_is_pickup = st.selectbox("is_pickup", ["false", "true"], index=1 if str(row.get("is_pickup") or "").lower() == "true" else 0, key="edit_pickup", help=MH["is_pickup"])
-                            edit_is_revival = st.selectbox("is_revival", ["false", "true"], index=1 if str(row.get("is_revival") or "").lower() == "true" else 0, key="edit_revival", help=MH["is_revival"])
-                            edit_is_toughskin = st.selectbox("is_toughskin", ["false", "true"], index=1 if str(row.get("is_toughskin") or "").lower() == "true" else 0, key="edit_toughskin", help=MH["is_toughskin"])
+                            edit_is_pickup = st.selectbox("is_pickup", ["false", "true"], index=1 if str(row.get("is_pickup") or "").lower() == "true" else 0, key=f"edit_pickup_{_edit_sk}", help=MH["is_pickup"])
+                            edit_is_revival = st.selectbox("is_revival", ["false", "true"], index=1 if str(row.get("is_revival") or "").lower() == "true" else 0, key=f"edit_revival_{_edit_sk}", help=MH["is_revival"])
+                            edit_is_toughskin = st.selectbox("is_toughskin", ["false", "true"], index=1 if str(row.get("is_toughskin") or "").lower() == "true" else 0, key=f"edit_toughskin_{_edit_sk}", help=MH["is_toughskin"])
                         with f2:
-                            edit_is_adendrop = st.selectbox("is_adendrop", ["false", "true"], index=1 if str(row.get("is_adendrop") or "").lower() == "true" else 0, key="edit_adendrop", help=MH["is_adendrop"])
-                            edit_is_taming = st.selectbox("is_taming", ["false", "true"], index=1 if str(row.get("is_taming") or "").lower() == "true" else 0, key="edit_taming", help=MH["is_taming"])
-                            edit_is_undead = st.selectbox("is_undead", ["false", "true"], index=1 if str(row.get("is_undead") or "").lower() == "true" else 0, key="edit_undead", help=MH["is_undead"])
+                            edit_is_adendrop = st.selectbox("is_adendrop", ["false", "true"], index=1 if str(row.get("is_adendrop") or "").lower() == "true" else 0, key=f"edit_adendrop_{_edit_sk}", help=MH["is_adendrop"])
+                            edit_is_taming = st.selectbox("is_taming", ["false", "true"], index=1 if str(row.get("is_taming") or "").lower() == "true" else 0, key=f"edit_taming_{_edit_sk}", help=MH["is_taming"])
+                            edit_is_undead = st.selectbox("is_undead", ["false", "true"], index=1 if str(row.get("is_undead") or "").lower() == "true" else 0, key=f"edit_undead_{_edit_sk}", help=MH["is_undead"])
                         with f3:
-                            edit_is_turn_undead = st.selectbox("is_turn_undead", ["false", "true"], index=1 if str(row.get("is_turn_undead") or "").lower() == "true" else 0, key="edit_turn_undead", help=MH["is_turn_undead"])
-                            edit_haste = st.selectbox("haste", ["false", "true"], index=1 if str(row.get("haste") or "").lower() == "true" else 0, key="edit_haste", help=MH["haste"])
-                            edit_bravery = st.selectbox("bravery", ["false", "true"], index=1 if str(row.get("bravery") or "").lower() == "true" else 0, key="edit_bravery", help=MH["bravery"])
+                            edit_is_turn_undead = st.selectbox("is_turn_undead", ["false", "true"], index=1 if str(row.get("is_turn_undead") or "").lower() == "true" else 0, key=f"edit_turn_undead_{_edit_sk}", help=MH["is_turn_undead"])
+                            edit_haste = st.selectbox("haste", ["false", "true"], index=1 if str(row.get("haste") or "").lower() == "true" else 0, key=f"edit_haste_{_edit_sk}", help=MH["haste"])
+                            edit_bravery = st.selectbox("bravery", ["false", "true"], index=1 if str(row.get("bravery") or "").lower() == "true" else 0, key=f"edit_bravery_{_edit_sk}", help=MH["bravery"])
 
                         st.markdown("**속성 저항 (resistance)**")
                         r1, r2, r3, r4 = st.columns(4)
-                        with r1: edit_res_earth = st.number_input("resistance_earth", value=int(row.get("resistance_earth") or 0), key="edit_res_earth", help=MH["resistance_earth"])
-                        with r2: edit_res_fire = st.number_input("resistance_fire", value=int(row.get("resistance_fire") or 0), key="edit_res_fire", help=MH["resistance_fire"])
-                        with r3: edit_res_wind = st.number_input("resistance_wind", value=int(row.get("resistance_wind") or 0), key="edit_res_wind", help=MH["resistance_wind"])
-                        with r4: edit_res_water = st.number_input("resistance_water", value=int(row.get("resistance_water") or 0), key="edit_res_water", help=MH["resistance_water"])
+                        with r1: edit_res_earth = st.number_input("resistance_earth", value=int(row.get("resistance_earth") or 0), key=f"edit_res_earth_{_edit_sk}", help=MH["resistance_earth"])
+                        with r2: edit_res_fire = st.number_input("resistance_fire", value=int(row.get("resistance_fire") or 0), key=f"edit_res_fire_{_edit_sk}", help=MH["resistance_fire"])
+                        with r3: edit_res_wind = st.number_input("resistance_wind", value=int(row.get("resistance_wind") or 0), key=f"edit_res_wind_{_edit_sk}", help=MH["resistance_wind"])
+                        with r4: edit_res_water = st.number_input("resistance_water", value=int(row.get("resistance_water") or 0), key=f"edit_res_water_{_edit_sk}", help=MH["resistance_water"])
 
                         if st.form_submit_button("수정 반영"):
                             sql = """UPDATE monster SET
@@ -423,25 +443,80 @@ with tab3:
                     if has_monster_drop:
                         st.divider()
                         st.subheader("🎁 드랍 아이템 수정")
-                        st.caption("아데나: 최소~최대 드랍량. 주문서 등: 최소~최대 개수 (예: 1~1 = 1개만 드랍). 저장 후 **서버 리로드** 페이지에서 monster_drop 리로드를 실행하세요.")
+                        st.caption(
+                            "아데나: 최소~최대 드랍량. 주문서 등: 최소~최대 개수. "
+                            "**item_bress**: 서버가 드랍 시 `setBless`에 넣는 값 — **0=축복, 1=일반, 2=저주**. "
+                            "무기 이름은 **`weapon`/`item`에 있는 그대로**(예: 일본도) 쓰면 되고, **축복 전용 행을 item에 추가할 필요는 없습니다.** "
+                            "DB **PRIMARY KEY**는 `(monster_name, item_name, item_bress, item_en)` 이라 **같은 조합은 한 줄만** 가능합니다. "
+                            "저장 후 **서버 리로드**에서 monster_drop 리로드."
+                        )
                         drops = db.fetch_all(
-                            "SELECT name, monster_name, item_name, item_bress, item_en, count_min, count_max, chance FROM monster_drop WHERE monster_name = %s ORDER BY item_name",
+                            "SELECT name, monster_name, item_name, item_bress, item_en, count_min, count_max, chance "
+                            "FROM monster_drop WHERE monster_name = %s ORDER BY item_name, item_bress, item_en",
                             (selected,),
                         )
                         if drops:
                             st.markdown("**현재 드랍 목록**")
+                            st.caption(
+                                f"**총 {len(drops)}건** (DB `monster_name` 이 선택 몬스터와 일치하는 행만 표시됩니다.)"
+                            )
+                            _tbl = []
+                            for d in drops:
+                                _bn = d.get("item_bress")
+                                try:
+                                    _bn = int(_bn) if _bn is not None else 1
+                                except (TypeError, ValueError):
+                                    _bn = 1
+                                try:
+                                    _en = int(d.get("item_en") or 0)
+                                except (TypeError, ValueError):
+                                    _en = 0
+                                _bl = "축복" if _bn == 0 else "저주" if _bn == 2 else "일반"
+                                _tbl.append(
+                                    {
+                                        "아이템": d.get("item_name") or "",
+                                        "축복구분": _bl,
+                                        "bress": _bn,
+                                        "인챈": _en,
+                                        "최소": d.get("count_min"),
+                                        "최대": d.get("count_max"),
+                                        "확률(%)": d.get("chance"),
+                                        "name(참고)": d.get("name") or "",
+                                    }
+                                )
+                            st.dataframe(
+                                pd.DataFrame(_tbl),
+                                use_container_width=True,
+                                height=min(420, max(120, 36 + len(_tbl) * 35)),
+                            )
                             for d in drops:
                                 item_name = d.get("item_name") or ""
                                 cmin = d.get("count_min")
                                 cmax = d.get("count_max")
                                 ch = d.get("chance")
-                                bress = d.get("item_bress") or 0
-                                en = d.get("item_en") or 0
-                                del_key = f"del_drop_{selected}_{item_name}_{bress}_{en}"
-                                edit_key = f"edit_drop_{selected}_{item_name}_{bress}_{en}"
+                                bress = d.get("item_bress")
+                                if bress is None:
+                                    bress = 1
+                                try:
+                                    bress = int(bress)
+                                except (TypeError, ValueError):
+                                    bress = 1
+                                try:
+                                    en = int(d.get("item_en") or 0)
+                                except (TypeError, ValueError):
+                                    en = 0
+                                bress_lbl = "축복" if bress == 0 else "저주" if bress == 2 else "일반"
+                                # item_name·특수문자·동일 제목 expander 충돌 방지: 행마다 고유 키·제목
+                                _rk = hashlib.md5(
+                                    f"{selected}\0{item_name}\0{bress}\0{en}".encode("utf-8")
+                                ).hexdigest()[:16]
+                                del_key = f"del_drop_{_rk}"
+                                edit_key = f"edit_drop_{_rk}"
                                 col1, col2 = st.columns([4, 1])
                                 with col1:
-                                    st.text(f"• {item_name}  |  최소 {cmin} ~ 최대 {cmax}  |  확률 {ch}%")
+                                    st.text(
+                                        f"• {item_name}  |  {bress_lbl}(bress={bress})  |  인챈{en}  |  최소 {cmin} ~ 최대 {cmax}  |  확률 {ch}%"
+                                    )
                                 with col2:
                                     if st.button("삭제", key=del_key):
                                         ok, err = db.execute_query_ex(
@@ -453,17 +528,56 @@ with tab3:
                                             st.rerun()
                                         else:
                                             st.error(f"❌ 삭제 실패: {err}")
-                                with st.expander(f"✏️ 수정: {item_name}", expanded=False):
+                                with st.expander(
+                                    f"✏️ 수정: {item_name} | {bress_lbl} | 인챈{en}",
+                                    expanded=False,
+                                ):
+                                    _bress_idx = {1: 0, 0: 1, 2: 2}.get(bress, 0)
+                                    new_bress_sel = st.selectbox(
+                                        "드랍 시 축복·저주 (item_bress)",
+                                        options=[(1, "일반 (1)"), (0, "축복 (0)"), (2, "저주 (2)")],
+                                        format_func=lambda x: x[1],
+                                        index=_bress_idx,
+                                        key=f"ebress_{edit_key}",
+                                        help="0=축복, 1=일반, 2=저주. 저장 시 이 행의 bress·인챈이 함께 갱신됩니다.",
+                                    )
+                                    new_en = st.number_input(
+                                        "드랍 인챈 단계 (item_en)",
+                                        min_value=0,
+                                        max_value=20,
+                                        value=en,
+                                        key=f"een_{edit_key}",
+                                    )
                                     new_cmin = st.number_input("최소 수량", min_value=1, value=int(cmin) if cmin is not None else 1, key=f"ecmin_{edit_key}")
                                     new_cmax = st.number_input("최대 수량", min_value=1, value=int(cmax) if cmax is not None else 1, key=f"ecmax_{edit_key}")
-                                    new_chance = st.number_input("드랍 확률 (%)", min_value=0, max_value=100, value=int(float(ch)) if ch is not None else 50, key=f"ech_{edit_key}")
+                                    new_chance = st.number_input(
+                                        "드랍 확률 (DB chance 값)",
+                                        min_value=0.0,
+                                        max_value=100.0,
+                                        value=float(ch) if ch is not None else 50.0,
+                                        step=0.01,
+                                        format="%.4g",
+                                        key=f"ech_{edit_key}",
+                                        help="서버: (이 값×0.01)×rate_drop 로 최종 확률. 예: 10→10%, 0.5→0.5% 기본. 배율 20배면 0.5→실제 약 10%.",
+                                    )
                                     if st.button("수정 반영", key=f"apply_{edit_key}"):
                                         if new_cmin > new_cmax:
                                             st.warning("최소 수량이 최대 수량보다 클 수 없습니다.")
                                         else:
+                                            new_bress = int(new_bress_sel[0])
                                             ok, err = db.execute_query_ex(
-                                                "UPDATE monster_drop SET count_min=%s, count_max=%s, chance=%s WHERE monster_name=%s AND item_name=%s AND item_bress=%s AND item_en=%s",
-                                                (new_cmin, new_cmax, str(new_chance), selected, item_name, bress, en),
+                                                "UPDATE monster_drop SET count_min=%s, count_max=%s, chance=%s, item_bress=%s, item_en=%s WHERE monster_name=%s AND item_name=%s AND item_bress=%s AND item_en=%s",
+                                                (
+                                                    new_cmin,
+                                                    new_cmax,
+                                                    str(new_chance),
+                                                    new_bress,
+                                                    int(new_en),
+                                                    selected,
+                                                    item_name,
+                                                    bress,
+                                                    en,
+                                                ),
                                             )
                                             if ok:
                                                 queue_feedback("success", "✅ 드랍 정보가 수정되었습니다.")
@@ -494,6 +608,21 @@ with tab3:
                                         add_item_name = st.selectbox("추가할 아이템 선택", item_options, key="drop_add_item")
                                 else:
                                     st.caption("검색 결과 없음")
+                            drop_bress = st.selectbox(
+                                "드랍 시 축복·저주 (item_bress)",
+                                options=[(1, "일반 (1)"), (0, "축복 (0)"), (2, "저주 (2)")],
+                                format_func=lambda x: x[1],
+                                index=0,
+                                key="drop_add_bress",
+                                help="서버 MonsterInstance 가 드랍 아이템에 setBless(item_bress) 합니다. 무기·소모품 공통.",
+                            )
+                            add_item_en = st.number_input(
+                                "드랍 인챈 단계 (item_en)",
+                                min_value=0,
+                                max_value=20,
+                                value=0,
+                                key="drop_add_en",
+                            )
                             st.markdown("**수량·확률**")
                             c1, c2, c3 = st.columns(3)
                             with c1:
@@ -501,7 +630,16 @@ with tab3:
                             with c2:
                                 add_count_max = st.number_input("최대 수량 (아데나: 최대 금액, 주문서 등: 최대 개수)", min_value=1, value=1, key="drop_cmax")
                             with c3:
-                                add_chance = st.number_input("드랍 확률 (%)", min_value=0, max_value=100, value=50, key="drop_chance")
+                                add_chance = st.number_input(
+                                    "드랍 확률 (DB chance 값)",
+                                    min_value=0.0,
+                                    max_value=100.0,
+                                    value=50.0,
+                                    step=0.01,
+                                    format="%.4g",
+                                    key="drop_chance",
+                                    help="서버: (이 값×0.01)×rate_drop. 소수 가능(예: 0.5).",
+                                )
                             if st.button("드랍 추가", key="drop_add_btn"):
                                 if not add_item_name:
                                     st.warning("위에서 아이템 이름을 검색한 뒤, 추가할 아이템을 선택하세요.")
@@ -509,17 +647,159 @@ with tab3:
                                     st.warning("최소 수량이 최대 수량보다 클 수 없습니다.")
                                 else:
                                     name_val = add_item_name
-                                    ok, err = db.execute_query_ex(
-                                        "INSERT INTO monster_drop (name, monster_name, item_name, item_bress, item_en, count_min, count_max, chance) VALUES (%s, %s, %s, 0, 0, %s, %s, %s)",
-                                        (name_val, selected, add_item_name, add_count_min, add_count_max, str(add_chance)),
+                                    ib = int(drop_bress[0])
+                                    ie = int(add_item_en)
+                                    dup = db.fetch_one(
+                                        "SELECT 1 AS x FROM monster_drop WHERE monster_name=%s AND item_name=%s AND item_bress=%s AND item_en=%s LIMIT 1",
+                                        (selected, add_item_name, ib, ie),
                                     )
-                                    if ok:
-                                        queue_feedback(
-                                            "success",
-                                            f"✅ '{add_item_name}' 드랍이 추가되었습니다. 서버 리로드 페이지에서 monster_drop 리로드를 실행하세요.",
+                                    if dup:
+                                        _bl = "축복" if ib == 0 else "저주" if ib == 2 else "일반"
+                                        st.warning(
+                                            f"**이미 등록된 드랍입니다 (중복).** "
+                                            f"몬스터 `{selected}` · 아이템 `{add_item_name}` · {_bl}(bress={ib}) · 인챈{ie} 조합은 DB에 있습니다. "
+                                            f"위 **현재 드랍 목록** 표에서 해당 행을 찾아 **✏️ 수정**으로 수량·확률을 바꾸세요."
                                         )
-                                        st.rerun()
                                     else:
-                                        st.error(f"❌ 드랍 추가 실패: {err}")
+                                        ok, err = db.execute_query_ex(
+                                            "INSERT INTO monster_drop (name, monster_name, item_name, item_bress, item_en, count_min, count_max, chance) "
+                                            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                                            (name_val, selected, add_item_name, ib, ie, add_count_min, add_count_max, str(add_chance)),
+                                        )
+                                        if ok:
+                                            queue_feedback(
+                                                "success",
+                                                f"✅ '{add_item_name}' 드랍이 추가되었습니다. 서버 리로드 페이지에서 monster_drop 리로드를 실행하세요.",
+                                            )
+                                            st.rerun()
+                                        else:
+                                            st.error(f"❌ 드랍 추가 실패: {err}")
     except Exception as e:
         st.error(f"수정 오류: {e}")
+
+# ========== 탭4: 보스 리젠 (monster_spawnlist_boss) ==========
+with tab4:
+    st.subheader("⏰ 보스 리젠 (monster_spawnlist_boss)")
+    st.caption(
+        "요일·시각·좌표(X,Y,map)를 바꿉니다. **스폰 시각** 또는 **요일**을 비우면 해당 보스는 **시간 스폰되지 않습니다.** "
+        "저장 후 서버에서 **monster_spawnlist_boss 리로드** 또는 **재기동**이 필요합니다."
+    )
+    if not has_boss_spawn:
+        st.warning("monster_spawnlist_boss 테이블이 없습니다. DB 스키마를 확인하세요.")
+    else:
+        all_cols = list_boss_spawn_columns(db)
+        notify_col = get_notify_column_name(db)
+        if notify_col not in all_cols:
+            notify_col = "스폰알림여부"
+
+        with st.expander("카스파 일행 (메르키오르 · 발터자르 · 세마)", expanded=False):
+            st.markdown(
+                """
+**카스파**가 스폰될 때 서버 `BossController`가 **세마·발터자르·메르키오르**를 같은 맵에 자동 소환합니다.  
+이 몬스터들은 **별도 `monster_spawnlist_boss` 행이 없습니다.** 리젠 시간·맵은 아래 **카스파**만 수정하면 됩니다.
+"""
+            )
+        with st.expander("커츠 군단 (해적선 · 흑기사)", expanded=False):
+            st.markdown(
+                """
+**커츠**가 스폰될 때 서버 `BossController`가 **해적선·흑기사** 등을 추가로 소환합니다.  
+시간·좌표는 아래 **커츠** 행만 수정하면 됩니다.
+"""
+            )
+
+        for idx, preset in enumerate(BOSS_SPAWN_PRESETS):
+            pk = preset["name"]
+            row = fetch_boss_row(db, pk)
+            fd = row_to_form_defaults(row, preset)
+            x0, y0, m0 = parse_first_xyz(fd["spawn_x_y_map"])
+            mark = "✅" if row else "⚪"
+            with st.expander(f"{mark} {preset['label']} (`{pk}`)", expanded=False):
+                st.caption("DB에 등록됨" if row else "DB에 없음 — 저장 시 **INSERT** 됩니다.")
+                with st.form(f"boss_spawn_{idx}_{pk}"):
+                    f_monster = st.text_input(
+                        "monster (monster 테이블 이름)",
+                        value=fd["monster"],
+                        key=f"bs_mon_{idx}",
+                    )
+                    cx1, cx2, cx3 = st.columns(3)
+                    with cx1:
+                        f_x = st.number_input("X", value=int(x0), step=1, key=f"bs_x_{idx}")
+                    with cx2:
+                        f_y = st.number_input("Y", value=int(y0), step=1, key=f"bs_y_{idx}")
+                    with cx3:
+                        f_map = st.number_input("map", value=int(m0), step=1, key=f"bs_map_{idx}")
+                    f_time = st.text_input(
+                        "스폰 시각 (쉼표 구분)",
+                        value=fd["spawn_time"],
+                        help="예: 10:00, 22:00. **비우면 스폰 시각이 없어 스폰되지 않습니다.**",
+                        key=f"bs_t_{idx}",
+                    )
+                    f_day = st.text_input(
+                        "요일 (쉼표 구분)",
+                        value=fd["spawn_day"],
+                        help="예: 월, 화, 수, 목, 금, 토, 일. **비우면 요일이 없어 스폰되지 않습니다.**",
+                        key=f"bs_d_{idx}",
+                    )
+                    f_group = st.text_input(
+                        "group_monster (고급, 비우면 미사용)",
+                        value=fd["group_monster"],
+                        help="서버 Boss 그룹 스폰 문법이 있을 때만 입력",
+                        key=f"bs_g_{idx}",
+                    )
+                    f_notify = st.checkbox(
+                        "스폰 알림 사용",
+                        value=fd["notify"],
+                        key=f"bs_n_{idx}",
+                        help="켜면 스폰 직후 월드 전체 채팅에 `[보스이름]가 소환되었습니다.` 가 나갑니다. 끄면 스폰만 됩니다.",
+                    )
+
+                    save = st.form_submit_button("💾 저장 (없으면 추가)")
+                    if save:
+                        if not (f_monster or "").strip():
+                            st.warning("monster 이름을 입력하세요.")
+                        elif notify_col not in all_cols:
+                            st.error("스폰 알림 컬럼을 스키마에서 찾지 못했습니다.")
+                        else:
+                            sxym = build_spawn_x_y_map(int(f_x), int(f_y), int(f_map))
+                            st_norm = normalize_spawn_times(f_time)
+                            sd_norm = normalize_spawn_days(f_day)
+                            nval = 1 if f_notify else 0
+                            qn = notify_col.replace("`", "")
+                            if row:
+                                sql = (
+                                    f"UPDATE monster_spawnlist_boss SET monster=%s, spawn_x_y_map=%s, "
+                                    f"spawn_time=%s, spawn_day=%s, group_monster=%s, `{qn}`=%s WHERE name=%s"
+                                )
+                                params = (
+                                    f_monster.strip(),
+                                    sxym,
+                                    st_norm,
+                                    sd_norm,
+                                    (f_group or "").strip(),
+                                    nval,
+                                    pk,
+                                )
+                            else:
+                                sql = (
+                                    f"INSERT INTO monster_spawnlist_boss "
+                                    f"(name, monster, spawn_x_y_map, spawn_time, spawn_day, group_monster, `{qn}`) "
+                                    f"VALUES (%s,%s,%s,%s,%s,%s,%s)"
+                                )
+                                params = (
+                                    pk,
+                                    f_monster.strip(),
+                                    sxym,
+                                    st_norm,
+                                    sd_norm,
+                                    (f_group or "").strip(),
+                                    nval,
+                                )
+                            ok, err = db.execute_query_ex(sql, params)
+                            if ok:
+                                queue_feedback(
+                                    "success",
+                                    f"✅ `{pk}` 보스 스폰 설정을 저장했습니다. 서버에서 리로드하세요.",
+                                )
+                                st.rerun()
+                            else:
+                                st.error(f"저장 실패: {err}")
