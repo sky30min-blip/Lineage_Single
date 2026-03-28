@@ -5,8 +5,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Date;
 import java.util.List;
+import java.util.TimeZone;
 
 import lineage.bean.database.Dungeon;
 import lineage.network.packet.BasePacketPooling;
@@ -87,6 +87,11 @@ public final class TimeDungeonDatabase {
 		}
 		return false;
 	}
+
+	/** 기란감옥(수상한 감옥) 층 맵 — 타이머·자정 대피 공통 */
+	static public boolean isGiranDungeonMap(int map) {
+		return (map >= 53 && map <= 56) || (map >= 653 && map <= 656);
+	}
 	
 	/**
 	 * 시간제 던전의 이용시간을 모두 사용하였을 경우 처리하는 함수
@@ -94,35 +99,28 @@ public final class TimeDungeonDatabase {
 	 * by all-night
 	 */
 	static public void isTimeDungeonFinal(PcInstance pc, int type){
-		if (pc != null && !pc.isWorldDelete() && !pc.isDead() && !pc.isLock()) {
-			switch (type) {
-			// 기란감옥
-			case 0:
-				ChattingController.toChatting(pc, "기란감옥 이용시간을 모두 사용하셨습니다.", Lineage.CHATTING_MODE_MESSAGE);
-				ChattingController.toChatting(pc, 
-						String.format("던전 이용시간은 %s %d시 초기화 됩니다.", 
-								Lineage.giran_dungeon_inti_time < 12 ? "오전" : "오후", 
-								Lineage.giran_dungeon_inti_time > 12 ? Lineage.giran_dungeon_inti_time - 12 : Lineage.giran_dungeon_inti_time), 
-								Lineage.CHATTING_MODE_MESSAGE);
-				break;
-			}
-			
-			if (pc.isAutoHunt) {
-				pc.endAutoHunt(false, false);
-			}
-			
-			int[] loc = Lineage.getHomeXY();
-			pc.toPotal(loc[0], loc[1],loc[2]);
+		if (pc == null || pc.isWorldDelete() || pc.isLock())
+			return;
+		switch (type) {
+		case 0:
+			ChattingController.toChatting(pc, "기란감옥 이용시간을 모두 사용하셨습니다.", Lineage.CHATTING_MODE_MESSAGE);
+			ChattingController.toChatting(pc,
+					String.format("던전 이용시간은 매일 자정(%s %d시)에 초기화됩니다.",
+							Lineage.giran_dungeon_inti_time < 12 ? "오전" : "오후",
+							Lineage.giran_dungeon_inti_time > 12 ? Lineage.giran_dungeon_inti_time - 12 : Lineage.giran_dungeon_inti_time),
+					Lineage.CHATTING_MODE_MESSAGE);
+			break;
 		}
-
+		int[] loc = Lineage.getHomeXY();
+		pc.toReviveAndTeleportForGiranDungeonReset(loc[0], loc[1], loc[2]);
 	}
 	
 	static public void toTimer(long time) {
-		calendar.setTimeInMillis(time);
-		Date date = calendar.getTime();
-		int hour = date.getHours();
-		int min = date.getMinutes();
-		int sec = date.getSeconds();
+		Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul"));
+		cal.setTimeInMillis(time);
+		int hour = cal.get(Calendar.HOUR_OF_DAY);
+		int min = cal.get(Calendar.MINUTE);
+		int sec = cal.get(Calendar.SECOND);
 		
 		// 기란감옥 이용시간 초기화
 		if (hour == Lineage.giran_dungeon_inti_time && min == 0 && sec == 0)
@@ -170,12 +168,20 @@ public final class TimeDungeonDatabase {
 		World.toSender(S_ObjectChatting.clone(BasePacketPooling.getPool(S_ObjectChatting.class), String.format("[알림] 컨텐츠 이용횟수가 초기화 되었습니다")));
 	}
 	static public void resetGiranDungeonTime() {
+		// 1) 접속 중: 던전(사망 포함) → 기란 마을로 보낸 뒤 2) 오프라인 캐릭 좌표 DB 정리 3) 계정 일일 시간 충전
+		for (PcInstance pc : new ArrayList<PcInstance>(World.getPcList())) {
+			if (pc == null || pc.isWorldDelete())
+				continue;
+			if (!isGiranDungeonMap(pc.getMap()))
+				continue;
+			ChattingController.toChatting(pc, "[기란감옥] 자정 초기화로 기란 마을로 이동합니다. 이용 시간이 다시 충전됩니다.", Lineage.CHATTING_MODE_MESSAGE);
+			int[] loc = Lineage.getHomeXY();
+			pc.toReviveAndTeleportForGiranDungeonReset(loc[0], loc[1], loc[2]);
+		}
+		CharactersDatabase.evacuateOfflineFromGiranDungeonMapsToGiranTown();
 		CharactersDatabase.updateGiranDungeonTime();
-		
 		for (PcInstance pc : World.getPcList())
 			pc.setGiran_dungeon_time(Lineage.giran_dungeon_time);
-		
-		
 	}
 	static public void resetAutoTime() {
 		CharactersDatabase.updateAutoCount();

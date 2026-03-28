@@ -1,4 +1,4 @@
-# GM툴 + 서버 파워볼 오버레이를 백업 폴더에서 복사합니다. (이후 Ant 빌드 및 호환 패치 필요할 수 있음)
+# GM툴 + 서버 파워볼 오버레이를 백업 폴더에서 복사합니다. (이후 compile.bat 빌드 및 호환 패치 필요할 수 있음)
 param(
   [Parameter(Mandatory = $false)]
   [string] $BackupDir = "D:\Lineage_GM_Powerball_backup_20260326_105713"
@@ -27,4 +27,4 @@ if (Test-Path $cfg) {
 }
 
 Write-Host "복사 완료."
-Write-Host "Ant 빌드: Set-Location '$($Pack.FullName)'; & 'D:\Lineage_Single\_tools\apache-ant-1.10.14\bin\ant.bat' -noinput all"
+Write-Host "빌드: Set-Location '$($Pack.FullName)'; .\compile.bat"

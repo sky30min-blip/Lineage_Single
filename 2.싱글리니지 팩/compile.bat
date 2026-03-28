@@ -2,6 +2,13 @@
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
+REM 서버 소스는 Java 8(1.8) 기준. 미설정 시 Cursor/VS Code(.vscode)와 동일하게 D:\jdk8 사용.
+if "%JAVA_HOME%"=="" set "JAVA_HOME=D:\jdk8"
+if not exist "%JAVA_HOME%\bin\javac.exe" (
+    echo [오류] javac 없음. JAVA_HOME=%JAVA_HOME% ^(JDK 8 설치 경로로 맞추세요^)
+    exit /b 1
+)
+
 set "CP="
 for %%f in (lib\*.jar) do set "CP=!CP!;%%f"
 set "CP=!CP:~1!"

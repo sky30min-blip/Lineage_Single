@@ -191,9 +191,12 @@ public class PowerBallAnnouncer {
      * 추첨 결과 발표: 일반볼 NPC가 5개 번호 발표 → 파워볼 NPC 발표 → 진행자가 종합+오늘 통계 (같은 맵 채팅만, 전체 채팅 없음).
      * @param todayOdd 오늘 홀 회차 수
      * @param todayEven 오늘 짝 회차 수
+     * @param todayUnder 오늘 언더 회차 수
+     * @param todayOver 오늘 오버 회차 수
      */
     public void announceResult(final PowerBallResult result, final int roundDisplay,
-            final int todayOdd, final int todayEven, final Runnable onComplete, final object progressor) {
+            final int todayOdd, final int todayEven, final int todayUnder, final int todayOver,
+            final Runnable onComplete, final object progressor) {
         if (result == null) {
             if (onComplete != null) onComplete.run();
             return;
@@ -240,9 +243,9 @@ public class PowerBallAnnouncer {
                     // 요청사항: 진행자 방향은 heading 5 고정.
                     setHeading진행자AndBroadcast(progress);
                     String pair = formatResultPair(result.isOdd(), result.isTotalUnder());
-                    String summary = String.format("제%d회차는 %d, %d, %d, %d, %d, %d 로 총 %d %s 입니다. 오늘 홀 %d회 | 짝 %d회",
+                    String summary = String.format("제%d회차는 %d, %d, %d, %d, %d, %d 로 총 %d %s 입니다. 오늘 홀 %d회 | 짝 %d회 | 언더 %d회 | 오버 %d회",
                         roundDisplay, normals[0], normals[1], normals[2], normals[3], normals[4], power,
-                        total, pair, todayOdd, todayEven);
+                        total, pair, todayOdd, todayEven, todayUnder, todayOver);
                     npcSayToMap(progress, summary);
                 }
             } catch (InterruptedException e) {

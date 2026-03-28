@@ -32,28 +32,26 @@ public class IceDungeonController {
 		int hour = date.getHours();
 		int min = date.getMinutes();
 		int nowday = getDayOfWeek ();
-		
-		if(nowday == 1 || nowday == 7){
-			for (TeamBattleTime tebeTime : Lineage.ice_dungeon_time_list2) {
-				// 얼던 시작.
-				if (!isOpen && tebeTime.getHour() == hour && tebeTime.getMin() == min) {
-					isOpen = true;
-					iceEndTime = time + (1000 * Lineage.ice_play_time);
-					sendMessage();
+		int playSec = GmEventSettings.getPlayTimeSeconds(GmEventSettings.ICEDUNGEON, Lineage.ice_play_time);
+
+		if (GmEventSettings.isEnabled(GmEventSettings.ICEDUNGEON)) {
+			if(nowday == 1 || nowday == 7){
+				for (TeamBattleTime tebeTime : Lineage.ice_dungeon_time_list2) {
+					if (!isOpen && tebeTime.getHour() == hour && tebeTime.getMin() == min) {
+						isOpen = true;
+						iceEndTime = time + (1000L * playSec);
+						sendMessage();
+					}
+				}
+			}else{
+				for (TeamBattleTime tebeTime : Lineage.ice_dungeon_time_list) {
+					if (!isOpen && tebeTime.getHour() == hour && tebeTime.getMin() == min) {
+						isOpen = true;
+						iceEndTime = time + (1000L * playSec);
+						sendMessage();
+					}
 				}
 			}
-			
-			
-		}else{
-			for (TeamBattleTime tebeTime : Lineage.ice_dungeon_time_list) {
-				// 얼던 시작.
-				if (!isOpen && tebeTime.getHour() == hour && tebeTime.getMin() == min) {
-					isOpen = true;
-					iceEndTime = time + (1000 * Lineage.ice_play_time);
-					sendMessage();
-				}
-			}
-			
 		}
 	
 		// 얼던 종료.
@@ -64,6 +62,8 @@ public class IceDungeonController {
 	}
 	
 	static public void sendMessage() {
+		if (!GmEventSettings.isEnabled(GmEventSettings.ICEDUNGEON))
+			return;
 		if (isOpen) {
 			String msg = "\\fY      ***** 얼던으로 가는길이 열렸습니다. *****";
 			World.toSender(S_ObjectChatting.clone(BasePacketPooling.getPool(S_ObjectChatting.class), msg));

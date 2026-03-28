@@ -48,12 +48,14 @@ public class DollRaceController2 {
     }
 
     static public void toTimer(long time) {
+        if (!GmEventSettings.isEnabled(GmEventSettings.DOLLRACE))
+            return;
         calendar.setTimeInMillis(time);
         Date date = calendar.getTime();
         int hour = date.getHours();
         int min = date.getMinutes();
         int sec = date.getSeconds();
-
+        String bossName = GmEventSettings.getMonsterName(GmEventSettings.DOLLRACE, "데스나이트");
 
         for (TeamBattleTime teamTime : Lineage.bug_list) {
 
@@ -125,7 +127,7 @@ public class DollRaceController2 {
             }
 
             scheduler.schedule(() -> {
-                MonsterInstance boss = MonsterSpawnlistDatabase.newInstance(MonsterDatabase.find("데스나이트"));
+                MonsterInstance boss = MonsterSpawnlistDatabase.newInstance(MonsterDatabase.find(bossName));
                 boss.setHomeX(32828);
                 boss.setHomeY(33148);
                 boss.setHomeMap(508);

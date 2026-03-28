@@ -42,6 +42,11 @@ public class Giran_dungeon_Telepoter extends object {
 		        ChattingController.toChatting(pc, String.format("기란감옥은 %d레벨 이상 입장가능합니다.", Lineage.giran_dungeon_level), Lineage.CHATTING_MODE_MESSAGE);
 		        return;
 		    }
+		    // 시간제 사용 시 2·3층 이동과 동일하게 잔여 시간 없으면 653 직행 입장 차단
+		    if (Lineage.is_giran_dungeon_time && pc.getGiran_dungeon_time() < 1 && pc.getGm() == 0) {
+		    	ChattingController.toChatting(pc, "기란감옥 이용시간을 모두 사용하셨습니다.", Lineage.CHATTING_MODE_MESSAGE);
+		    	return;
+		    }
 		    
 		    int i = Util.random(0, 2);
 		    switch (i) {

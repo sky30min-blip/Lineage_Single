@@ -111,7 +111,8 @@ public class PowerBallScheduler implements Runnable {
                 // 일반볼 → 파워볼 → 진행자 순 발표. 모두 같은 맵 채팅만 사용(전체 채팅 없음). 진행자가 종합+오늘 통계 한 번에 발표.
                 CountDownLatch latch = new CountDownLatch(1);
                 host = resolveHost(host);
-                announcer.announceResult(result, roundDisplay, game.getTodayOddCount(), game.getTodayEvenCount(), () -> latch.countDown(), host);
+                announcer.announceResult(result, roundDisplay, game.getTodayOddCount(), game.getTodayEvenCount(),
+                        game.getTodayUnderCount(), game.getTodayOverCount(), () -> latch.countDown(), host);
                 latch.await(120, TimeUnit.SECONDS);
 
                 Thread.sleep(RESULT_DISPLAY_MS);

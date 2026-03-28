@@ -1324,38 +1324,49 @@ public final class KingdomController {
 							k.getTaxLog().remove(ktl);
 					}
 
-					if (k.getUid() == Lineage.KINGDOM) {
-						calendar.setTimeInMillis(time);
-						java.util.Date date = calendar.getTime();
-						int day = date.getDay();
-						int hour = date.getHours();
-						int min = date.getMinutes();
-						int sec = date.getSeconds();
+					boolean startedFromGm = false;
+					GmKingdomWarSchedule.tickReload();
+					if (GmKingdomWarSchedule.shouldAutoStartNow(k.getUid(), time)) {
+						k.toStartWar(time, GmKingdomWarSchedule.getDurationMinutes(k.getUid()));
+						startedFromGm = true;
+					}
 
-						int kingdomWarMsg = 5;
+					if (!startedFromGm) {
+						if (k.getUid() == Lineage.KINGDOM) {
+							if (!GmKingdomWarSchedule.dbScheduleEnabledFor(Lineage.KINGDOM)) {
+								calendar.setTimeInMillis(time);
+								java.util.Date date = calendar.getTime();
+								int day = date.getDay();
+								int hour = date.getHours();
+								int min = date.getMinutes();
+								int sec = date.getSeconds();
 
-						if (!k.isWar()) {
-							for (int warDay : Lineage.getGiranKingdomWarDayList()) {
-								if (day == warDay && hour == Lineage.giran_kingdom_war_hour && min == (Lineage.giran_kingdom_war_min - kingdomWarMsg) && sec == 00)
-								    World.toSender(S_ObjectChatting.clone(BasePacketPooling.getPool(S_ObjectChatting.class), String.format("%d분 후 %s의 공성전이 시작됩니다.", kingdomWarMsg, k.getName())));
+								int kingdomWarMsg = 5;
 
-								if (day == warDay && hour == Lineage.giran_kingdom_war_hour && min == Lineage.giran_kingdom_war_min)
-									k.toStartWar(time);
+								if (!k.isWar()) {
+									for (int warDay : Lineage.getGiranKingdomWarDayList()) {
+										if (day == warDay && hour == Lineage.giran_kingdom_war_hour && min == (Lineage.giran_kingdom_war_min - kingdomWarMsg) && sec == 00)
+											World.toSender(S_ObjectChatting.clone(BasePacketPooling.getPool(S_ObjectChatting.class), String.format("%d분 후 %s의 공성전이 시작됩니다.", kingdomWarMsg, k.getName())));
+
+										if (day == warDay && hour == Lineage.giran_kingdom_war_hour && min == Lineage.giran_kingdom_war_min)
+											k.toStartWar(time);
+									}
+								}
 							}
-						}
-					} else {
-						// 공성치룬후 하루가 지났는지 체크.
-						if (k.getWarDayEnd() + (1000 * 60 * 60 * 24) <= time) {
-							// 공성 시간을 아직 설정하지 않았다면 공성시간 젤 마지막 값으로 지정하기.
-							if (k.getWarDay() == 0) {
-								k.toWardaySetting();
-								k.setWarDay(k.getListWarday().get(5));
+						} else {
+							// 공성치룬후 하루가 지났는지 체크.
+							if (k.getWarDayEnd() + (1000 * 60 * 60 * 24) <= time) {
+								// 공성 시간을 아직 설정하지 않았다면 공성시간 젤 마지막 값으로 지정하기.
+								if (k.getWarDay() == 0) {
+									k.toWardaySetting();
+									k.setWarDay(k.getListWarday().get(5));
+								}
 							}
-						}
 
-						// 공성전 시간인지 체크.
-						if (k.getWarDay() != 0 && k.getWarDay() <= time)
-							k.toStartWar(time);
+							// 공성전 시간인지 체크.
+							if (k.getWarDay() != 0 && k.getWarDay() <= time)
+								k.toStartWar(time);
+						}
 					}
 				}
 			}

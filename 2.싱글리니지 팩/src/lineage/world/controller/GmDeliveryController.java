@@ -29,6 +29,7 @@ import lineage.world.object.object;
 public class GmDeliveryController {
 
 	static public void toTimer(long time) {
+		GmEventSettings.tickReload();
 		// 1) 아이템 지급
 		try (Connection con = DatabaseConnection.getLineage();
 				PreparedStatement sel = con.prepareStatement("SELECT cha_objId, objId FROM gm_item_delivery WHERE delivered=0");
@@ -147,6 +148,10 @@ public class GmDeliveryController {
 						lineage.share.System.println("캐릭터 정보 저장 완료");
 					} else if ("kingdom_war".equalsIgnoreCase(cmd)) {
 						CommandController.setKingdomWar();
+					} else if ("kingdom_war_start".equalsIgnoreCase(cmd)) {
+						CommandController.setKingdomWarStart(param);
+					} else if ("kingdom_war_stop".equalsIgnoreCase(cmd)) {
+						CommandController.setKingdomWarStop(param);
 					} else if ("all_buff".equalsIgnoreCase(cmd)) {
 						CommandController.toBuffAll(null);
 					} else if ("robot_on".equalsIgnoreCase(cmd)) {

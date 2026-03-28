@@ -584,13 +584,21 @@ public class Kingdom {
 	 * 공성전 시작 처리 함수.
 	 * @param time
 	 */
-	public void toStartWar(long time){
+	public void toStartWar(long time) {
+		toStartWar(time, 0);
+	}
+
+	/**
+	 * @param durationMinutes 0 이하이면 {@link Lineage#kingdom_war_time} (분) 사용
+	 */
+	public void toStartWar(long time, int durationMinutes) {
 		if (!Lineage.is_kingdom_war)
 			return;
+		int dm = durationMinutes > 0 ? durationMinutes : Lineage.kingdom_war_time;
 		// 상태 변경.
 		war = true;
 		war_status = Lineage.KINGDOM_WARSTATUS_START;
-		warDayEnd = time + (1000 * 60 * Lineage.kingdom_war_time);
+		warDayEnd = time + (1000L * 60 * dm);
 
 		// 리니지 월드에 공성전 시작됫다는거 알리기.
 		if(Lineage.server_version < 163)
@@ -637,7 +645,7 @@ public class Kingdom {
 				sendMessage(crownTime);
 			}				
 		} else {	
-			World.toSender(S_ObjectChatting.clone(BasePacketPooling.getPool(S_ObjectChatting.class), String.format("공성전이 %d분 동안 진행됩니다.", Lineage.kingdom_war_time)));
+			World.toSender(S_ObjectChatting.clone(BasePacketPooling.getPool(S_ObjectChatting.class), String.format("공성전이 %d분 동안 진행됩니다.", dm)));
 		}
 	}
 	

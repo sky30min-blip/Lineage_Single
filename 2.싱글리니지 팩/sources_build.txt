@@ -489,6 +489,8 @@ src\lineage\world\controller\FishingController.java
 src\lineage\world\controller\FriendController.java
 src\lineage\world\controller\GiranClanLordController.java
 src\lineage\world\controller\GmDeliveryController.java
+src\lineage\world\controller\GmEventSettings.java
+src\lineage\world\controller\GmKingdomWarSchedule.java
 src\lineage\world\controller\HellController.java
 src\lineage\world\controller\IceDungeonController.java
 src\lineage\world\controller\InnController.java

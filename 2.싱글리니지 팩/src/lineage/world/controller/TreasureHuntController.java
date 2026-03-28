@@ -31,26 +31,25 @@ public class TreasureHuntController {
 		Date date = calendar.getTime();
 		int hour = date.getHours();
 		int min = date.getMinutes();
-		
+		boolean en = GmEventSettings.isEnabled(GmEventSettings.TREASURE);
+		int playSec = GmEventSettings.getPlayTimeSeconds(GmEventSettings.TREASURE, Lineage.Treasuress_play_time);
+
 		for (TeamBattleTime tebeTime : Lineage.Treasuress_dungeon_time_list) {
 			
 			int test = tebeTime.getMin() - 1;
 			int sec = date.getSeconds();
 
-			if (!isOpen && tebeTime.getHour() == hour && test == min && sec == 0) {
-			
-	
+			if (en && !isOpen && tebeTime.getHour() == hour && test == min && sec == 0) {
 				World.toSender(S_ObjectChatting.clone(BasePacketPooling.getPool(S_ObjectChatting.class), String.format("\\fU메티스: 1분뒤 보물찾기가 시작됩니다.")));
-
 			}
 			
-			if (!isOpen && tebeTime.getHour() == hour && test == min && sec == 50) {
+			if (en && !isOpen && tebeTime.getHour() == hour && test == min && sec == 50) {
 				World.toSender(S_ObjectChatting.clone(BasePacketPooling.getPool(S_ObjectChatting.class), null, Lineage.CHATTING_MODE_MESSAGE, String.format("\\fU메티스: 10초뒤  보물찾기가 시작됩니다.")));
 			}
 			
-			if (!isOpen && tebeTime.getHour() == hour && tebeTime.getMin() == min) {
+			if (en && !isOpen && tebeTime.getHour() == hour && tebeTime.getMin() == min) {
 				isOpen = true;
-				TreasuressEndTime = time + (1000 * Lineage.Treasuress_play_time);
+				TreasuressEndTime = time + (1000L * playSec);
 				sendMessage();
 			}
 		}
@@ -62,6 +61,8 @@ public class TreasureHuntController {
 	}
 	
 	static public void sendMessage() {
+		if (!GmEventSettings.isEnabled(GmEventSettings.TREASURE))
+			return;
 		if (isOpen) {
 			String msg = "\\fY      ***** 보물찾기가 시작되었습니다. *****";
 			World.toSender(S_ObjectChatting.clone(BasePacketPooling.getPool(S_ObjectChatting.class), msg));

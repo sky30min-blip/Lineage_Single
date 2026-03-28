@@ -5,6 +5,10 @@
 			"path": "."
 		},
 		{
+			"name": "_launch (서버·접속·GM 실행)",
+			"path": "_launch"
+		},
+		{
 			"name": "tools (맵·DB 보조 스크립트)",
 			"path": "tools"
 		},

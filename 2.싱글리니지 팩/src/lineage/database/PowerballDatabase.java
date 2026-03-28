@@ -1,10 +1,14 @@
 package lineage.database;
 
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
+import java.util.Locale;
+import java.util.TimeZone;
 
 /**
  * 파워볼 미니게임 DB (powerball_results, powerball_bets)
@@ -483,6 +487,99 @@ public final class PowerballDatabase {
 			st.executeUpdate();
 		} catch (Exception e) {
 			lineage.share.System.printf("%s : markBetsProcessed()\r\n", PowerballDatabase.class.toString());
+			lineage.share.System.println(e);
+		} finally {
+			DatabaseConnection.close(con, st);
+		}
+	}
+
+	// ---------- 당일(KST) 홀/짝·언더/오버 누적 — 서버 재시작 후에도 이어짐 (powerball_daily_counts) ----------
+
+	private static volatile boolean dailyCountsTableEnsured = false;
+
+	private static void ensureDailyCountsTable(Connection con) {
+		if (dailyCountsTableEnsured)
+			return;
+		synchronized (PowerballDatabase.class) {
+			if (dailyCountsTableEnsured)
+				return;
+			try (PreparedStatement st = con.prepareStatement(
+					"CREATE TABLE IF NOT EXISTS powerball_daily_counts ("
+							+ "stat_date DATE NOT NULL PRIMARY KEY COMMENT 'KST 달력일',"
+							+ "odd_count INT NOT NULL DEFAULT 0,"
+							+ "even_count INT NOT NULL DEFAULT 0,"
+							+ "under_count INT NOT NULL DEFAULT 0,"
+							+ "over_count INT NOT NULL DEFAULT 0,"
+							+ "updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+							+ ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='파워볼 당일 결과 누적(진행자 멘트용)'")) {
+				st.executeUpdate();
+			} catch (Exception e) {
+				lineage.share.System.println("[파워볼] powerball_daily_counts 테이블 생성 실패: " + e);
+			}
+			dailyCountsTableEnsured = true;
+		}
+	}
+
+	/** 한국시간 기준 오늘 날짜(자정 기준) */
+	public static Date todayKstSqlDate() {
+		Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul"), Locale.KOREA);
+		cal.set(Calendar.HOUR_OF_DAY, 0);
+		cal.set(Calendar.MINUTE, 0);
+		cal.set(Calendar.SECOND, 0);
+		cal.set(Calendar.MILLISECOND, 0);
+		return new Date(cal.getTimeInMillis());
+	}
+
+	/**
+	 * 당일 집계 로드. 행 없으면 0.
+	 * @return { odd, even, under, over }
+	 */
+	public static int[] loadDailyCounts(Date statDate) {
+		int[] out = new int[] { 0, 0, 0, 0 };
+		Connection con = null;
+		PreparedStatement st = null;
+		ResultSet rs = null;
+		try {
+			con = DatabaseConnection.getLineage();
+			ensureDailyCountsTable(con);
+			st = con.prepareStatement(
+					"SELECT odd_count, even_count, under_count, over_count FROM powerball_daily_counts WHERE stat_date = ? LIMIT 1");
+			st.setDate(1, statDate);
+			rs = st.executeQuery();
+			if (rs.next()) {
+				out[0] = rs.getInt(1);
+				out[1] = rs.getInt(2);
+				out[2] = rs.getInt(3);
+				out[3] = rs.getInt(4);
+			}
+		} catch (Exception e) {
+			lineage.share.System.printf("%s : loadDailyCounts()\r\n", PowerballDatabase.class.toString());
+			lineage.share.System.println(e);
+		} finally {
+			DatabaseConnection.close(con, st, rs);
+		}
+		return out;
+	}
+
+	/** 당일 집계 저장(UPSERT). 추첨 직후 호출. */
+	public static void saveDailyCounts(Date statDate, int odd, int even, int under, int over) {
+		Connection con = null;
+		PreparedStatement st = null;
+		try {
+			con = DatabaseConnection.getLineage();
+			ensureDailyCountsTable(con);
+			st = con.prepareStatement(
+					"INSERT INTO powerball_daily_counts (stat_date, odd_count, even_count, under_count, over_count) VALUES (?,?,?,?,?) "
+							+ "ON DUPLICATE KEY UPDATE odd_count=VALUES(odd_count), even_count=VALUES(even_count), "
+							+ "under_count=VALUES(under_count), over_count=VALUES(over_count)");
+			st.setDate(1, statDate);
+			st.setInt(2, odd);
+			st.setInt(3, even);
+			st.setInt(4, under);
+			st.setInt(5, over);
+			st.executeUpdate();
+		} catch (Exception e) {
+			lineage.share.System.printf("%s : saveDailyCounts()\r\n", PowerballDatabase.class.toString());
 			lineage.share.System.println(e);
 		} finally {
 			DatabaseConnection.close(con, st);

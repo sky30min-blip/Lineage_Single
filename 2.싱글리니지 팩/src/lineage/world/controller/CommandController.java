@@ -3983,6 +3983,68 @@ public class CommandController {
 				kingdom.toStopWar(System.currentTimeMillis());
 		}
 	}
+
+	/**
+	 * GM 툴 kingdom_war_start — param: 쉼표 구분 성 uid (예: 1,4,7). DB에 설정된 duration_minutes(0이면 kingdom_war_time) 적용.
+	 */
+	static public void setKingdomWarStart(String param) {
+		String p = param == null ? "" : param.trim();
+		if (p.isEmpty()) {
+			lineage.share.System.println("[gm_server_command] kingdom_war_start: uid 비어 있음");
+			return;
+		}
+		long now = System.currentTimeMillis();
+		GmKingdomWarSchedule.tickReload();
+		for (String part : p.split(",")) {
+			try {
+				int uid = Integer.parseInt(part.trim());
+				for (Kingdom k : KingdomController.getList()) {
+					if (k.getUid() != uid)
+						continue;
+					if (k.isWar()) {
+						lineage.share.System.println("[gm_server_command] kingdom_war_start: uid " + uid + " 이미 공성 중");
+						break;
+					}
+					int dm = GmKingdomWarSchedule.getDurationMinutes(uid);
+					k.toStartWar(now, dm);
+					lineage.share.System.println("[gm_server_command] kingdom_war_start: uid " + uid + " 시작");
+					break;
+				}
+			} catch (NumberFormatException e) {
+				lineage.share.System.println("[gm_server_command] kingdom_war_start: 잘못된 uid — " + part);
+			}
+		}
+	}
+
+	/**
+	 * GM 툴 kingdom_war_stop — param 비우거나 all 이면 전체 종료, 아니면 쉼표 구분 uid.
+	 */
+	static public void setKingdomWarStop(String param) {
+		String p = param == null ? "" : param.trim();
+		long now = System.currentTimeMillis();
+		if (p.isEmpty() || "all".equalsIgnoreCase(p)) {
+			for (Kingdom k : KingdomController.getList()) {
+				if (k.isWar())
+					k.toStopWar(now);
+			}
+			lineage.share.System.println("[gm_server_command] kingdom_war_stop: 전체 종료");
+			return;
+		}
+		for (String part : p.split(",")) {
+			try {
+				int uid = Integer.parseInt(part.trim());
+				for (Kingdom k : KingdomController.getList()) {
+					if (k.getUid() == uid && k.isWar()) {
+						k.toStopWar(now);
+						lineage.share.System.println("[gm_server_command] kingdom_war_stop: uid " + uid);
+						break;
+					}
+				}
+			} catch (NumberFormatException e) {
+				lineage.share.System.println("[gm_server_command] kingdom_war_stop: 잘못된 uid — " + part);
+			}
+		}
+	}
 	
 	static public void inventorySetting(object o) {
 		try {

@@ -2021,6 +2021,40 @@ public boolean toLvStat(boolean packet) {
 		}
 	}
 
+	/**
+	 * 기란감옥 자정 초기화·이용시간 종료 시: 사망/낚시 등을 정리한 뒤 기란 마을 근처로 이동하고 귀환 좌표를 맞춤.
+	 */
+	public void toReviveAndTeleportForGiranDungeonReset(int x, int y, int map) {
+		if (isWorldDelete())
+			return;
+		if (isAutoHunt)
+			endAutoHunt(false, false);
+		if (isFishing() && getInventory() != null && getInventory().getSlot(Lineage.SLOT_WEAPON) != null)
+			getInventory().getSlot(Lineage.SLOT_WEAPON).toClick(this, null);
+		if (isDead()) {
+			super.toReset(false);
+			setDead(false);
+			int hp = Math.max(1, Math.min(getMaxHp(), Math.max(getLevel(), 1)));
+			setNowHp(hp);
+			if (getMaxMp() > 0)
+				setNowMp(getMaxMp());
+			try {
+				if (inv != null && inv.getSlot(Lineage.SLOT_WEAPON) != null && inv.getSlot(Lineage.SLOT_WEAPON).getItem() != null)
+					gfxMode = classGfxMode + inv.getSlot(Lineage.SLOT_WEAPON).getItem().getGfxMode();
+				else
+					gfxMode = classGfxMode;
+			} catch (Exception e) {
+				gfxMode = classGfxMode;
+			}
+			toSender(S_ObjectRevival.clone(BasePacketPooling.getPool(S_ObjectRevival.class), this, this), true);
+			toSender(S_ObjectEffect.clone(BasePacketPooling.getPool(S_ObjectEffect.class), this, 230), true);
+		}
+		toTeleport(x, y, map, true);
+		setHomeX(x);
+		setHomeY(y);
+		setHomeMap(map);
+	}
+
 	// 트리플 애로우 자동칼질 관련부분
 	public void triplepart1() {
 		if (isAttacking || isUsingTripleArrow()) {
@@ -4161,7 +4195,8 @@ public boolean toLvStat(boolean packet) {
 	public void timerSystem() {
 		try {
 			// 기란감옥 던전 시간 확인
-			if (Lineage.is_giran_dungeon_time && TimeDungeonDatabase.isTimeDungeon(getMap()) && (getMap() == 53 || getMap() == 54 || getMap() == 55 || getMap() == 56) && !isWorldDelete()) {
+			int map = getMap();
+			if (Lineage.is_giran_dungeon_time && TimeDungeonDatabase.isGiranDungeonMap(map) && !isWorldDelete()) {
 				if (--giran_dungeon_time < 1 && getGm() == 0)
 					TimeDungeonDatabase.isTimeDungeonFinal(this, 0);
 			}

@@ -58,6 +58,7 @@ import lineage.world.controller.InventoryController;
 import lineage.world.controller.KingdomController;
 import lineage.world.controller.PartyController;
 import lineage.world.controller.SummonController;
+import lineage.world.controller.GmEventSettings;
 import lineage.world.controller.WorldBossController;
 import lineage.world.controller.TimeEventController;
 import lineage.world.object.Character;
@@ -1562,21 +1563,28 @@ public class MonsterInstance extends Character {
 					ItemDatabase.setPool(ii);
 			}
 		}
-		if (getMonster().getName().equalsIgnoreCase("월드보스")) {
+		if (getMonster().getName().equalsIgnoreCase(WorldBossController.bossMonsterName())) {
 			for (PcInstance pc : World.getPcList()) {
 				if (pc.getMap() == 1400) {
-					ItemInstance ii = ItemDatabase.newInstance(ItemDatabase.find("월드보스 보상"));
-					;
-					ii.setCount(Lineage.world_result);
-					ii.setBless(1);
-					ii.setDefinite(true);
-					WorldBossController.isOpen = false;
-					WorldBossController.isWait = false;
-					pc.toGiveItem(null, ii, ii.getCount());
+					String bonus = GmEventSettings.getBonusDropItem(GmEventSettings.WORLDBOSS);
+					String rewardName = (bonus != null && !bonus.isEmpty()) ? bonus : "월드보스 보상";
+					ItemInstance ii = ItemDatabase.newInstance(ItemDatabase.find(rewardName));
+					if (ii == null && rewardName != null && !rewardName.equalsIgnoreCase("월드보스 보상"))
+						ii = ItemDatabase.newInstance(ItemDatabase.find("월드보스 보상"));
+					if (ii != null) {
+						int cnt = GmEventSettings.getBonusDropCount(GmEventSettings.WORLDBOSS, Lineage.world_result);
+						ii.setCount(cnt);
+						ii.setBless(1);
+						ii.setDefinite(true);
+						WorldBossController.isOpen = false;
+						WorldBossController.isWait = false;
+						pc.toGiveItem(null, ii, ii.getCount());
+					} else {
+						WorldBossController.isOpen = false;
+						WorldBossController.isWait = false;
+					}
 				}
-
 			}
-
 		}
 
 		if (Lineage.monster_boss_dead_message && isBoss()) {

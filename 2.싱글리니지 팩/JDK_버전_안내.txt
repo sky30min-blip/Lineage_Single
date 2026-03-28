@@ -1,0 +1,24 @@
+싱글 서버(2.싱글리니지 팩) — JDK 버전 정리
+========================================
+
+• 이 프로젝트는 Java 8 (1.8) 기준입니다.
+  - Eclipse .classpath: JavaSE-1.8
+  - .settings/org.eclipse.jdt.core.prefs: compliance / source / target = 1.8
+
+• Cursor / VS Code (저장소 루트)
+  - .vscode/settings.json 및 Lineage_Single.code-workspace
+  - java.jdt.ls.java.home = D:\jdk8
+  - java.configuration.runtimes 기본 = JavaSE-1.8 (D:\jdk8)
+
+• 빌드 / 실행 배치
+  - compile.bat: JAVA_HOME 이 비어 있으면 D:\jdk8 사용 (다른 경로면 set JAVA_HOME=... 후 실행)
+  - 서버스타트.bat: 동일 (없으면 D:\jdk8\bin\java.exe, 없으면 PATH의 java)
+
+• 내장 GUI에 "Project Settings → JDK Runtime → 21.0.10" 처럼 보이면
+  - 그 화면에서 JDK 를 JDK 8 설치 경로(예: D:\jdk8)로 바꾸거나,
+  - Eclipse/툴의 "Installed JREs" 에서 JavaSE-1.8 이 가리키는 VM 을 8로 맞추세요.
+  (GUI 설정은 사용자 PC 워크스페이스에 저장되는 경우가 많아 Git 으로 동기화되지 않을 수 있습니다.)
+
+• JDK 8 이 D:\jdk8 이 아닌 경우
+  - 환경 변수 JAVA_HOME 을 본인 JDK 8 경로로 설정하거나,
+  - compile.bat / 서버스타트.bat 상단의 기본 경로를 수정하세요.

@@ -31,13 +31,15 @@ public class DimensionController {
 		Date date = calendar.getTime();
 		int hour = date.getHours();
 		int min = date.getMinutes();
-		
-		for (TeamBattleTime tebeTime : Lineage.dete_dungeon_time_list) {
-			// 지옥 시작.
-			if (!isOpen && tebeTime.getHour() == hour && tebeTime.getMin() == min) {
-				isOpen = true;
-				deteEndTime = time + (1000 * Lineage.dete_play_time);
-				sendMessage();
+		int playSec = GmEventSettings.getPlayTimeSeconds(GmEventSettings.DIMENSION, Lineage.dete_play_time);
+
+		if (GmEventSettings.isEnabled(GmEventSettings.DIMENSION)) {
+			for (TeamBattleTime tebeTime : Lineage.dete_dungeon_time_list) {
+				if (!isOpen && tebeTime.getHour() == hour && tebeTime.getMin() == min) {
+					isOpen = true;
+					deteEndTime = time + (1000L * playSec);
+					sendMessage();
+				}
 			}
 		}
 		
@@ -49,6 +51,8 @@ public class DimensionController {
 	}
 	
 	static public void sendMessage() {
+		if (!GmEventSettings.isEnabled(GmEventSettings.DIMENSION))
+			return;
 		if (isOpen) {
 			String msg = "\\fY      ***** 마족신전으로 가는길이 열렸습니다. *****";
 			World.toSender(S_ObjectChatting.clone(BasePacketPooling.getPool(S_ObjectChatting.class), msg));

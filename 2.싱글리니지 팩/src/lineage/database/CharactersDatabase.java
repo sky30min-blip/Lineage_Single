@@ -287,6 +287,27 @@ public final class CharactersDatabase {
 			DatabaseConnection.close(con, st);
 		}
 	}
+
+	/**
+	 * 자정 기란감옥 초기화 전: 오프라인 캐릭터가 던전 맵에 저장돼 있으면 기란 마을로 옮김. nowHP가 0이면 최소 체력으로 복구.
+	 */
+	static public void evacuateOfflineFromGiranDungeonMapsToGiranTown() {
+		PreparedStatement st = null;
+		Connection con = null;
+		try {
+			con = DatabaseConnection.getLineage();
+			st = con.prepareStatement(
+					"UPDATE characters SET locX=33430, locY=32817, locMAP=4, "
+							+ "nowHP=IF(nowHP<1, LEAST(maxHP, GREATEST(`level`,1)), nowHP) "
+							+ "WHERE locMAP IN (53,54,55,56,653,654,655,656)");
+			st.executeUpdate();
+		} catch (Exception e) {
+			lineage.share.System.printf("%s : evacuateOfflineFromGiranDungeonMapsToGiranTown()\r\n", CharactersDatabase.class.toString());
+			lineage.share.System.println(e);
+		} finally {
+			DatabaseConnection.close(con, st);
+		}
+	}
 	
 	static public void updateGiranDungeonScrollCount() {
 		PreparedStatement st = null;

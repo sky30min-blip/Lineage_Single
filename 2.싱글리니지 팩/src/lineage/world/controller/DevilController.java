@@ -31,13 +31,15 @@ public class DevilController {
 		Date date = calendar.getTime();
 		int hour = date.getHours();
 		int min = date.getMinutes();
-		
-		for (TeamBattleTime tebeTime : Lineage.devil_dungeon_time_list) {
-			// 악마왕의 영토 시작.
-			if (!isOpen && tebeTime.getHour() == hour && tebeTime.getMin() == min) {
-				isOpen = true;
-				devilEndTime = time + (1000 * Lineage.devil_play_time);
-				sendMessage();
+		int playSec = GmEventSettings.getPlayTimeSeconds(GmEventSettings.DEVIL, Lineage.devil_play_time);
+
+		if (GmEventSettings.isEnabled(GmEventSettings.DEVIL)) {
+			for (TeamBattleTime tebeTime : Lineage.devil_dungeon_time_list) {
+				if (!isOpen && tebeTime.getHour() == hour && tebeTime.getMin() == min) {
+					isOpen = true;
+					devilEndTime = time + (1000L * playSec);
+					sendMessage();
+				}
 			}
 		}
 		
@@ -49,6 +51,8 @@ public class DevilController {
 	}
 	
 	static public void sendMessage() {
+		if (!GmEventSettings.isEnabled(GmEventSettings.DEVIL))
+			return;
 		if (isOpen) {
 			String msg = "\\fY     ***** 악마왕의 영토로 가는길이 열렸습니다. *****";
 			World.toSender(S_ObjectChatting.clone(BasePacketPooling.getPool(S_ObjectChatting.class), msg));

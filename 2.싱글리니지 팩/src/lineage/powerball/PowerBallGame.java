@@ -35,9 +35,13 @@ public class PowerBallGame {
     // 최근 결과 (최대 100회)
     private LinkedList<PowerBallResult> recentResults = new LinkedList<>();
 
-    // 오늘의 통계
+    // 오늘의 통계 (KST 달력일 기준, powerball_daily_counts DB와 동기화 — 재시작 후에도 이어짐)
     private int todayOddCount = 0;
     private int todayEvenCount = 0;
+    private int todayUnderCount = 0;
+    private int todayOverCount = 0;
+    /** 집계에 사용 중인 KST 날짜 — 자정 넘어가면 DB에서 새 날짜 행 로드 */
+    private java.sql.Date statsKstDate;
 
     public enum GameState {
         BETTING,    // 베팅 가능
@@ -71,6 +75,20 @@ public class PowerBallGame {
 
     private PowerBallGame() {
         loadLastRound();
+        refreshStatsForKstToday();
+    }
+
+    /** KST 날짜가 바뀌었으면 DB에서 당일 집계를 다시 읽는다. */
+    private void refreshStatsForKstToday() {
+        java.sql.Date today = PowerballDatabase.todayKstSqlDate();
+        if (statsKstDate != null && today.equals(statsKstDate))
+            return;
+        statsKstDate = today;
+        int[] c = PowerballDatabase.loadDailyCounts(today);
+        todayOddCount = c[0];
+        todayEvenCount = c[1];
+        todayUnderCount = c[2];
+        todayOverCount = c[3];
     }
 
     public static PowerBallGame getInstance() {
@@ -201,13 +219,22 @@ public class PowerBallGame {
             recentResults.removeLast();
         }
 
+        refreshStatsForKstToday();
+
         if (result.isOdd()) {
             todayOddCount++;
         } else {
             todayEvenCount++;
         }
 
+        if (result.isTotalUnder()) {
+            todayUnderCount++;
+        } else {
+            todayOverCount++;
+        }
+
         saveResult(result);
+        PowerballDatabase.saveDailyCounts(statsKstDate, todayOddCount, todayEvenCount, todayUnderCount, todayOverCount);
 
         System.out.println("[파워볼] " + result.toString());
 
@@ -331,6 +358,8 @@ public class PowerBallGame {
     public void setState(GameState state) { this.state = state; }
     public int getTodayOddCount() { return todayOddCount; }
     public int getTodayEvenCount() { return todayEvenCount; }
+    public int getTodayUnderCount() { return todayUnderCount; }
+    public int getTodayOverCount() { return todayOverCount; }
     public PowerBallResult getLastResult() {
         return recentResults.isEmpty() ? null : recentResults.getFirst();
     }

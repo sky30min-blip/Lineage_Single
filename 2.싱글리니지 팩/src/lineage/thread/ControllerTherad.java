@@ -15,6 +15,7 @@ import lineage.world.controller.DollRaceController;
 import lineage.world.controller.DollRaceController2;
 import lineage.world.controller.ElvenforestController;
 import lineage.world.controller.FightController;
+import lineage.world.controller.GmEventSettings;
 import lineage.world.controller.TreasureHuntController;
 import lineage.world.controller.IceDungeonController;
 import lineage.world.controller.WorldBossController;
@@ -47,6 +48,7 @@ public class ControllerTherad implements Runnable {
 	public void run() {
 		for(;running;){			
 			try {
+				GmEventSettings.tickReload();
 				long time = System.currentTimeMillis();
 
 				// 팀대전 관리.
@@ -86,6 +88,12 @@ public class ControllerTherad implements Runnable {
 				// 지옥 던전 관리 쿠베라
 				try { HellController.toTimer(time); } catch (Exception e) {
 					lineage.share.System.println("지옥 던전 관리.");
+					lineage.share.System.println(e);
+				}
+
+				// 얼던 관리
+				try { IceDungeonController.toTimer(time); } catch (Exception e) {
+					lineage.share.System.println("얼던 관리.");
 					lineage.share.System.println(e);
 				}
 	
