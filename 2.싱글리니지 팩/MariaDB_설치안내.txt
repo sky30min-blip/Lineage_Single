@@ -6,9 +6,10 @@
   - Docker 등이 3306 을 쓰는 경우를 대비해 Windows 설치본 설정 파일의 포트를 3307 로 맞춤
     파일: C:\Program Files\MariaDB 12.2\data\my.ini
 
-■ 지금 리니지 서버(mysql.conf = localhost:3306)가 붙는 DB
-  - 127.0.0.1:3306 에 응답하는 쪽(예: Docker/WSL MariaDB)이 사용 중입니다.
-  - 해당 인스턴스에 lin200 DB가 있으면 그대로 게임 서버 구동 가능합니다.
+■ 기본(실제 플레이): mysql.conf = localhost:3306 / DB 이름 lin200 (Windows MySQL·MariaDB)
+  - 포트 충돌 전에 쓰던 캐릭터는 보통 이쪽(3306) lin200 에 있습니다.
+  - Docker DB만 쓸 때는 레포 docker-compose.yml(보통 호스트 3308)과 mysql.conf 포트·DB이름을 Docker에 맞게 바꿉니다.
+  - 예전 Docker 볼륨만의 오래된 스키마(l1jdb 등)는 재설치 전 백업본일 수 있으니, 실플레이 DB와 헷갈리지 마세요.
 
 ■ Windows에 깐 MariaDB를 "서비스"로 쓰려면 (관리자 1회)
   - MariaDB_Windows서비스_관리자실행.bat 을 마우스 오른쪽 → 관리자 권한으로 실행

@@ -339,6 +339,10 @@ public final class Lineage {
 	static public int giran_dungeon_time;
 	// 기란감옥 초기화 시간
 	static public int giran_dungeon_inti_time;
+	/** 기란감옥(수상한 감옥) 층 맵 — TimeDungeonDatabase 등과 동일 분기 */
+	static public boolean isGiranDungeonMap(int map) {
+		return (map >= 53 && map <= 56) || (map >= 653 && map <= 656);
+	}
 	// 던전 이용 시간 초기화 알림 여부
 	static public boolean dungeon_inti_time_message;
 

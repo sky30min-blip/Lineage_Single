@@ -438,7 +438,6 @@ src\lineage\thread\GuiThread.java
 src\lineage\thread\PowerballSettlementThread.java
 src\lineage\thread\ServerThread.java
 src\lineage\thread\TimeThread.java
-src\lineage\powerball\PowerBallDisplayBall.java
 src\lineage\powerball\PowerBallDisplayManager.java
 src\lineage\powerball\PowerBallGame.java
 src\lineage\powerball\PowerBallNpcHandler.java

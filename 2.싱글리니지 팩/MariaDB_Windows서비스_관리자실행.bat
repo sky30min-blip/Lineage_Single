@@ -3,8 +3,8 @@ chcp 65001 >nul
 echo ============================================================
 echo  MariaDB (Windows 설치본) 서비스 등록 및 시작
 echo  - 반드시 "관리자 권한으로 실행" 하세요.
-echo  - Docker 등이 3306을 쓰는 경우, my.ini 포트는 3307 로 맞춰 두었습니다.
-echo    (리니지 서버 mysql.conf 는 그대로 3306 이면 Docker 쪽 DB에 붙습니다.)
+echo  - Docker DB 는 레포 docker-compose.yml 기준 호스트 3308 입니다. my.ini 포트는 3307 권장.
+echo    (리니지 mysql.conf 포트는 Docker 쓰면 3308, Windows MariaDB만 쓰면 3307)
 echo ============================================================
 set "MYSQLD=C:\Program Files\MariaDB 12.2\bin\mysqld.exe"
 set "INI=C:\Program Files\MariaDB 12.2\data\my.ini"

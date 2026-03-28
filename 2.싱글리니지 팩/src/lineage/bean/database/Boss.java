@@ -59,7 +59,11 @@ public class Boss {
 	 * @param m
 	 * @return
 	 */
-	public boolean isSpawnTime(int day, int h, int m) {	
+	public boolean isSpawnTime(int day, int h, int m) {
+		if (spawn_day == null || spawn_day.isEmpty())
+			return false;
+		if (time == null || time.length == 0)
+			return false;
 		for (int d : spawn_day) {
 			if (d == day) {
 				for (int[] t : time) {

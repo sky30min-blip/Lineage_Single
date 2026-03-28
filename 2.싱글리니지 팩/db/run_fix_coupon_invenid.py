@@ -13,7 +13,7 @@ except Exception:
         'port': int(os.environ.get('DB_PORT', 3306)),
         'user': os.environ.get('DB_USER', 'root'),
         'password': os.environ.get('DB_PASSWORD', ''),
-        'database': os.environ.get('DB_NAME', 'l1jdb'),
+        'database': os.environ.get('DB_NAME', 'lin200'),
         'charset': 'utf8mb4',
     }
 
@@ -29,7 +29,7 @@ def main():
             port=db_config.get('port', 3306),
             user=db_config['user'],
             password=db_config.get('password', ''),
-            database=db_config.get('database', 'l1jdb'),
+            database=db_config.get('database', 'lin200'),
             charset=db_config.get('charset', 'utf8mb4'),
         )
         with conn.cursor() as cur:

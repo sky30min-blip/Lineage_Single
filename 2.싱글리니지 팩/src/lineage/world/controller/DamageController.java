@@ -204,11 +204,6 @@ public final class DamageController {
 		if (공격불가능한객체(target))
 			return 0;
 
-		// 파워볼 전광판 NPC (DB 스폰, database_key가 파워볼전광판_1~6)
-		if (target != null && target.getDatabaseKey() != null
-				&& String.valueOf(target.getDatabaseKey()).startsWith("파워볼전광판_"))
-			return 0;
-
 		if (isImmunePowerballDrawNpc(target))
 			return 0;
 

@@ -90,7 +90,7 @@ public final class TimeDungeonDatabase {
 
 	/** 기란감옥(수상한 감옥) 층 맵 — 타이머·자정 대피 공통 */
 	static public boolean isGiranDungeonMap(int map) {
-		return (map >= 53 && map <= 56) || (map >= 653 && map <= 656);
+		return Lineage.isGiranDungeonMap(map);
 	}
 	
 	/**

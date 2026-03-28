@@ -12,7 +12,6 @@ ORDERED = [
     "powerball_claimed.sql",
     "powerball_shop.sql",
     "powerball_npc.sql",
-    "powerball_display_npc.sql",
 ]
 
 

@@ -13,7 +13,6 @@ import lineage.database.MonsterBossSpawnlistDatabase;
 import lineage.database.MonsterDatabase;
 import lineage.database.MonsterSpawnlistDatabase;
 import lineage.network.packet.BasePacketPooling;
-import lineage.network.packet.server.S_BlueMessage;
 import lineage.network.packet.server.S_Message;
 import lineage.network.packet.server.S_ObjectChatting;
 import lineage.plugin.PluginController;
@@ -314,123 +313,15 @@ public final class BossController {
 						AiThread.append(mi);
 
 						if (b.is스폰알림여부()) {
-							// 메세지 알리기.
-							if (Lineage.monster_boss_spawn_message) {
-								String msg = "";
-								switch (mi.getHomeMap()) {
-								case 110:
-								case 120:
-								case 130:
-								case 140:
-								case 150:
-								case 160:
-								case 170:
-								case 180:
-								case 190:
-								case 200:
-									msg = "오만의 탑";
-									break;
-								case 9:
-									msg = "[글루디오 던전 3층]";
-									break;
-								case 10:
-									msg = "[글루디오 던전 4층]";
-									break;
-								case 11:
-									msg = "[글루디오 던전 5층]";
-									break;
-								case 12:
-									msg = "[글루디오 던전 6층]";
-									break;
-								case 13:
-									msg = "[글루디오 던전 7층]";
-									break;
-								case 2:
-									msg = "[말하는섬 던전 2층]";
-									break;
-								case 24:
-									msg = "[윈다우드 성 던전 2층]";
-									break;
-								case 28:
-									msg = "[수련 던전 4층]";
-									break;
-								case 37:
-									msg = "[안타라스의 둥지]";
-									break;
-								case 51:
-									msg = "[개미굴]";
-									break;
-								case 5167:
-									msg = "[악마왕의 영토]";
-									break;
-								case 56:
-									msg = "[기란 던전 4층]";
-									break;
-								case 58:
-									msg = "[인나드 협곡]";
-									break;
-								case 62:
-									msg = "[에바의 성지]";
-									break;
-								case 63:
-									msg = "[에바왕국]";
-									break;
-								case 65:
-									msg = "[파푸리온의 둥지]";
-									break;
-								case 67:
-									msg = "[발라카스의 둥지]";
-									break;
-								case 70:
-									msg = "[잊혀진 섬]";
-									break;
-								case 782:
-									msg = "[테베 오시리스의 제단]";
-									break;
-								case 812:
-								case 813:
-									msg = "[리뉴얼 본던]";
-									break;
-								case 82:
-									msg = "[상아탑 8층]";
-									break;
-								case 410:
-									msg = "[마족 신전]";
-									break;
-								case 535:
-									msg = "[다크엘프 성지]";
-									break;
-
-								}
-								if (mi.getHomeMap() == 0) {
-									if (mi.getX() >= 32663 && mi.getX() <= 32680 && mi.getY() >= 32818 && mi.getY() <= 32905) {
-										msg = "[말하는 섬 북섬]";
-									} else if (mi.getX() >= 32629 && mi.getX() <= 32638 && mi.getY() >= 32932 && mi.getY() <= 33004) {
-										msg = "[말하는 섬 선착장]";
-									}
-								}
-
-								if (mi.getHomeMap() == 4) {
-									if (mi.getX() >= 33248 && mi.getX() <= 33284 && mi.getY() >= 32374 && mi.getY() <= 32413) {
-										msg = "[용의 계곡 작은뼈]";
-									} else if (mi.getX() >= 33374 && mi.getX() <= 33406 && mi.getY() >= 32319 && mi.getY() <= 32357) {
-										msg = "[용의 계곡 큰뼈]";
-									} else if (mi.getX() >= 33224 && mi.getX() <= 33445 && mi.getY() >= 32266 && mi.getY() <= 32483) {
-										msg = "[용의 계곡]";
-									} else if (mi.getX() >= 33490 && mi.getX() <= 33807 && mi.getY() >= 32212 && mi.getY() <= 32416) {
-										msg = "[화룡의 둥지]";
-									}
-								}
-								String name = mi.getMonster().getName();
-								if (name.equalsIgnoreCase("카스파")) {
-									name = "카스파 패밀리";
-								}
-								if (name.equalsIgnoreCase("커츠")) {
-									name = "커츠 군단";
-								}
-
-								World.toSender(S_ObjectChatting.clone(BasePacketPooling.getPool(S_ObjectChatting.class), "" + msg + " " + name + " 소환 되었습니다 "));
+							String displayName = mi.getMonster().getName();
+							if (displayName.equalsIgnoreCase("카스파")) {
+								displayName = "카스파 패밀리";
 							}
+							if (displayName.equalsIgnoreCase("커츠")) {
+								displayName = "커츠 군단";
+							}
+							String line = String.format("[%s]가 소환되었습니다.", displayName);
+							World.toSender(S_ObjectChatting.clone(BasePacketPooling.getPool(S_ObjectChatting.class), line));
 						}
 					}
 				}

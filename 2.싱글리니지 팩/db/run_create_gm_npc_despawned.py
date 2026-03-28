@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""gm_npc_despawned 테이블 생성 (l1jdb). GM 툴 config 또는 환경변수 사용."""
+"""gm_npc_despawned 테이블 생성 (lin200). GM 툴 config 또는 환경변수 사용."""
 import sys
 import os
 
@@ -14,7 +14,7 @@ except Exception:
         'port': int(os.environ.get('DB_PORT', 3306)),
         'user': os.environ.get('DB_USER', 'root'),
         'password': os.environ.get('DB_PASSWORD', ''),
-        'database': os.environ.get('DB_NAME', 'l1jdb'),
+        'database': os.environ.get('DB_NAME', 'lin200'),
         'charset': 'utf8mb4',
     }
 
@@ -38,14 +38,14 @@ def main():
             port=db_config.get('port', 3306),
             user=db_config['user'],
             password=db_config.get('password', ''),
-            database=db_config.get('database', 'l1jdb'),
+            database=db_config.get('database', 'lin200'),
             charset=db_config.get('charset', 'utf8mb4'),
         )
         with conn.cursor() as cur:
             cur.execute(sql)
         conn.commit()
         conn.close()
-        print("gm_npc_despawned 테이블 생성 완료 (l1jdb).")
+        print("gm_npc_despawned 테이블 생성 완료 (lin200).")
         return 0
     except Exception as e:
         print("오류:", e)

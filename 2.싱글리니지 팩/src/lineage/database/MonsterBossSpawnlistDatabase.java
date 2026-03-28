@@ -16,6 +16,35 @@ public final class MonsterBossSpawnlistDatabase {
 	static private List<Boss> list;
 	static private List<BossSpawn> spawnList;
 
+	/** spawn_time 컬럼 파싱. 비어 있으면 길이 0 배열 → 시간 매칭 없음(스폰 안 됨). */
+	static private int[][] parseBossSpawnTimes(String spawn_time) {
+		if (spawn_time == null || spawn_time.trim().length() == 0)
+			return new int[0][2];
+		ArrayList<int[]> out = new ArrayList<int[]>();
+		StringTokenizer stt = new StringTokenizer(spawn_time, ",");
+		while (stt.hasMoreTokens()) {
+			String boss_time = stt.nextToken().trim();
+			if (boss_time.isEmpty())
+				continue;
+			int colon = boss_time.indexOf(':');
+			if (colon <= 0 || colon >= boss_time.length() - 1)
+				continue;
+			try {
+				int boss_h = Integer.parseInt(boss_time.substring(0, colon).trim());
+				int boss_m = Integer.parseInt(boss_time.substring(colon + 1).trim());
+				if (boss_h >= 0 && boss_h < 24 && boss_m >= 0 && boss_m < 60)
+					out.add(new int[] { boss_h, boss_m });
+			} catch (Exception ignored) {
+			}
+		}
+		int[][] time = new int[out.size()][2];
+		for (int i = 0; i < out.size(); i++) {
+			time[i][0] = out.get(i)[0];
+			time[i][1] = out.get(i)[1];
+		}
+		return time;
+	}
+
 	static public void init(Connection con) {
 		TimeLine.start("MonsterBossSpawnlistDatabase..");
 
@@ -43,7 +72,7 @@ public final class MonsterBossSpawnlistDatabase {
 					b.set스폰알림여부(isMsg);
 					
 					// 좌표 구분 추출.
-					StringTokenizer stt = new StringTokenizer(spawn, "&");
+					StringTokenizer stt = new StringTokenizer(spawn == null ? "" : spawn, "&");
 
 					while (stt.hasMoreTokens()) {
 						String map = stt.nextToken();
@@ -53,7 +82,7 @@ public final class MonsterBossSpawnlistDatabase {
 					}
 
 					// 요일 구분 추출.
-					stt = new StringTokenizer(spawn_day, ",");
+					stt = new StringTokenizer(spawn_day == null ? "" : spawn_day, ",");
 
 					while (stt.hasMoreTokens()) {
 						String day = stt.nextToken();
@@ -92,24 +121,10 @@ public final class MonsterBossSpawnlistDatabase {
 						}
 					}
 
-					// 스폰시간 구분 추출.
-					stt = new StringTokenizer(spawn_time, ",");
-					int[][] time = new int[stt.countTokens()][2];
-					int idx = 0;
-
-					while (stt.hasMoreTokens()) {
-						String boss_time = stt.nextToken().trim();
-						String boss_h = boss_time.substring(0, boss_time.indexOf(":"));
-						String boss_m = boss_time.substring(boss_h.length() + 1, boss_time.length());
-						time[idx][0] = Integer.valueOf(boss_h);
-						time[idx][1] = Integer.valueOf(boss_m);
-						idx += 1;
-					}
-
-					b.setTime(time);
+					b.setTime(parseBossSpawnTimes(spawn_time));
 
 					// 그룹 구분 추출.
-					stt = new StringTokenizer(group_monster, ",");
+					stt = new StringTokenizer(group_monster == null ? "" : group_monster, ",");
 
 					while (stt.hasMoreTokens()) {
 						String group = stt.nextToken();
@@ -173,7 +188,7 @@ public final class MonsterBossSpawnlistDatabase {
 						b.set스폰알림여부(isMsg);
 						
 						// 좌표 구분 추출.
-						StringTokenizer stt = new StringTokenizer(spawn, "&");
+						StringTokenizer stt = new StringTokenizer(spawn == null ? "" : spawn, "&");
 
 						while (stt.hasMoreTokens()) {
 							String map = stt.nextToken();
@@ -183,7 +198,7 @@ public final class MonsterBossSpawnlistDatabase {
 						}
 
 						// 요일 구분 추출.
-						stt = new StringTokenizer(spawn_day, ",");
+						stt = new StringTokenizer(spawn_day == null ? "" : spawn_day, ",");
 
 						while (stt.hasMoreTokens()) {
 							String day = stt.nextToken();
@@ -222,21 +237,7 @@ public final class MonsterBossSpawnlistDatabase {
 							}
 						}
 
-						// 스폰시간 구분 추출.
-						stt = new StringTokenizer(spawn_time, ",");
-						int[][] time = new int[stt.countTokens()][2];
-						int idx = 0;
-
-						while (stt.hasMoreTokens()) {
-							String boss_time = stt.nextToken().trim();
-							String boss_h = boss_time.substring(0, boss_time.indexOf(":"));
-							String boss_m = boss_time.substring(boss_h.length() + 1, boss_time.length());
-							time[idx][0] = Integer.valueOf(boss_h);
-							time[idx][1] = Integer.valueOf(boss_m);
-							idx += 1;
-						}
-
-						b.setTime(time);
+						b.setTime(parseBossSpawnTimes(spawn_time));
 
 						for (Boss tempBoss : tempList) {
 							if (tempBoss.getMon().getName().equalsIgnoreCase(b.getMon().getName()))
@@ -244,7 +245,7 @@ public final class MonsterBossSpawnlistDatabase {
 						}
 
 						// 그룹 구분 추출.
-						stt = new StringTokenizer(group_monster, ",");
+						stt = new StringTokenizer(group_monster == null ? "" : group_monster, ",");
 
 						while (stt.hasMoreTokens()) {
 							String group = stt.nextToken();

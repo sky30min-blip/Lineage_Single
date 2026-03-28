@@ -4196,7 +4196,7 @@ public boolean toLvStat(boolean packet) {
 		try {
 			// 기란감옥 던전 시간 확인
 			int map = getMap();
-			if (Lineage.is_giran_dungeon_time && TimeDungeonDatabase.isGiranDungeonMap(map) && !isWorldDelete()) {
+			if (Lineage.is_giran_dungeon_time && Lineage.isGiranDungeonMap(map) && !isWorldDelete()) {
 				if (--giran_dungeon_time < 1 && getGm() == 0)
 					TimeDungeonDatabase.isTimeDungeonFinal(this, 0);
 			}

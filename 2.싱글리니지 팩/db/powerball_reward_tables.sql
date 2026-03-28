@@ -1,7 +1,7 @@
 -- 파워볼 일일 포상 원장 (GM 툴 / 수동 정산용)
--- mysql -u... l1jdb < powerball_reward_tables.sql
+-- mysql -u... lin200 < powerball_reward_tables.sql
 
-USE l1jdb;
+USE lin200;
 
 CREATE TABLE IF NOT EXISTS `powerball_reward_run` (
   `reward_date` DATE NOT NULL COMMENT 'KST 기준 정산일',

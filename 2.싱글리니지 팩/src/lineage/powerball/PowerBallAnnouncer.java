@@ -57,6 +57,11 @@ public class PowerBallAnnouncer {
         npc.toSender(S_ObjectHeading.clone(BasePacketPooling.getPool(S_ObjectHeading.class), npc), false);
     }
 
+    /** 진행자 방향 고정 — ASCII 별칭(IDE 파서 호환). 실제 동작은 {@link #setHeading진행자AndBroadcast(object)} 와 동일. */
+    public static void setProgressorHeadingAndBroadcast(object npc) {
+        setHeading진행자AndBroadcast(npc);
+    }
+
     /** 지정 NPC를 동쪽으로 돌리고 같은 맵에 브로드캐스트 */
     public static void setHeading동AndBroadcast(object npc) {
         if (npc == null || npc.isDead()) return;

@@ -19,7 +19,7 @@ if os.path.isfile(_item_script):
     subprocess.check_call([sys.executable, _item_script])
 
 config = {'host': 'localhost', 'port': 3306, 'user': 'root', 'password': '1307',
-          'database': 'l1jdb', 'charset': 'utf8mb4'}
+          'database': 'lin200', 'charset': 'utf8mb4'}
 
 conn = pymysql.connect(**config)
 try:

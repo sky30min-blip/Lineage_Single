@@ -6,8 +6,7 @@
   - PowerballNpc.java: 상점·금액입력·쿠폰지급·매입·회차표시
   - PowerballController.java: 쿠폰 인벤 지급, 정산 시 공지만
   - PowerballDatabase.java: claimed, getBetByCharRound 등
-  - PowerBallDisplayBall.java: 맵 전광판용 NPC (클릭 무반응)
-  - PowerBallDisplayManager.java: 전광판 NPC 6개 스폰·숫자 갱신
+  - PowerBallDisplayManager.java: 파워볼진행자 대화창 HTML(베팅 UI)만
 
 ■ 아래 3가지를 모두 해야 게임에서 바뀐 것처럼 보입니다.
 

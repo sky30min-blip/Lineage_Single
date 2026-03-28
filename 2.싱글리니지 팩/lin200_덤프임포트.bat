@@ -3,8 +3,8 @@ chcp 65001 >nul
 cd /d "%~dp0"
 
 REM ===== mysql.conf 의 jdbc 포트와 반드시 같게 맞추세요 =====
-REM 3306 = Docker/WSL 등 / 3307 = Windows 서비스 MariaDB122
-set "PORT=3306"
+REM mysql.conf 의 jdbc 포트와 동일하게
+set "PORT=3308"
 
 set "MYSQL=C:\Program Files\MariaDB 12.2\bin\mysql.exe"
 if not exist "%MYSQL%" (
@@ -14,7 +14,7 @@ if not exist "%MYSQL%" (
   exit /b 1
 )
 
-set "DB=lin200"
+set "DB=l1jdb"
 set "DUMP=%~dp0db\20260222.sql"
 set "FIX=%~dp0db\fix_ban_word.sql"
 REM Docker 등 환경에서 localhost 가 172.17.x 로 잡히며 인증 실패할 수 있어 TCP+127.0.0.1 고정
@@ -31,10 +31,10 @@ echo  DB: %DB%   호스트: 127.0.0.1   포트: %PORT%
 echo  1) 전체 스키마+데이터: db\20260222.sql  (수 분 걸릴 수 있음)
 echo  2) 금칙어 테이블 보정: db\fix_ban_word.sql
 echo ------------------------------------------------------------
-echo  이미 lin200 에 테이블이 있으면 CREATE 가 충돌합니다.
+echo  이미 %DB% 에 테이블이 있으면 CREATE 가 충돌합니다.
 echo  처음부터 다시 넣으려면 이 배치를 다음처럼 실행하세요:
 echo    lin200_덤프임포트.bat /fresh
-echo  ^(/fresh = lin200 DB 삭제 후 재생성. 캐릭터 등 데이터도 모두 지워짐^)
+echo  ^(/fresh = %DB% DB 삭제 후 재생성. 캐릭터 등 데이터도 모두 지워짐^)
 echo ============================================================
 echo.
 
@@ -54,9 +54,9 @@ if errorlevel 1 (
 goto AFTER_DUMP
 
 :DO_FRESH
-echo [/fresh] 기존 lin200 DB를 삭제하고 새로 만듭니다. (데이터 전부 삭제)
+echo [/fresh] 기존 %DB% DB를 삭제하고 새로 만듭니다. (데이터 전부 삭제)
 echo root 비밀번호 입력:
-"%MYSQL%" %MYSQLOPTS% -u root -p -e "DROP DATABASE IF EXISTS lin200; CREATE DATABASE lin200 CHARACTER SET utf8 COLLATE utf8_general_ci;"
+"%MYSQL%" %MYSQLOPTS% -u root -p -e "DROP DATABASE IF EXISTS %DB%; CREATE DATABASE %DB% CHARACTER SET utf8 COLLATE utf8_general_ci;"
 if errorlevel 1 (
   echo [실패] DB 초기화 오류.
   pause

@@ -1,0 +1,24 @@
+# Windows에 MySQL/MariaDB가 3306을 쓰는 경우 호스트 충돌을 피하려면 아래처럼 3308:3306 사용.
+# 게임 서버 mysql.conf 의 jdbc 포트도 동일(3308)로 맞출 것.
+services:
+  db:
+    image: mariadb:latest
+    container_name: l1j-db
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: "1307"
+      MARIADB_DATABASE: lin200
+    ports:
+      - "3308:3306"
+    volumes:
+      # 예전에 쓰던 데이터: docker volume ls 에 보이는 이름과 맞출 것.
+      # 새 빈 DB가 아니라 기존 볼륨을 붙이려면 external 이름을 아래에 둠.
+      - l1j-db-data:/var/lib/mysql
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+
+volumes:
+  l1j-db-data:
+    external: true
+    name: l1j_mariadb_data_rebuild_20260325

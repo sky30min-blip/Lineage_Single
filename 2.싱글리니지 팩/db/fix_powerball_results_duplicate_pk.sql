@@ -1,7 +1,7 @@
 -- 파워볼 powerball_results INSERT 시 Duplicate entry '...' for key 'PRIMARY' (AUTO_INCREMENT 꼬임) 수정
--- MariaDB/MySQL에서 실행: mysql -u root -p l1jdb < fix_powerball_results_duplicate_pk.sql
+-- MariaDB/MySQL에서 실행: mysql -u root -p lin200 < fix_powerball_results_duplicate_pk.sql
 
-USE l1jdb;
+USE lin200;
 
 -- id 컬럼이 있는 경우에만 (SHOW COLUMNS FROM powerball_results LIKE 'id' 로 확인)
 SET @next_ai = (SELECT COALESCE(MAX(id), 0) + 1 FROM powerball_results);

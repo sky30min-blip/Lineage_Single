@@ -22,7 +22,7 @@ DB_CONFIG = {
     "port": 3306,
     "user": "root",
     "password": "",
-    "database": "l1jdb",
+    "database": "lin200",
     "charset": "utf8mb4",
 }
 

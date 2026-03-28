@@ -7,7 +7,7 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 import pymysql
 
 config = {'host': 'localhost', 'port': 3306, 'user': 'root', 'password': '1307',
-          'database': 'l1jdb', 'charset': 'utf8mb4'}
+          'database': 'lin200', 'charset': 'utf8mb4'}
 
 conn = pymysql.connect(**config)
 cur = conn.cursor()

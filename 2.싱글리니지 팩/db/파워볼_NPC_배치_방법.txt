@@ -25,7 +25,7 @@
     - 해당 파일 열기 → 실행(F9)
 
   또는 명령줄:
-    mysql -u계정 -p l1jdb < "2.싱글리니지 팩\db\powerball_npc.sql"
+    mysql -u계정 -p lin200 < "2.싱글리니지 팩\db\powerball_npc.sql"
 
   하는 일:
     1) npc 테이블에 '파워볼' NPC 추가 (type='파워볼', gfxid=6052 등)

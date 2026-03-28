@@ -25,10 +25,10 @@ src\kuberaitem\RandomDollOptionGrantingOrderForm.java
 src\kuberaitem\ScrollOfChangeBlessdoll.java
 src\kuberaitem\ScrollOfEnchantElementalWeaponRe.java
 src\kuberaitem\SelfSpell.java
-src\kuberaitem\°áÈ¥¹ÝÁö.java
-src\kuberaitem\±â¸¶Åõ±¸.java
-src\kuberaitem\±â¾ïÁ¦°Å±¸½½.java
-src\kuberaitem\Èñ¹ÌÇÑ±â¾ïÀÇ±¸½½.java
+src\kuberaitem\ï¿½ï¿½È¥ï¿½ï¿½ï¿½ï¿½.java
+src\kuberaitem\ï¿½â¸¶ï¿½ï¿½ï¿½ï¿½.java
+src\kuberaitem\ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Å±ï¿½ï¿½ï¿½.java
+src\kuberaitem\ï¿½ï¿½ï¿½ï¿½Ñ±ï¿½ï¿½ï¿½Ç±ï¿½ï¿½ï¿½.java
 src\lineage\Main.java
 src\lineage\bean\LogConnect.java
 src\lineage\bean\LogExp.java
@@ -420,7 +420,6 @@ src\lineage\plugin\PluginController.java
 src\lineage\plugin\Plugins.java
 src\lineage\powerball\package-info.java
 src\lineage\powerball\PowerBallAnnouncer.java
-src\lineage\powerball\PowerBallDisplayBall.java
 src\lineage\powerball\PowerBallDisplayManager.java
 src\lineage\powerball\PowerBallGame.java
 src\lineage\powerball\PowerBallNpcHandler.java
@@ -990,8 +989,8 @@ src\lineage\world\object\monster\StoneGolem.java
 src\lineage\world\object\monster\Unicorn.java
 src\lineage\world\object\monster\Wolf.java
 src\lineage\world\object\monster\Wolf2.java
-src\lineage\world\object\monster\Å×º£¾Æ´©ºñ½º.java
-src\lineage\world\object\monster\Å×º£È£·ç½º.java
+src\lineage\world\object\monster\ï¿½×ºï¿½ï¿½Æ´ï¿½ï¿½ï¿½.java
+src\lineage\world\object\monster\ï¿½×ºï¿½È£ï¿½ç½º.java
 src\lineage\world\object\monster\event\JackLantern.java
 src\lineage\world\object\monster\quest\AtubaOrc.java
 src\lineage\world\object\monster\quest\BetrayedOrcChief.java
@@ -1066,7 +1065,7 @@ src\lineage\world\object\npc\Trank_bronze3.java
 src\lineage\world\object\npc\TreasureHuntTeleporter.java
 src\lineage\world\object\npc\WeaponChange.java
 src\lineage\world\object\npc\WorldBossTeleporter.java
-src\lineage\world\object\npc\ÀÚµ¿ÆÇ¸Å.java
+src\lineage\world\object\npc\ï¿½Úµï¿½ï¿½Ç¸ï¿½.java
 src\lineage\world\object\npc\background\BackgroundTile.java
 src\lineage\world\object\npc\background\BattleRoyalTeamLine.java
 src\lineage\world\object\npc\background\Chaotic.java

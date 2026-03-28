@@ -1,8 +1,8 @@
 -- ============================================
--- 파워볼 미니게임 테이블 (MariaDB l1jdb)
+-- 파워볼 미니게임 테이블 (MariaDB lin200)
 -- ============================================
 
-USE l1jdb;
+USE lin200;
 
 -- 1. 회차별 결과
 CREATE TABLE IF NOT EXISTS powerball_results (

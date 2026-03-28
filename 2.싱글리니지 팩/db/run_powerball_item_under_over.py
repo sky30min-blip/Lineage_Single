@@ -9,7 +9,7 @@ config = dict(
     port=3306,
     user="root",
     password="1307",
-    database="l1jdb",
+    database="lin200",
     charset="utf8mb4",
 )
 
