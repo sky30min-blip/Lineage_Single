@@ -25,7 +25,11 @@ public class Giran_dungeon_Telepoter extends object {
 		else
 			time = "오후 "+ String.valueOf(Lineage.giran_dungeon_inti_time - 12) + "시";
 		
-		msg.add(String.valueOf(Lineage.giran_dungeon_time / 3600));
+		// 남은 이용시간(분). 예전에는 서버설정 시간을 시간 단위(/3600)로 넣어 NPC 대화에 변화가 없어 초기화가 안 된 것처럼 보였음.
+		if (Lineage.is_giran_dungeon_time)
+			msg.add(String.valueOf(Math.max(0, pc.getGiran_dungeon_time()) / 60));
+		else
+			msg.add(String.valueOf(Lineage.giran_dungeon_time / 60));
 		msg.add(time);
 		msg.add(String.format("%s", Lineage.giran_dungeon_level2));
 		msg.add(String.format("%s", Lineage.giran_dungeon_level3));

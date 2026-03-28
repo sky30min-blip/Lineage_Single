@@ -1962,8 +1962,9 @@ public final class ItemDatabase {
 	static private int getWeaponGfx(final String type2) {
 		if (type2.equalsIgnoreCase("sword"))
 			return Lineage.WEAPON_SWORD;
+		// 양손검도 클라 모션은 한손검과 동일하게 (문제 시 WEAPON_TOHANDSWORD 로 복구)
 		else if (type2.equalsIgnoreCase("tohandsword"))
-			return Lineage.WEAPON_TOHANDSWORD;
+			return Lineage.WEAPON_SWORD;
 		else if (type2.equalsIgnoreCase("axe"))
 			return Lineage.WEAPON_AXE;
 		else if (type2.equalsIgnoreCase("bow"))

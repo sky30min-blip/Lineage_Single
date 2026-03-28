@@ -928,16 +928,32 @@ public class Kingdom {
 		}
 	}
 	
-	public void sendMessage(int time) {
-		if (time / 3600 > 0) {
-			World.toSender( S_ObjectChatting.clone(BasePacketPooling.getPool(S_ObjectChatting.class), String.format("%d시간 %d분 %d초 동안 방어에 성공할 경우 %s 혈맹이 %s을 차지합니다.", 
-					time / 3600, time % 3600 / 60, time % 3600 % 60, getClanName(), getName())) );
-		} else if (time % 3600 / 60 > 0) {
-			World.toSender( S_ObjectChatting.clone(BasePacketPooling.getPool(S_ObjectChatting.class), String.format("%d분 %d초 동안 방어에 성공할 경우 %s 혈맹이 %s을 차지합니다.", 
-					time % 3600 / 60, time % 3600 % 60, getClanName(), getName())) );
-		} else {
-			World.toSender( S_ObjectChatting.clone(BasePacketPooling.getPool(S_ObjectChatting.class), String.format("%d초 동안 방어에 성공할 경우 %s 혈맹이 %s을 차지합니다.", 
-					time % 3600 % 60, getClanName(), getName())) );
+	/** 면류관 방어 타이머(초)를 안내용 문구로 변환. 정확히 N분·N시간일 때는 초 생략. */
+	public static String formatCrownDefenseDuration(int sec) {
+		if (sec < 0)
+			sec = 0;
+		if (sec >= 3600) {
+			int h = sec / 3600;
+			int m = sec % 3600 / 60;
+			int s = sec % 60;
+			if (m == 0 && s == 0)
+				return String.format("%d시간", h);
+			if (s == 0)
+				return String.format("%d시간 %d분", h, m);
+			return String.format("%d시간 %d분 %d초", h, m, s);
 		}
+		int m = sec / 60;
+		int s = sec % 60;
+		if (m > 0 && s == 0)
+			return String.format("%d분", m);
+		if (m > 0)
+			return String.format("%d분 %d초", m, s);
+		return String.format("%d초", s);
+	}
+
+	public void sendMessage(int time) {
+		String dur = formatCrownDefenseDuration(time);
+		World.toSender(S_ObjectChatting.clone(BasePacketPooling.getPool(S_ObjectChatting.class),
+				String.format("%s 동안 방어에 성공하면 %s 혈맹이 %s을 차지합니다.", dur, getClanName(), getName())));
 	}
 }

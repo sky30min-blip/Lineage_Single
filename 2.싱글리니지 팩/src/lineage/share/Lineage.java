@@ -49,6 +49,11 @@ public final class Lineage {
 	static public int attackAndMagic_delay;
 	// 무기에 따른 공속 적용 여부
 	static public boolean is_weapon_speed;
+	/**
+	 * 커스텀 방어구·장신구 세트 효과 (축복 6종·4종, +8~+10 인챈 6슬롯).
+	 * false면 미적용. 무기 전용 커스텀 세트 보너스는 본 팩에 별도 구현 없음.
+	 */
+	static public boolean enable_custom_armor_accessory_set_bonus = false;
 	// 칼렉 딜레이(명령어 아이템 전부)
 	static public int sword_rack_delay;
 	// PvP시 자동물약 사용 여부
@@ -1499,6 +1504,7 @@ public final class Lineage {
 	static public boolean is_aden_teleport;
 	// 웰던 랜덤텔레포트 여부.
 	static public boolean is_welldone_teleport;
+	// 성 외성·기란 아지트 텔 허용 여부는 TeleportPolicy (IDE/분석기 호환용 소형 클래스)
 
 	// 잠수용 허수아비 사용여부
 	static public boolean is_rest_cracker;
@@ -2037,7 +2043,17 @@ public final class Lineage {
 	static public boolean is_auto_hunt_skill;
 	static public double is_auto_hunt_skill_percent;
 	static public int auto_hunt_telpeport_delay;
-	
+	/** pc(본인 OID, 권장) | item | zero | minimal(초소형 HTML) | extended_item(=item) */
+	static public String autohunt_html_dialog_mode = "pc";
+	/** false=SHOWHTML 2인자만. true=server_version>144 일 때 4인자(빈request+writeH) */
+	static public boolean autohunt_showhtml_extended = false;
+	/** false={@code <a action=bypass>} (2.0 계열 권장). true=button 태그(일부 클라에서 불안정) */
+	static public boolean autohunt_html_use_button = false;
+	/** true=메인은 autohunt.htm+치환(클라 pak 필수). false=서버 인라인 HTML(기본, 빈 창 방지) */
+	static public boolean autohunt_use_client_htm = false;
+	/** true=인라인 메인을 3페이지로 나눔(한 패킷 HTML 길이 축소·팅김 완화). htm 모드·minimal 은 무관 */
+	static public boolean autohunt_html_paginate = true;
+
 	//수배
 	static public List<Integer> w_map_list = new ArrayList<Integer>();
 
@@ -2925,6 +2941,8 @@ public final class Lineage {
 						is_gm_global_chat = value.equalsIgnoreCase("true");
 					else if (key.equalsIgnoreCase("is_weapon_speed"))
 						is_weapon_speed = value.equalsIgnoreCase("true");
+					else if (key.equalsIgnoreCase("enable_custom_armor_accessory_set_bonus"))
+						enable_custom_armor_accessory_set_bonus = value.equalsIgnoreCase("true");
 					else if (key.equalsIgnoreCase("sword_rack_delay"))
 						sword_rack_delay = Integer.valueOf(value);
 					else if (key.equalsIgnoreCase("is_pvp_auto_potion"))
@@ -3388,6 +3406,10 @@ public final class Lineage {
 						is_aden_teleport = value.equalsIgnoreCase("true");
 					else if (key.equalsIgnoreCase("is_welldone_teleport"))
 						is_welldone_teleport = value.equalsIgnoreCase("true");
+					else if (key.equalsIgnoreCase("is_kingdom_outer_teleport"))
+						TeleportPolicy.kingdomOuterTeleport = value.equalsIgnoreCase("true");
+					else if (key.equalsIgnoreCase("is_giran_agit_teleport"))
+						TeleportPolicy.giranAgitTeleport = value.equalsIgnoreCase("true");
 
 					else if (key.equalsIgnoreCase("boss_live_time"))
 						boss_live_time = Integer.valueOf(value);
@@ -4078,6 +4100,16 @@ public final class Lineage {
 						kingdomDay(auto_hunt_mp_list, value);
 					else if (key.equalsIgnoreCase("auto_hunt_mp_list2"))
 						kingdomDay(auto_hunt_mp_list2, value);
+					else if (key.equalsIgnoreCase("autohunt_html_dialog_mode"))
+						autohunt_html_dialog_mode = value.trim();
+					else if (key.equalsIgnoreCase("autohunt_showhtml_extended"))
+						autohunt_showhtml_extended = value.equalsIgnoreCase("true");
+					else if (key.equalsIgnoreCase("autohunt_html_use_button"))
+						autohunt_html_use_button = value.equalsIgnoreCase("true");
+					else if (key.equalsIgnoreCase("autohunt_use_client_htm"))
+						autohunt_use_client_htm = value.equalsIgnoreCase("true");
+					else if (key.equalsIgnoreCase("autohunt_html_paginate"))
+						autohunt_html_paginate = value.equalsIgnoreCase("true");
 					else if (key.equalsIgnoreCase("w_map_list"))
 						kingdomDay(w_map_list, value);
 					

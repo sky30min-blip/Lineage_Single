@@ -8,6 +8,7 @@ import lineage.bean.database.Skill;
 import lineage.bean.lineage.BuffInterface;
 import lineage.bean.lineage.Inventory;
 import lineage.database.ItemMaplewandDatabase;
+import lineage.database.NpcSpawnlistDatabase;
 import lineage.database.PolyDatabase;
 import lineage.database.SkillDatabase;
 import lineage.database.SpriteFrameDatabase;
@@ -23,7 +24,6 @@ import lineage.share.Lineage;
 import lineage.world.controller.BuffController;
 import lineage.world.controller.ChattingController;
 import lineage.world.controller.KingdomController;
-import lineage.world.controller.RankController;
 import lineage.world.controller.SkillController;
 import lineage.world.object.Character;
 import lineage.world.object.object;
@@ -243,39 +243,28 @@ public class ShapeChange extends Magic {
 			// 변신할 괴물의 이름을 넣으십시오.
 			if (packet) {
 				List<String> quickPolymorph = new ArrayList<String>();
-				int allRank = RankController.getAllRank(cha.getObjectId());
-				int classRank = RankController.getClassRank(cha.getObjectId(), cha.getClassType());
-				
-				quickPolymorph.clear();
 				quickPolymorph.add(cha.getQuickPolymorph() == null || cha.getQuickPolymorph().equalsIgnoreCase("") || cha.getQuickPolymorph().length() < 1 ? "빠른 변신 목록 없음" : cha.getQuickPolymorph());
-				
 				cha.toSender(S_MessageYesNo.clone(BasePacketPooling.getPool(S_MessageYesNo.class), 180));
-				
-				if (Lineage.is_rank_poly) {
-					if ((((allRank > 0 && allRank <= Lineage.rank_poly_all) || (classRank > 0 && classRank <= Lineage.rank_poly_class)) && cha.getLevel() >= Lineage.rank_min_level) || Lineage.event_rank_poly)
-						cha.toSender(S_Html.clone(BasePacketPooling.getPool(S_Html.class), cha, "monlist", null, quickPolymorph));
-					else
-						cha.toSender(S_Html.clone(BasePacketPooling.getPool(S_Html.class), cha, "monlist", null, quickPolymorph));
-				} else {
-					cha.toSender(S_Html.clone(BasePacketPooling.getPool(S_Html.class), cha, "monlist", null, quickPolymorph));
-				}
+				object monlistAnchor = NpcSpawnlistDatabase.polyMonlistNpc != null ? NpcSpawnlistDatabase.polyMonlistNpc : cha;
+				cha.toSender(S_Html.clone(BasePacketPooling.getPool(S_Html.class), monlistAnchor, "monlist", null, quickPolymorph));
 			}
 		} else {
 			PcInstance pc = (PcInstance) o;
 			if (p == null)
 				p = ItemMaplewandDatabase.randomPoly();
 			if (p != null && !o.isDead()) {
-				if (o instanceof Character)
+				if (o instanceof Character) {
 					// 장비 해제.
 					PolyDatabase.toEquipped((Character) o, p);
-				
+				}
+
 				// 변신
 				o.setGfx(p.getGfxId());
 
 				if (Lineage.is_weapon_speed) {
 					if (!o.checkSpear()) {
 						ItemInstance weapon = o.getInventory().getSlot(Lineage.SLOT_WEAPON);
-						
+
 						if (weapon != null && weapon.getItem() != null && SpriteFrameDatabase.findGfxMode(o.getGfx(), weapon.getItem().getGfxMode() + Lineage.GFX_MODE_ATTACK)) {
 							o.setGfxMode(weapon.getItem().getGfxMode());
 						} else {
@@ -285,7 +274,7 @@ public class ShapeChange extends Magic {
 				} else {
 					o.setGfxMode(p.getGfxMode());
 				}
-			
+
 				if (packet) {
 					o.toSender(S_ObjectPoly.clone(BasePacketPooling.getPool(S_ObjectPoly.class), o), true);
 					if (Lineage.server_version > 182)
@@ -296,14 +285,14 @@ public class ShapeChange extends Magic {
 
 				// 일반 변신 이팩트 6082, 단풍 나무 변신 6130
 				if (!p.getName().contains("세트") && !p.getName().contains("운영자") && !p.getName().contains("좀비 변신")) {
-				//	o.toSender(S_ObjectEffect.clone(BasePacketPooling.getPool(S_ObjectEffect.class), o, 6082), true);
-				// 아이템 수량 갱신
-				if (pc.getTempPolyScroll() != null)
-					pc.getInventory().count(pc.getTempPolyScroll(), pc.getTempPolyScroll().getCount() - 1, true);
-				pc.setTempPoly(false);
-				pc.setTempPolyScroll(null);
-				if (!p.getName().contains("랭커"))
-					pc.setQuickPolymorph(p.getName());
+					// o.toSender(S_ObjectEffect.clone(BasePacketPooling.getPool(S_ObjectEffect.class), o, 6082), true);
+					// 아이템 수량 갱신
+					if (pc.getTempPolyScroll() != null)
+						pc.getInventory().count(pc.getTempPolyScroll(), pc.getTempPolyScroll().getCount() - 1, true);
+					pc.setTempPoly(false);
+					pc.setTempPolyScroll(null);
+					if (!p.getName().contains("랭커"))
+						pc.setQuickPolymorph(p.getName());
 				}
 			} else {
 				if (packet)

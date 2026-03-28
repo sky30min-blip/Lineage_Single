@@ -1,5 +1,10 @@
 package lineage.powerball;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Random;
+
 import lineage.network.packet.BasePacketPooling;
 import lineage.network.packet.server.S_ObjectChatting;
 import lineage.network.packet.server.S_ObjectHeading;
@@ -193,7 +198,7 @@ public class PowerBallAnnouncer {
     }
 
     /**
-     * 추첨 결과 발표: 일반볼 NPC가 5개 번호 발표 → 파워볼 NPC 발표 → 진행자가 종합+오늘 통계 (같은 맵 채팅만, 전체 채팅 없음).
+     * 추첨 결과 발표: 일반볼 NPC가 5개 번호를 무작위 순서로 발표 → 파워볼 NPC 발표 → 진행자가 일반볼 오름차순 최종 정리+오늘 통계 (같은 맵 채팅만).
      * @param todayOdd 오늘 홀 회차 수
      * @param todayEven 오늘 짝 회차 수
      * @param todayUnder 오늘 언더 회차 수
@@ -212,18 +217,21 @@ public class PowerBallAnnouncer {
                 if (progress == null || progress.isDead())
                     progress = findProgressorNpc();
 
-                int[] normals = result.getNormalBalls();
+                int[] normals = result.getNormalBalls(); // 오름차순 (결과·DB·호칭·최종 멘트용)
                 int power = result.getPowerBall();
                 int total = result.getTotalSum();
                 String roundStr = String.format("%03d", roundDisplay);
 
-                // 일반볼 NPC: 5개 숫자 1.5초 간격으로 발표 → 호칭 (해당 맵만)
+                // 일반볼 NPC: 5개 숫자를 무작위 순서로 1.5초 간격 발표 → 호칭은 오름차순 정리
                 if (normalBallNpc != null && !normalBallNpc.isDead()) {
+                    List<Integer> sayOrder = new ArrayList<>(5);
+                    for (int n : normals)
+                        sayOrder.add(n);
+                    Collections.shuffle(sayOrder, new Random());
                     for (int i = 0; i < 5; i++) {
-                        npcSayToMap(normalBallNpc, String.valueOf(normals[i]));
+                        npcSayToMap(normalBallNpc, String.valueOf(sayOrder.get(i)));
                         if (i < 4) Thread.sleep(1500);
                     }
-                    // 일반볼 NPC 호칭: 숫자만 표시 (홀/짝 제외)
                     String normalTitle = roundStr + "차:" + normals[0] + "," + normals[1] + "," + normals[2] + "," + normals[3] + "," + normals[4];
                     setNpcTitleAndBroadcast(normalBallNpc, normalTitle);
                 }
@@ -248,9 +256,10 @@ public class PowerBallAnnouncer {
                     // 요청사항: 진행자 방향은 heading 5 고정.
                     setHeading진행자AndBroadcast(progress);
                     String pair = formatResultPair(result.isOdd(), result.isTotalUnder());
-                    String summary = String.format("제%d회차는 %d, %d, %d, %d, %d, %d 로 총 %d %s 입니다. 오늘 홀 %d회 | 짝 %d회 | 언더 %d회 | 오버 %d회",
-                        roundDisplay, normals[0], normals[1], normals[2], normals[3], normals[4], power,
-                        total, pair, todayOdd, todayEven, todayUnder, todayOver);
+                    String summary = String.format(
+                            "제%d회차 최종 정리 — 일반볼(작은 순) %d, %d, %d, %d, %d · 파워볼 %d · 합계 %d %s 입니다. 오늘 홀 %d회 | 짝 %d회 | 언더 %d회 | 오버 %d회",
+                            roundDisplay, normals[0], normals[1], normals[2], normals[3], normals[4], power,
+                            total, pair, todayOdd, todayEven, todayUnder, todayOver);
                     npcSayToMap(progress, summary);
                 }
             } catch (InterruptedException e) {

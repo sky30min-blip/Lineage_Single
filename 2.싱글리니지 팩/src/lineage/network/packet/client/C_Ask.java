@@ -74,10 +74,15 @@ public class C_Ask extends ClientBasePacket {
 					}
 				}
 				
-				if (pc.isTempPoly())
+				if (pc.isTempPoly()) {
+					if (pc.getTempPolyScroll() == null) {
+						pc.setTempPoly(false);
+						return this;
+					}
 					ShapeChange.init(pc, pc, PolyDatabase.getPolyName(name), 1800, pc.getTempPolyScroll().getBless());
-				else
+				} else {
 					ShapeChange.init(pc, pc, PolyDatabase.getPolyName(name), 7200, 1);
+				}
 			}
 			break;
 		case 217: // 전쟁 선포 혈전 부분

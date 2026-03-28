@@ -59,7 +59,9 @@ import lineage.world.object.npc.OmanSealCreate;
 import lineage.world.object.npc.BossTimer;
 import lineage.world.object.npc.EvilTeleporter;
 import lineage.world.object.npc.FrozenTeleporter;
+import lineage.world.object.npc.AutoHuntMenuNpc;
 import lineage.world.object.npc.AutoPotion;
+import lineage.world.object.npc.PolyMonlistNpc;
 import lineage.world.object.npc.ItemSwap;
 import lineage.world.object.npc.KuberaQuest;
 import lineage.world.object.npc.KuberaQuest2;
@@ -288,6 +290,10 @@ public final class NpcSpawnlistDatabase {
 	static public object itemSwap;
 	// 자동 물약
 	static public object autoPotion;
+	// 자동사냥 메인 (autohunt.htm)
+	static public AutoHuntMenuNpc autoHuntMenu;
+	// 변신 목록(monlist.htm) HTML OID 앵커
+	static public PolyMonlistNpc polyMonlistNpc;
 	// 매입 상인
 	static public ShopInstance sellShop;
 	//by 야도란 사냥터이동 & 보스이동ses950317@nate.com
@@ -345,6 +351,8 @@ public final class NpcSpawnlistDatabase {
 		quest2= new KuberaQuest2();
 		itemSwap = new ItemSwap();
 		autoPotion = new AutoPotion();
+		autoHuntMenu = new AutoHuntMenuNpc();
+		polyMonlistNpc = new PolyMonlistNpc();
 		AutoSellItem = new 자동판매();
 		//	야도란 ses950317@nate.com
 		marketNpc = new ShopManagement();
@@ -353,6 +361,8 @@ public final class NpcSpawnlistDatabase {
 		뽑기엔피시 = new testnpc();
 		
 		autoPotion.setObjectId(ServerDatabase.nextEtcObjId());
+		autoHuntMenu.setObjectId(ServerDatabase.nextEtcObjId());
+		polyMonlistNpc.setObjectId(ServerDatabase.nextEtcObjId());
 		뽑기엔피시.setObjectId(ServerDatabase.nextEtcObjId());
 		playcheck.setObjectId(ServerDatabase.nextEtcObjId());
 		quest.setObjectId(ServerDatabase.nextEtcObjId());

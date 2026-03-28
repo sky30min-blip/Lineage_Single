@@ -16,6 +16,8 @@ public class AutoHuntItem extends ItemInstance {
 	public void toClick(Character cha, ClientBasePacket cbp) {
 		if (cha.getInventory() != null) {
 			PcInstance pc = (PcInstance) cha;
+			pc.setAutohuntHtmlAnchor(this);
+			pc.autohuntMenuPage = 1;
 			pc.showAutoHuntHtml();
 		}
 	}

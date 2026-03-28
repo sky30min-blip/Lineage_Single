@@ -17,6 +17,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
@@ -108,6 +109,8 @@ import lineage.world.Node;
 import lineage.world.World;
 import lineage.world.controller.AgitController;
 import lineage.world.controller.AutoHuntCheckController;
+import lineage.world.controller.AutoHuntHtmlBuilder;
+import lineage.world.object.npc.AutoPotion;
 import lineage.world.controller.BaphometSystemController;
 import lineage.world.controller.TeamBattleController;
 import lineage.world.controller.TebeController;
@@ -404,6 +407,10 @@ public class PcInstance extends Character {
 	public int temp_x;
 	public int temp_y;
 	public int temp_map;
+	/** 자동사냥 대화창 S_Html의 OID. 일부 2.0 클라는 PC OID+인라인 HTML 조합에서 튕김 → 인벤 아이템 OID 사용 */
+	private transient object autohuntHtmlAnchor;
+	/** 인라인 메인 다페이지(1~3). autohunt_html_paginate 용 */
+	public int autohuntMenuPage = 1;
 	public int auto_hunt_account_time;
 	public int auto_hunt_time;
 	public boolean is_auto_return_home;
@@ -2524,17 +2531,17 @@ public boolean toLvStat(boolean packet) {
 					// 프레임 시간
 					frame_Time = SpriteFrameDatabase.getGfxFrameTime(this, this.getGfx(), isTriple ? (attackAction == Lineage.ACTION_TRIPLE_ARROW_2 ? attackAction : gfxMode) : attackAction);
 
-					// 트리플 에로우 밀림 현상 개선
+					// 트리플 에로우 밀림 현상 개선 (엘프 트리플만 ai_Time으로 모션 제한)
+					// 일반 근접/활: AttackController가 공격 간격을 이미 제한하므로 ai_Time으로 S_ObjectAttack을 막으면
+					// 데미지·로그만 들어가고 모션이 빠지는 불일치가 난다 (미변신 gfx에서 특히 뚜렷).
 					boolean shouldAttack = false;
 					if (getClassType() == Lineage.LINEAGE_CLASS_ELF && isTriple) {
 						if (now_Time > ai_Time || now_Time - ai_Time < -345) {
 							shouldAttack = true;
 						}
 					} else {
-						if (ai_Time <= now_Time) {
-							shouldAttack = true;
-							ai_Time = System.currentTimeMillis() + (frame_Time - 5);
-						}
+						shouldAttack = true;
+						ai_Time = System.currentTimeMillis() + (frame_Time - 5);
 					}
 
 					if (shouldAttack) {
@@ -5146,110 +5153,92 @@ public boolean toLvStat(boolean packet) {
 		}
 	}
 
+	public void setAutohuntHtmlAnchor(object anchor) {
+		autohuntHtmlAnchor = anchor;
+	}
+
+	private boolean inventoryHasItem(ItemInstance it) {
+		if (it == null || getInventory() == null)
+			return false;
+		for (ItemInstance inv : getInventory().getList()) {
+			if (inv == it)
+				return true;
+		}
+		return false;
+	}
+
+	private ItemInstance findAnyAutoHuntMenuItem() {
+		if (getInventory() == null)
+			return null;
+		for (ItemInstance inv : getInventory().getList()) {
+			if (inv instanceof lineage.world.object.item.all_night.AutoHuntItem
+					|| inv instanceof kuberaitem.AutoHuntItem)
+				return inv;
+		}
+		return null;
+	}
+
+	private object resolveAutohuntHtmlObject() {
+		if (autohuntHtmlAnchor instanceof ItemInstance && inventoryHasItem((ItemInstance) autohuntHtmlAnchor))
+			return autohuntHtmlAnchor;
+		ItemInstance fallback = findAnyAutoHuntMenuItem();
+		if (fallback != null)
+			return fallback;
+		return this;
+	}
+
+	private void sendAutoHuntHtml(String html) {
+		if (html == null)
+			html = "";
+		BasePacket pool = BasePacketPooling.getPool(S_Html.class);
+		String mode = Lineage.autohunt_html_dialog_mode;
+		if (mode == null)
+			mode = "pc";
+		// minimal 은 메인(showAutoHuntHtml) 전용. 물약/스킬 등은 PC OID로 동일 전송.
+		if ("minimal".equalsIgnoreCase(mode))
+			mode = "pc";
+		// autohunt_showhtml_extended=true 일 때만 4인자 SHOWHTML. false면 2인자만(팅김 완화 기본).
+		boolean ext = Lineage.server_version > 144 && Lineage.autohunt_showhtml_extended;
+		if ("pc".equalsIgnoreCase(mode)) {
+			// conf 이름은 pc 이지만, PC OID + 인라인 HTML 은 2.0대 클라에서 클릭 시 팅김 빈번 →
+			// 자동사냥 아이템 OID 우선(클릭 시 anchor / 인벤 내 아이템).
+			object htmlObj = resolveAutohuntHtmlObject();
+			if (ext)
+				toSender(S_Html.clone(pool, htmlObj, html, "", null));
+			else
+				toSender(S_Html.clone(pool, htmlObj, html));
+			return;
+		}
+		if ("item".equalsIgnoreCase(mode) || "extended_item".equalsIgnoreCase(mode)) {
+			object o = resolveAutohuntHtmlObject();
+			if (ext)
+				toSender(S_Html.clone(pool, o, html, "", null));
+			else
+				toSender(S_Html.clone(pool, o, html));
+			return;
+		}
+		// zero: OID 0 + 인라인 HTML (S_Html.cloneHtmlOidZero)
+		toSender(S_Html.cloneHtmlOidZero(pool, html));
+	}
+
 	public void showAutoHuntHtml() {
 		try {
-			List<String> autoHunt = new ArrayList<String>();
-			autoHunt.clear();
-
-			String msg = null;
-			if (Lineage.is_auto_hunt_time) {
-				long time = 0;
-
-				if (Lineage.is_auto_hunt_time_account) {
-					time = auto_hunt_account_time;
-				} else {
-					time = auto_hunt_time;
-				}
-
-				if (time > 0) {
-					if (time / 3600 > 0) {
-						msg = String.format("[남은 시간: %d시간 %d분 %d초]", time / 3600, time % 3600 / 60, time % 3600 % 60);
-					} else if (time % 3600 / 60 > 0) {
-						msg = String.format("[남은 시간: %d분 %d초]", time % 3600 / 60, time % 3600 % 60);
-					} else {
-						msg = String.format("[남은 시간: %d초]", time % 3600 % 60);
-					}
-				} else {
-					msg = "[남은 시간: 없음]";
-				}
-			} else {
-				msg = "[남은 시간: 무제한]";
+			if (Lineage.autohunt_use_client_htm && NpcSpawnlistDatabase.autoHuntMenu != null) {
+				NpcSpawnlistDatabase.autoHuntMenu.showMainHtml(this);
+				return;
 			}
-
-			autoHunt.add(msg == null ? " " : msg);
-			autoHunt.add(isAutoHunt ? "ON" : "OFF");
-			autoHunt.add(auto_return_home_hp < 1 ? "설정 X" : String.format("%d%%", auto_return_home_hp));
-
-			for (int i = 0; i < Lineage.auto_hunt_home_hp_list.size(); i++) {
-				autoHunt.add(String.format("%d%%", Lineage.auto_hunt_home_hp_list.get(i)));
-
-				if (i > 6) {
-					break;
-				}
+			if ("minimal".equalsIgnoreCase(Lineage.autohunt_html_dialog_mode)) {
+				String mini = AutoHuntHtmlBuilder.buildMinimal(this);
+				BasePacket pool = BasePacketPooling.getPool(S_Html.class);
+				boolean ext = Lineage.server_version > 144 && Lineage.autohunt_showhtml_extended;
+				object htmlObj = resolveAutohuntHtmlObject();
+				if (ext)
+					toSender(S_Html.clone(pool, htmlObj, mini, "", null));
+				else
+					toSender(S_Html.clone(pool, htmlObj, mini));
+				return;
 			}
-
-			for (int i = 0; i < 7 - Lineage.auto_hunt_home_hp_list.size(); i++) {
-				autoHunt.add(" ");
-			}
-
-			autoHunt.add(is_auto_buff ? "ON" : "OFF");
-
-			autoHunt.add(isAutoPotion ? "ON" : "OFF");
-			autoHunt.add(is_auto_potion_buy ? "ON" : "OFF");
-			autoHunt.add(autoPotionPercent < 1 ? "설정 X" : String.format("%d%%", autoPotionPercent));
-			autoHunt.add(autoPotionName == null || autoPotionName.length() < 1 ? "설정 X" : autoPotionName);
-
-			autoHunt.add(is_auto_poly_select ? "랭변" : "일반");
-
-			autoHunt.add(is_auto_rank_poly ? "ON" : "OFF");
-			autoHunt.add(is_auto_rank_poly_buy ? "ON" : "OFF");
-
-			autoHunt.add(is_auto_poly ? "ON" : "OFF");
-			autoHunt.add(is_auto_poly_buy ? "ON" : "OFF");
-			autoHunt.add(getQuickPolymorph() == null || getQuickPolymorph().length() < 1 ? "설정 X" : getQuickPolymorph());
-
-			autoHunt.add(is_auto_teleport ? "ON" : "OFF");
-
-			autoHunt.add(is_auto_bravery ? "ON" : "OFF");
-			autoHunt.add(is_auto_bravery_buy ? "ON" : "OFF");
-
-			autoHunt.add(is_auto_haste ? "ON" : "OFF");
-			autoHunt.add(is_auto_haste_buy ? "ON" : "OFF");
-
-			autoHunt.add(is_auto_arrow_buy ? "ON" : "OFF");
-
-			autoHunt.add(auto_return_home_hp < 1 ? "설정 X" : String.format("%d%%", auto_return_home_hp));
-
-			for (int i = 0; i < Lineage.auto_hunt_home_hp_list.size(); i++) {
-				autoHunt.add(String.format("%d%%", Lineage.auto_hunt_home_hp_list.get(i)));
-
-				if (i > 6) {
-					break;
-				}
-			}
-
-			for (int i = 0; i < 7 - Lineage.auto_hunt_home_hp_list.size(); i++) {
-				autoHunt.add(" ");
-			}
-
-			if (getClassType() == Lineage.LINEAGE_CLASS_WIZARD) {
-				toSender(S_Html.clone(BasePacketPooling.getPool(S_Html.class), this, "autohunt3", null, autoHunt));
-			}
-			if (getClassType() == Lineage.LINEAGE_CLASS_ELF) {
-				toSender(S_Html.clone(BasePacketPooling.getPool(S_Html.class), this, "autohunt2", null, autoHunt));
-
-			}
-			if (getClassType() == Lineage.LINEAGE_CLASS_KNIGHT) {
-				toSender(S_Html.clone(BasePacketPooling.getPool(S_Html.class), this, "autohunt", null, autoHunt));
-
-			}
-			if (getClassType() == Lineage.LINEAGE_CLASS_ROYAL) {
-				toSender(S_Html.clone(BasePacketPooling.getPool(S_Html.class), this, "autohunt4", null, autoHunt));
-
-			}
-			if (getClassType() == Lineage.LINEAGE_CLASS_DARKELF) {
-				toSender(S_Html.clone(BasePacketPooling.getPool(S_Html.class), this, "autohunt5", null, autoHunt));
-			}
+			sendAutoHuntHtml(AutoHuntHtmlBuilder.buildMain(this));
 		} catch (Exception e) {
 			lineage.share.System.printf("[자동 사냥] showAutoHuntHtml()\r\n : %s\r\n", e.toString());
 		}
@@ -5282,43 +5271,21 @@ public boolean toLvStat(boolean packet) {
 
 				checkPotion();
 
-				List<String> autoPotion = new ArrayList<String>();
-				autoPotion.clear();
-				autoPotion.add(autoPotionPercent < 1 ? "설정 X" : String.format("%d%% 이하 물약 복용", autoPotionPercent));
-
-				for (int i = 0; i < Lineage.auto_hunt_potion_hp_list.size(); i++) {
-					autoPotion.add(String.format("%d%%", Lineage.auto_hunt_potion_hp_list.get(i)));
-
-					if (i > 6) {
-						break;
-					}
-				}
-
-				for (int i = 0; i < 7 - Lineage.auto_hunt_potion_hp_list.size(); i++) {
-					autoPotion.add(" ");
-				}
-
-				autoPotion.add(autoPotionName == null || autoPotionName.length() < 2 ? "설정 X" : autoPotionName);
-
-				// 인벤토리에서 물약종류를 선택.
 				int idx = 0;
 				for (ItemInstance potion : getInventory().getList()) {
 					if (potion != null && potion.getItem() != null && potion instanceof HealingPotion) {
-						autoPotion.add(String.format("%s (%s)", potion.getItem().getName(), Util.changePrice(potion.getCount())));
 						autoPotionIdx[idx] = potion.getItem().getName();
 						idx++;
 					}
 				}
+				for (int i = idx; i < autoPotionIdx.length; i++)
+					autoPotionIdx[i] = null;
 
-				for (int i = 0; i < autoPotionIdx.length; i++) {
-					if (idx == 0 && i == 0) {
-						autoPotion.add("인벤토리에 물약이 존재하지 않습니다.");
-					} else {
-						autoPotion.add(" ");
-					}
+				if (Lineage.autohunt_use_client_htm && NpcSpawnlistDatabase.autoPotion instanceof AutoPotion) {
+					((AutoPotion) NpcSpawnlistDatabase.autoPotion).showHtml(this);
+				} else {
+					sendAutoHuntHtml(AutoHuntHtmlBuilder.buildPotion(this));
 				}
-
-				toSender(S_Html.clone(BasePacketPooling.getPool(S_Html.class), this, "autohunt1", null, autoPotion));
 			}
 		} catch (Exception e) {
 			lineage.share.System.printf("[자동 사냥] showAutoPotionHtml()\r\n : %s\r\n", e.toString());
@@ -5327,140 +5294,47 @@ public boolean toLvStat(boolean packet) {
 
 	public void showAutoSkillHtml() {
 		try {
-
-			List<String> Manachekc = new ArrayList<String>();
-			Manachekc.clear();
-			Manachekc.add(is_auto_skill ? "ON" : "OFF");
-			switch (getClassType()) {
-			
-			case Lineage.LINEAGE_CLASS_KNIGHT:
-			case Lineage.LINEAGE_CLASS_ROYAL:
-			case Lineage.LINEAGE_CLASS_DARKELF:
-			case Lineage.LINEAGE_CLASS_WIZARD:
-			    List<String> Info = addAutoHuntInfo(Lineage.auto_hunt_mp_list, autoMPPercent);
-			    Manachekc.addAll(Info); // Manachekc에 wizardInfo를 추가
-				break;
-			case Lineage.LINEAGE_CLASS_ELF:
-			    List<String> Info2 = addAutoHuntInfo(Lineage.auto_hunt_mp_list, autoMPPercent);
-			    Manachekc.addAll(Info2); // Manachekc에 wizardInfo를 추가
-			    List<String> Info3 = addAutoHuntInfo(Lineage.auto_hunt_mp_list2, autoMPPercent2);
-			    Manachekc.addAll(Info3); // Manachekc에 wizardInfo를 추가
-				break;
-			
-			}
-		
-			switch (getClassType()) {
-			case Lineage.LINEAGE_CLASS_KNIGHT:
-				Manachekc.add(is_auto_reductionarmor ? "ON" : "OFF");
-				Manachekc.add(is_auto_solidcarriage ? "ON" : "OFF");
-				Manachekc.add(is_auto_counterbarrier ? "ON" : "OFF");
-				toSender(S_Html.clone(BasePacketPooling.getPool(S_Html.class), this, "huntskill", null, Manachekc));
-				break;
-			case Lineage.LINEAGE_CLASS_ELF:
-				if(this.getAttribute() == 0){
-					
-					Manachekc.add(is_auto_bloodtosoul ? "ON" : "OFF");
-					Manachekc.add(is_auto_triplearrow ? "ON" : "OFF");
-					Manachekc.add(is_auto_resistmagic ? "ON" : "OFF");
-					Manachekc.add(is_auto_clearmind ? "ON" : "OFF");
-					Manachekc.add(is_auto_resistelement ? "ON" : "OFF");
-	
-					toSender(S_Html.clone(BasePacketPooling.getPool(S_Html.class), this, "huntskill2", null, Manachekc));
-				}
-				if (this.getAttribute() == Lineage.ELEMENT_WATER) {
-					Manachekc.add(is_auto_bloodtosoul ? "ON" : "OFF");
-					Manachekc.add(is_auto_triplearrow ? "ON" : "OFF");
-					Manachekc.add(is_auto_resistmagic ? "ON" : "OFF");
-					Manachekc.add(is_auto_clearmind ? "ON" : "OFF");
-					Manachekc.add(is_auto_resistelement ? "ON" : "OFF");
-					toSender(S_Html.clone(BasePacketPooling.getPool(S_Html.class), this, "huntskill2", null, Manachekc));
-				}
-				if (this.getAttribute() == Lineage.ELEMENT_EARTH) {
-					Manachekc.add(is_auto_bloodtosoul ? "ON" : "OFF");
-					Manachekc.add(is_auto_triplearrow ? "ON" : "OFF");
-					Manachekc.add(is_auto_resistmagic ? "ON" : "OFF");
-					Manachekc.add(is_auto_clearmind ? "ON" : "OFF");
-					Manachekc.add(is_auto_resistelement ? "ON" : "OFF");
-					toSender(S_Html.clone(BasePacketPooling.getPool(S_Html.class), this, "huntskill2", null, Manachekc));
-				}
-				if (this.getAttribute() == Lineage.ELEMENT_FIRE) {
-					Manachekc.add(is_auto_bloodtosoul ? "ON" : "OFF");
-					Manachekc.add(is_auto_triplearrow ? "ON" : "OFF");
-					Manachekc.add(is_auto_resistmagic ? "ON" : "OFF");
-					Manachekc.add(is_auto_clearmind ? "ON" : "OFF");
-					Manachekc.add(is_auto_resistelement ? "ON" : "OFF");
-					toSender(S_Html.clone(BasePacketPooling.getPool(S_Html.class), this, "huntskill2", null, Manachekc));
-				}
-				if (this.getAttribute() == Lineage.ELEMENT_WIND) {
-					Manachekc.add(is_auto_bloodtosoul ? "ON" : "OFF");
-					Manachekc.add(is_auto_triplearrow ? "ON" : "OFF");
-					Manachekc.add(is_auto_resistmagic ? "ON" : "OFF");
-					Manachekc.add(is_auto_clearmind ? "ON" : "OFF");
-					Manachekc.add(is_auto_resistelement ? "ON" : "OFF");
-					toSender(S_Html.clone(BasePacketPooling.getPool(S_Html.class), this, "huntskill2", null, Manachekc));
-				}
-		
-				break;
-			case Lineage.LINEAGE_CLASS_ROYAL:
-				Manachekc.add(is_auto_glowingweapon ? "ON" : "OFF");
-				Manachekc.add(is_auto_shiningshieldon ? "ON" : "OFF");
-				Manachekc.add(is_auto_bravemental ? "ON" : "OFF");
-				Manachekc.add(is_auto_braveavatar ? "ON" : "OFF");
-				toSender(S_Html.clone(BasePacketPooling.getPool(S_Html.class), this, "huntskill4", null, Manachekc));
-				break;
-			case Lineage.LINEAGE_CLASS_DARKELF:
-				Manachekc.add(is_enchantvenom ? "ON" : "OFF");
-				Manachekc.add(is_burningspirits ? "ON" : "OFF");
-				Manachekc.add(is_shadowarmor ? "ON" : "OFF");
-				Manachekc.add(is_doublebrake ? "ON" : "OFF");
-				Manachekc.add(is_shadowpong ? "ON" : "OFF");
-				Manachekc.add(is_uncannydodge ? "ON" : "OFF");
-				Manachekc.add(is_dressmighty ? "ON" : "OFF");
-				Manachekc.add(is_dressdexterity ? "ON" : "OFF");
-				Manachekc.add(is_dressevasion ? "ON" : "OFF");
-				toSender(S_Html.clone(BasePacketPooling.getPool(S_Html.class), this, "huntskill5", null, Manachekc));
-				break;
-			case Lineage.LINEAGE_CLASS_WIZARD:
-				Manachekc.add(is_turnundead ? "ON" : "OFF");
-				Manachekc.add(is_snakebite ? "ON" : "OFF");
-				Manachekc.add(is_eruption ? "ON" : "OFF");
-				Manachekc.add(is_sunburst ? "ON" : "OFF");
-				Manachekc.add(is_berserkers ? "ON" : "OFF");
-				Manachekc.add(is_Immunity ? "ON" : "OFF");
-				toSender(S_Html.clone(BasePacketPooling.getPool(S_Html.class), this, "huntskill3", null, Manachekc));
-				break;
-
-			}
-
+			sendAutoHuntHtml(AutoHuntHtmlBuilder.buildSkill(this));
 		} catch (Exception e) {
 			lineage.share.System.printf("[자동 사냥] showAutoSkillHtml()\r\n : %s\r\n", e.toString());
 		}
-	}
-	public List<String> addAutoHuntInfo(List<Integer> autoHuntMpList, int autoMPPercent) {
-	    List<String> Manachekc = new ArrayList<String>();
-	    
-	    Manachekc.add(autoMPPercent < 1 ? "설정 X" : String.format("%d%% 이상 스킬 사용", autoMPPercent));
-
-	    for (int i = 0; i < autoHuntMpList.size(); i++) {
-	        Manachekc.add(String.format("%d%%", autoHuntMpList.get(i)));
-
-	        if (i > 6) {
-	            break;
-	        }
-	    }
-
-	    for (int i = 0; i < 7 - autoHuntMpList.size(); i++) {
-	        Manachekc.add(" ");
-	    }
-	    
-	    return Manachekc; // Manachekc 리스트를 반환
 	}
 
 	@Override
 	public void toTalk(PcInstance pc, String action, String type, ClientBasePacket cbp) {
 		try {
-			if (action.contains("autohunt-")) {
+			if (action != null) {
+				String a = action.trim();
+				if (a.toLowerCase(Locale.ENGLISH).startsWith("bypass "))
+					a = a.substring(7).trim();
+				action = a;
+			}
+			if (action != null && action.contains("autohunt-")) {
 				action = action.replace("autohunt-", "");
+				if ("skill".equalsIgnoreCase(action)) {
+					showAutoSkillHtml();
+					return;
+				}
+				if ("potion".equalsIgnoreCase(action)) {
+					showAutoPotionHtml();
+					return;
+				}
+				if ("refresh".equalsIgnoreCase(action)) {
+					autohuntMenuPage = 1;
+					showAutoHuntHtml();
+					return;
+				}
+				if (action.startsWith("page-")) {
+					try {
+						int n = Integer.parseInt(action.substring(5).trim());
+						if (n >= 1 && n <= 3) {
+							autohuntMenuPage = n;
+							showAutoHuntHtml();
+						}
+					} catch (Exception ignored) {
+					}
+					return;
+				}
 
 				if (action.contains("skill-")) {
 

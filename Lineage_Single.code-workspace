@@ -1,69 +1,26 @@
 {
-	"folders": [
-		{
-			"name": "루트",
-			"path": "."
-		},
-		{
-			"name": "_launch (서버·접속·GM 실행)",
-			"path": "_launch"
-		},
-		{
-			"name": "tools (맵·DB 보조 스크립트)",
-			"path": "tools"
-		},
-		{
-			"name": "zena pack (Java 분석 제외)",
-			"path": "../zena pack"
-		}
-	],
-	"settings": {
-		"java.jdt.ls.java.home": "D:\\jdk8",
-		"java.configuration.runtimes": [
-			{
-				"name": "JavaSE-1.8",
-				"path": "D:\\jdk8",
-				"default": true
-			}
-		],
-		"java.errors.incompleteClasspath.severity": "ignore",
-		"java.import.exclusions": [
-			"**/node_modules/**",
-			"**/gm_tool/**",
-			"**/scripts/**",
-			"**/tools/**",
-			"**/_tools/**",
-			"**/zena pack/**",
-			"**/zena*/**",
-			"**/2.싱글리니지 팩/**"
-		],
-		"java.import.genericProjects": false,
-		"java.project.importOnFirstStartup": "automatic",
-		"java.configuration.updateBuildConfiguration": "automatic",
-		"[java]": {
-			"editor.codeActionsOnSave": {
-				"source.organizeImports": "explicit"
-			}
-		},
-		"python.analysis.diagnosticMode": "openFilesOnly",
-		"python.analysis.diagnosticSeverityOverrides": {
-			"reportUnknownMemberType": "none",
-			"reportUnknownArgumentType": "none",
-			"reportUnknownVariableType": "none",
-			"reportUnknownParameterType": "none",
-			"reportMissingTypeStubs": "none",
-			"reportImplicitStringConcatenation": "none",
-			"reportUnusedImport": "warning",
-			"reportUnusedVariable": "warning"
-		},
-		"python.analysis.exclude": [
-			"**/2.싱글리니지 팩/**",
-			"**/_tools/**",
-			"**/apache-ant*/**"
-		],
-		"files.watcherExclude": {
-			"**/2.싱글리니지 팩/bin/**": true,
-			"**/gm_tool/__pycache__/**": true
-		}
-	}
+  "folders": [
+    {
+      "path": "2.싱글리니지 팩",
+      "name": "Lineage 서버 (Eclipse/Java)"
+    },
+    {
+      "path": ".",
+      "name": "저장소 루트"
+    }
+  ],
+  "settings": {
+    "java.jdt.ls.java.home": "D:\\jdk8",
+    "java.import.genericProjects": true,
+    "java.configuration.runtimes": [
+      {
+        "name": "JavaSE-1.8",
+        "path": "D:\\jdk8",
+        "default": true
+      }
+    ],
+    "java.errors.incompleteClasspath.severity": "ignore",
+    "java.project.importOnFirstStartup": "automatic",
+    "java.configuration.updateBuildConfiguration": "automatic"
+  }
 }

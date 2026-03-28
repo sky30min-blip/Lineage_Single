@@ -54,7 +54,7 @@ public class C_ObjectTalkAction extends ClientBasePacket {
 			
 
 			// 자동사냥
-			if (action.contains("autohunt-")) {
+			if (action != null && action.contains("autohunt-")) {
 				pc.toTalk(pc, action, type, this);
 				return this;
 			}

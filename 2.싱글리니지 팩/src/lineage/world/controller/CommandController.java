@@ -617,16 +617,20 @@ public class CommandController {
 					Buff buff = BuffController.find(o);
 					if (buff != null) {
 						for (BuffInterface b : buff.getList()) {
-							if (b.getSkill() != null)
+							if (b.getSkill() != null) {
 								list.add(String.format("%s : %d초", b.getSkill().getName(), b.getTime()));
-							o.toSender(S_Html.clone(BasePacketPooling.getPool(S_Html.class), o, "Buff", null, list));
-							cnt += 1;
+								cnt += 1;
+							}
 						}
+						if (!list.isEmpty())
+							o.toSender(S_Html.clone(BasePacketPooling.getPool(S_Html.class), o, "Buff", null, list)); // 루프 밖 1회 전송
 						ChattingController.toChatting(o, "ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ", Lineage.CHATTING_MODE_MESSAGE);
 						ChattingController.toChatting(o, "현제 " + cnt + "개의 버프가 적용되어 있습니다.", Lineage.CHATTING_MODE_MESSAGE);
 						ChattingController.toChatting(o, "ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ", Lineage.CHATTING_MODE_MESSAGE);
-						return true;
+					} else {
+						ChattingController.toChatting(o, "적용 중인 버프 정보를 찾을 수 없습니다.", Lineage.CHATTING_MODE_MESSAGE);
 					}
+					return true;
 				} else if (key.equalsIgnoreCase(Lineage.command + "나이")) {
 					try {
 						int age = Integer.valueOf(st.nextToken());

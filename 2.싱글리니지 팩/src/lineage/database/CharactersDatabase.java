@@ -1822,7 +1822,21 @@ public final class CharactersDatabase {
 			
 			st.executeUpdate();
 			st.close();
-			
+
+			// GM 툴 등으로 accounts.giran_dungeon_time 만 올라간 상태에서, 메모리는 0(또는 미로드)인 채 로그아웃 저장하면
+			// DB를 0으로 덮어써 초기화가 무효가 됨 → DB가 더 크면 메모리에 맞춤 후 저장.
+			int giranMem = pc.getGiran_dungeon_time();
+			PreparedStatement stG = con.prepareStatement("SELECT giran_dungeon_time FROM accounts WHERE uid=?");
+			stG.setLong(1, pc.getAccountUid());
+			ResultSet rsG = stG.executeQuery();
+			if (rsG.next()) {
+				int giranDb = rsG.getInt("giran_dungeon_time");
+				if (giranMem < 1 && giranDb > 0)
+					pc.setGiran_dungeon_time(giranDb);
+			}
+			rsG.close();
+			stG.close();
+
 			st = con.prepareStatement("UPDATE accounts SET giran_dungeon_time=?, info_name=?, info_phone_num=?, info_bank_name=?, info_bank_num=?, giran_dungeon_count=?, 자동사냥_이용시간=?, 레벨달성체크=?, auto_count=?, daycount=?, daycheck=? , daytime=? WHERE uid=?");
 			st.setInt(1, pc.getGiran_dungeon_time());
 			st.setString(2, pc.getInfoName() == null ? "" : pc.getInfoName());

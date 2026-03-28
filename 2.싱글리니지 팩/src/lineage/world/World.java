@@ -426,10 +426,54 @@ public final class World {
 	}
 
 	/**
-	 * 웰던영토 여부 확인.
+	 * 웰던영토 여부 확인. (랜덤텔·목적지 봉인용)
+	 * <p>
+	 * 예전 박스(33536~33856)만 쓰면 {@link lineage.world.controller.LocationController#toHome} 에서
+	 * 웰던으로 귀환시키는 서쪽 발라카스/용계 띠(33472~33535)와, 오렌으로 분류되지만 웰던과 맞닿은
+	 * 동쪽 띠(33857~33919)가 빠져 {@code is_oren_teleport=true} 일 때 랜덤텔만 웰던 쪽으로 새는 현상이 난다.
+	 * 귀환 분기와 동일한 영역을 맞춘다.
 	 */
 	static public boolean isWelldone(int x, int y, int map) {
-		return x >= 33536 && x <= 33856 && y >= 32191 && y <= 32575 && map == 4;
+		if (map != 4)
+			return false;
+		// toHome: (33472<x<33856 && 32191<y<32511) ∪ (33536<x<33856 && 32511<y<32575) → 통합 AABB
+		if (x >= 33473 && x <= 33856 && y >= 32191 && y <= 32575)
+			return true;
+		// toHome: 33856<x<33920 && 32191<y<32575 (오렌 분기 첫 구간 — 지리적으로 웰던 인접 필드)
+		if (x >= 33857 && x <= 33919 && y >= 32192 && y <= 32574)
+			return true;
+		return false;
+	}
+
+	/**
+	 * 각 성 외성(외곽) 내부 좌표 여부. {@link Lineage#KINGDOMLOCATION}
+	 */
+	static public boolean isKingdomOuterWallInner(int x, int y, int map) {
+		for (int i = 1; i < Lineage.KINGDOMLOCATION.length; i++) {
+			int[] loc = Lineage.KINGDOMLOCATION[i];
+			if (loc[0] == 0 && loc[1] == 0)
+				continue;
+			if (map != loc[4])
+				continue;
+			if (x >= loc[0] && x <= loc[1] && y >= loc[2] && y <= loc[3])
+				return true;
+		}
+		return false;
+	}
+
+	/**
+	 * 기란 혈맹 아지트 내부 (본토 map 4, {@link Lineage#AGITLOCATION}).
+	 */
+	static public boolean isGiranAgitArea(int x, int y, int map) {
+		if (map != 4)
+			return false;
+		for (int[] a : Lineage.AGITLOCATION) {
+			if (a.length < 4)
+				continue;
+			if (x >= a[0] && x <= a[1] && y >= a[2] && y <= a[3])
+				return true;
+		}
+		return false;
 	}
 	
 	/**

@@ -13,6 +13,7 @@ import java.util.StringTokenizer;
 import lineage.bean.lineage.Map;
 import lineage.bean.lineage.Swap;
 import lineage.share.Lineage;
+import lineage.share.TeleportPolicy;
 import lineage.world.World;
 import lineage.world.object.Character;
 import lineage.world.object.object;
@@ -415,6 +416,25 @@ public class Util {
 		return true;
 	}
 
+	/** Random teleport blocked town or castle zone (same rules as toRndLocation and lineage.conf flags). */
+	static public boolean isRandomTeleportTownBlocked(int x, int y, int map) {
+		if (!Lineage.is_fire_nest_teleport && World.isFireNest(x, y, map))
+			return true;
+		if (!Lineage.is_oren_teleport && World.isOren(x, y, map))
+			return true;
+		if (!Lineage.is_heine_teleport && World.isHeine(x, y, map))
+			return true;
+		if (!Lineage.is_aden_teleport && World.isAden(x, y, map))
+			return true;
+		if (!Lineage.is_welldone_teleport && World.isWelldone(x, y, map))
+			return true;
+		if (!TeleportPolicy.kingdomOuterTeleport && World.isKingdomOuterWallInner(x, y, map))
+			return true;
+		if (!TeleportPolicy.giranAgitTeleport && World.isGiranAgitArea(x, y, map))
+			return true;
+		return false;
+	}
+
 	/**
 	 * 귀환 좌표값을 랜덤으로 생성해서 정의하는 함수.
 	 * 
@@ -423,7 +443,7 @@ public class Util {
 	static public void toRndLocation(object o) {
 		Map m = World.get_map(o.getMap());
 		if (m != null) {
-			int max = 100;
+			int max = 400;
 			int x1 = m.locX1;
 			int x2 = m.locX2;
 			int y1 = m.locY1;
@@ -449,20 +469,29 @@ public class Util {
 				o.setHomeX(random(x1, x2));
 				o.setHomeY(random(y1, y2));
 				
-				if (!Lineage.is_fire_nest_teleport && World.isFireNest(o.getHomeX(), o.getHomeY(), o.getMap()))
-					result = false;
-				if (!Lineage.is_oren_teleport && World.isOren(o.getHomeX(), o.getHomeY(), o.getMap()))
-					result = false;
-				if (!Lineage.is_heine_teleport && World.isHeine(o.getHomeX(), o.getHomeY(), o.getMap()))
-					result = false;
-				if (!Lineage.is_aden_teleport && World.isAden(o.getHomeX(), o.getHomeY(), o.getMap()))
-					result = false;
-				if (!Lineage.is_welldone_teleport && World.isWelldone(o.getHomeX(), o.getHomeY(), o.getMap()))
+				if (isRandomTeleportTownBlocked(o.getHomeX(), o.getHomeY(), o.getMap()))
 					result = false;
 				
 				if (--max < 0) {
-					o.setHomeX(o.getX());
-					o.setHomeY(o.getY());
+					// 본도(map4): 마을 봉인 설정일 때 랜덤 실패 시 글루딘 서쪽 필드 일대로 재시도
+					if (m.mapid == 4) {
+						boolean placed = false;
+						for (int fb = 0; fb < 120 && !placed; fb++) {
+							o.setHomeX(random(32580, 32790));
+							o.setHomeY(random(32740, 32940));
+							if (!isRandomTeleportTownBlocked(o.getHomeX(), o.getHomeY(), 4)
+									&& !World.isNotMovingTile(o.getHomeX(), o.getHomeY(), 4)
+									&& World.isThroughObject(o.getHomeX(), o.getHomeY() + 1, 4, 0))
+								placed = true;
+						}
+						if (!placed) {
+							o.setHomeX(o.getX());
+							o.setHomeY(o.getY());
+						}
+					} else {
+						o.setHomeX(o.getX());
+						o.setHomeY(o.getY());
+					}
 					break;
 				}
 			} while (!result || (World.isNotMovingTile(o.getHomeX(), o.getHomeY(), o.getMap()) && !World.isThroughObject(o.getHomeX(), o.getHomeY() + 1, m.mapid, 0)));

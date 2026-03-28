@@ -83,18 +83,10 @@ public class KingdomCrown extends object {
 			
 			if (Lineage.giran_kingdom_crown_min > 0) {
 				int crownTime = Lineage.giran_kingdom_crown_min;
-				kingdom.setCrownPickupEnd(System.currentTimeMillis() + (1000 * crownTime));
-				
-				if (crownTime / 3600 > 0) {
-					World.toSender( S_ObjectChatting.clone(BasePacketPooling.getPool(S_ObjectChatting.class), String.format("%d시간 %d분 %d초 동안 방어에 성공할 경우 공성전이 종료됩니다.", 
-							crownTime / 3600, crownTime % 3600 / 60, crownTime % 3600 % 60)) );
-				} else if (crownTime % 3600 / 60 > 0) {
-					World.toSender( S_ObjectChatting.clone(BasePacketPooling.getPool(S_ObjectChatting.class), String.format("%d분 %d초 동안 방어에 성공할 경우 공성전이 종료됩니다.", 
-							crownTime % 3600 / 60, crownTime % 3600 % 60)) );
-				} else {
-					World.toSender( S_ObjectChatting.clone(BasePacketPooling.getPool(S_ObjectChatting.class), String.format("%d초 동안 방어에 성공할 경우 공성전이 종료됩니다.", 
-							crownTime % 3600 % 60)) );
-				}
+				kingdom.setCrownPickupEnd(System.currentTimeMillis() + (1000L * crownTime));
+				String dur = Kingdom.formatCrownDefenseDuration(crownTime);
+				World.toSender(S_ObjectChatting.clone(BasePacketPooling.getPool(S_ObjectChatting.class),
+						String.format("%s 동안 방어에 성공하면 공성전이 종료됩니다.", dur)));
 			}
 
 			// 리니지 월드에 해당 성에 대한 성주정보 다시 잡아주기

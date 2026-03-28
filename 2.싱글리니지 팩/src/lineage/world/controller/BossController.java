@@ -306,8 +306,9 @@ public final class BossController {
 						}
 						mi.toTeleport(mi.getHomeX(), mi.getHomeY(), mi.getHomeMap(), false);
 						b.setLastTime(System.currentTimeMillis());
-						if (hour != 0)
-							// 보스가 스폰된 후 정해진 시간.
+						// boss_live_time 적용은 시각(hour)과 무관해야 함. hour==0(자정~0시 59분)일 때
+						// 생략되면 bossLiveTime=0으로 남아 다음 초 toTimer에서 즉시 소멸 처리됨(00:05 등 야간 스폰).
+						if (Lineage.boss_live_time > 0)
 							mi.bossLiveTime = Lineage.boss_live_time;
 						// 인공지능쓰레드에 등록.
 						AiThread.append(mi);

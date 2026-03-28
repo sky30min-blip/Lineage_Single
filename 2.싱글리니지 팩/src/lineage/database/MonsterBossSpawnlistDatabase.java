@@ -3,6 +3,8 @@ package lineage.database;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.StringTokenizer;
@@ -15,6 +17,14 @@ import lineage.share.TimeLine;
 public final class MonsterBossSpawnlistDatabase {
 	static private List<Boss> list;
 	static private List<BossSpawn> spawnList;
+
+	static private boolean metaHasColumn(ResultSetMetaData md, String col) throws SQLException {
+		for (int i = 1; i <= md.getColumnCount(); i++) {
+			if (col.equalsIgnoreCase(md.getColumnLabel(i)))
+				return true;
+		}
+		return false;
+	}
 
 	/** spawn_time 컬럼 파싱. 비어 있으면 길이 0 배열 → 시간 매칭 없음(스폰 안 됨). */
 	static private int[][] parseBossSpawnTimes(String spawn_time) {
@@ -55,9 +65,13 @@ public final class MonsterBossSpawnlistDatabase {
 		try {
 			st = con.prepareStatement("SELECT * FROM monster_spawnlist_boss");
 			rs = st.executeQuery();
+			ResultSetMetaData rsmd = rs.getMetaData();
+			boolean hasSpawnEnabled = metaHasColumn(rsmd, "spawn_enabled");
 			while (rs.next()) {
 				String name = rs.getString("name");
 				String monster = rs.getString("monster");
+				if (hasSpawnEnabled && rs.getInt("spawn_enabled") == 0)
+					continue;
 				String spawn = rs.getString("spawn_x_y_map");
 				String spawn_time = rs.getString("spawn_time");
 				String spawn_day = rs.getString("spawn_day");
@@ -171,9 +185,13 @@ public final class MonsterBossSpawnlistDatabase {
 				con = DatabaseConnection.getLineage();
 				st = con.prepareStatement("SELECT * FROM monster_spawnlist_boss");
 				rs = st.executeQuery();
+				ResultSetMetaData rsmd = rs.getMetaData();
+				boolean hasSpawnEnabled = metaHasColumn(rsmd, "spawn_enabled");
 				while (rs.next()) {
 					String name = rs.getString("name");
 					String monster = rs.getString("monster");
+					if (hasSpawnEnabled && rs.getInt("spawn_enabled") == 0)
+						continue;
 					String spawn = rs.getString("spawn_x_y_map");
 					String spawn_time = rs.getString("spawn_time");
 					String spawn_day = rs.getString("spawn_day");

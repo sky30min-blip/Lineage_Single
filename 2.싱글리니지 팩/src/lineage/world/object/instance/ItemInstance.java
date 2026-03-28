@@ -3954,8 +3954,8 @@ public class ItemInstance extends object implements BuffInterface {
 
 	/**
 	 * 파워볼 쿠폰 이름 강제 매핑 (ID 우선)
-	 * - 정상 NameId: $1249/$1250/$1254/$1255
-	 * - 구DB 오매핑 NameId: $1251/$1252 도 언더/오버로 보정
+	 * - $1251/$1252 는 ItemDatabase 에서 농축 체력·고급 회복제(HealingPotion) 전용 → 여기서 쿠폰으로 취급하면 물약 표시가 깨짐.
+	 * - 언더/오버 쿠폰은 DB 에서 $1254/$1255 만 사용.
 	 */
 	private static String getPowerballCouponDisplayName(Item item) {
 		if (item == null)
@@ -3966,9 +3966,9 @@ public class ItemInstance extends object implements BuffInterface {
 			return "홀쿠폰";
 		if (nidNumber == 1250)
 			return "짝쿠폰";
-		if (nidNumber == 1254 || nidNumber == 1251)
+		if (nidNumber == 1254)
 			return "언더쿠폰";
-		if (nidNumber == 1255 || nidNumber == 1252)
+		if (nidNumber == 1255)
 			return "오버쿠폰";
 
 		String nid = item.getNameId();
@@ -3976,9 +3976,9 @@ public class ItemInstance extends object implements BuffInterface {
 			return "홀쿠폰";
 		if ("$1250".equals(nid))
 			return "짝쿠폰";
-		if ("$1254".equals(nid) || "$1251".equals(nid))
+		if ("$1254".equals(nid))
 			return "언더쿠폰";
-		if ("$1255".equals(nid) || "$1252".equals(nid))
+		if ("$1255".equals(nid))
 			return "오버쿠폰";
 
 		String n = item.getName();

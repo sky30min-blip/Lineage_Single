@@ -203,9 +203,18 @@ public class ItemTeleportDatabase {
 								!World.isThroughObject(lx+1, ly-1, map, 5) || 
 								!World.isThroughObject(lx+1, ly+1, map, 7) || 
 								!World.isThroughObject(lx-1, ly-1, map, 3) ||
-								World.isNotMovingTile(lx, ly, map)
+								World.isNotMovingTile(lx, ly, map) ||
+								Util.isRandomTeleportTownBlocked(lx, ly, map)
 							);
 						
+						if (Util.isRandomTeleportTownBlocked(lx, ly, map)) {
+							int savedMap = o.getMap();
+							o.setMap(map);
+							Util.toRndLocation(o);
+							lx = o.getHomeX();
+							ly = o.getHomeY();
+							o.setMap(savedMap);
+						}
 						o.toPotal(lx, ly, it.getMap());
 					} else {
 						o.toPotal(it.getX(), it.getY(), it.getMap());
@@ -249,9 +258,18 @@ public class ItemTeleportDatabase {
 								!World.isThroughObject(lx+1, ly-1, map, 5) || 
 								!World.isThroughObject(lx+1, ly+1, map, 7) || 
 								!World.isThroughObject(lx-1, ly-1, map, 3) ||
-								World.isNotMovingTile(lx, ly, map)
+								World.isNotMovingTile(lx, ly, map) ||
+								Util.isRandomTeleportTownBlocked(lx, ly, map)
 							);
 						
+						if (Util.isRandomTeleportTownBlocked(lx, ly, map)) {
+							int savedMap = o.getMap();
+							o.setMap(map);
+							Util.toRndLocation(o);
+							lx = o.getHomeX();
+							ly = o.getHomeY();
+							o.setMap(savedMap);
+						}
 						o.toPotal(lx, ly, it.getMap());
 					} else {
 						o.toPotal(it.getX(), it.getY(), it.getMap());

@@ -150,95 +150,97 @@ public class ItemArmorInstance extends ItemIllusionInstance {
 			break;
 		}
 
-		if (!cha.isBlessArmor() && inv.getSlot(Lineage.SLOT_HELM) != null && inv.getSlot(Lineage.SLOT_SHIRT) != null && inv.getSlot(Lineage.SLOT_ARMOR) != null && inv.getSlot(Lineage.SLOT_CLOAK) != null
-				&& inv.getSlot(Lineage.SLOT_GLOVE) != null && inv.getSlot(Lineage.SLOT_BOOTS) != null) {
-			if ((inv.getSlot(Lineage.SLOT_HELM).getBless() == 0 || inv.getSlot(Lineage.SLOT_HELM).getBless() == -128)
-					&& (inv.getSlot(Lineage.SLOT_HELM).getBless() == 0 || inv.getSlot(Lineage.SLOT_HELM).getBless() == -128)
-					&& (inv.getSlot(Lineage.SLOT_SHIRT).getBless() == 0 || inv.getSlot(Lineage.SLOT_SHIRT).getBless() == -128)
-					&& (inv.getSlot(Lineage.SLOT_ARMOR).getBless() == 0 || inv.getSlot(Lineage.SLOT_ARMOR).getBless() == -128)
-					&& (inv.getSlot(Lineage.SLOT_CLOAK).getBless() == 0 || inv.getSlot(Lineage.SLOT_CLOAK).getBless() == -128)
-					&& (inv.getSlot(Lineage.SLOT_GLOVE).getBless() == 0 || inv.getSlot(Lineage.SLOT_GLOVE).getBless() == -128)
-					&& (inv.getSlot(Lineage.SLOT_BOOTS).getBless() == 0 || inv.getSlot(Lineage.SLOT_BOOTS).getBless() == -128)) {
-				ChattingController.toChatting(cha, "축복받은 방어구 세트 효과 적용: AC-5", Lineage.CHATTING_MODE_MESSAGE);
-				cha.setDynamicAc(cha.getDynamicAc() + 5);
-				cha.setBlessArmor(true);
-			}
-		}
-
-		if (!cha.isBlessAcc() && inv.getSlot(Lineage.SLOT_NECKLACE) != null && inv.getSlot(Lineage.SLOT_RING_LEFT) != null && inv.getSlot(Lineage.SLOT_RING_RIGHT) != null && inv.getSlot(Lineage.SLOT_BELT) != null) {
-			if ((inv.getSlot(Lineage.SLOT_NECKLACE).getBless() == 0 || inv.getSlot(Lineage.SLOT_NECKLACE).getBless() == -128)
-					&& (inv.getSlot(Lineage.SLOT_RING_LEFT).getBless() == 0 || inv.getSlot(Lineage.SLOT_RING_LEFT).getBless() == -128)
-					&& (inv.getSlot(Lineage.SLOT_RING_RIGHT).getBless() == 0 || inv.getSlot(Lineage.SLOT_RING_RIGHT).getBless() == -128)
-					&& (inv.getSlot(Lineage.SLOT_BELT).getBless() == 0 || inv.getSlot(Lineage.SLOT_BELT).getBless() == -128)) {
-				ChattingController.toChatting(cha, "축복받은 장신구 세트 효과 적용: 대미지 감소+2, mr+5", Lineage.CHATTING_MODE_MESSAGE);
-				cha.setDynamicReduction(cha.getDynamicReduction() + 2);
-				cha.setDynamicMr(cha.getDynamicMr() + 5);
-
-				cha.setBlessAcc(true);
-			}
-		}
-
-		if (cha.isBlessArmor() && (inv.getSlot(Lineage.SLOT_HELM) == null || inv.getSlot(Lineage.SLOT_SHIRT) == null || inv.getSlot(Lineage.SLOT_ARMOR) == null || inv.getSlot(Lineage.SLOT_CLOAK) == null
-				|| inv.getSlot(Lineage.SLOT_GLOVE) == null || inv.getSlot(Lineage.SLOT_BOOTS) == null)) {
-			ChattingController.toChatting(cha, "축복받은 방어구 세트 효과 해제", Lineage.CHATTING_MODE_MESSAGE);
-			cha.setDynamicAc(cha.getDynamicAc() - 5);
-			cha.setBlessArmor(false);
-		}
-
-		if (cha.isBlessAcc() && (inv.getSlot(Lineage.SLOT_NECKLACE) == null || inv.getSlot(Lineage.SLOT_RING_LEFT) == null || inv.getSlot(Lineage.SLOT_RING_RIGHT) == null || inv.getSlot(Lineage.SLOT_BELT) == null)) {
-			ChattingController.toChatting(cha, "축복받은 장신구 세트 효과 해제", Lineage.CHATTING_MODE_MESSAGE);
-			cha.setDynamicReduction(cha.getDynamicReduction() - 2);
-			cha.setDynamicMr(cha.getDynamicMr() - 5);
-			cha.setBlessAcc(false);
-		}
-		if ((!cha.armorEnchant8) && (!cha.armorEnchant9) && (!cha.armorEnchant10) && (inv.getSlot(0) != null) && (inv.getSlot(3) != null) && (inv.getSlot(4) != null) && (inv.getSlot(5) != null)
-				&& (inv.getSlot(9) != null) && (inv.getSlot(12) != null)) {
-
-			if ((inv.getSlot(0).getEnLevel() >= 8) && (inv.getSlot(3).getEnLevel() >= 8) && (inv.getSlot(4).getEnLevel() >= 8) && (inv.getSlot(5).getEnLevel() >= 8) && (inv.getSlot(9).getEnLevel() >= 8)
-					&& (inv.getSlot(12).getEnLevel() >= 8)) {
-				ChattingController.toChatting(cha, "+8 방어구 세트 효과 적용: 대미지 감소+3", 20);
-				cha.setDynamicReduction(cha.getDynamicReduction() + 3);
-				cha.armorEnchant8 = true;
-				cha.armorEnchant9 = false;
-				cha.armorEnchant10 = false;
+		if (Lineage.enable_custom_armor_accessory_set_bonus) {
+			if (!cha.isBlessArmor() && inv.getSlot(Lineage.SLOT_HELM) != null && inv.getSlot(Lineage.SLOT_SHIRT) != null && inv.getSlot(Lineage.SLOT_ARMOR) != null && inv.getSlot(Lineage.SLOT_CLOAK) != null
+					&& inv.getSlot(Lineage.SLOT_GLOVE) != null && inv.getSlot(Lineage.SLOT_BOOTS) != null) {
+				if ((inv.getSlot(Lineage.SLOT_HELM).getBless() == 0 || inv.getSlot(Lineage.SLOT_HELM).getBless() == -128)
+						&& (inv.getSlot(Lineage.SLOT_HELM).getBless() == 0 || inv.getSlot(Lineage.SLOT_HELM).getBless() == -128)
+						&& (inv.getSlot(Lineage.SLOT_SHIRT).getBless() == 0 || inv.getSlot(Lineage.SLOT_SHIRT).getBless() == -128)
+						&& (inv.getSlot(Lineage.SLOT_ARMOR).getBless() == 0 || inv.getSlot(Lineage.SLOT_ARMOR).getBless() == -128)
+						&& (inv.getSlot(Lineage.SLOT_CLOAK).getBless() == 0 || inv.getSlot(Lineage.SLOT_CLOAK).getBless() == -128)
+						&& (inv.getSlot(Lineage.SLOT_GLOVE).getBless() == 0 || inv.getSlot(Lineage.SLOT_GLOVE).getBless() == -128)
+						&& (inv.getSlot(Lineage.SLOT_BOOTS).getBless() == 0 || inv.getSlot(Lineage.SLOT_BOOTS).getBless() == -128)) {
+					ChattingController.toChatting(cha, "축복받은 방어구 세트 효과 적용: AC-5", Lineage.CHATTING_MODE_MESSAGE);
+					cha.setDynamicAc(cha.getDynamicAc() + 5);
+					cha.setBlessArmor(true);
+				}
 			}
 
-			if ((inv.getSlot(0).getEnLevel() >= 9) && (inv.getSlot(3).getEnLevel() >= 9) && (inv.getSlot(4).getEnLevel() >= 9) && (inv.getSlot(5).getEnLevel() >= 9) && (inv.getSlot(9).getEnLevel() >= 9)
-					&& (inv.getSlot(12).getEnLevel() == 9)) {
-				ChattingController.toChatting(cha, "+9 방어구 세트 효과 적용: 대미지 감소+5", 20);
-				cha.setDynamicReduction(cha.getDynamicReduction() + 5);
-				cha.armorEnchant8 = false;
-				cha.armorEnchant9 = true;
-				cha.armorEnchant10 = false;
+			if (!cha.isBlessAcc() && inv.getSlot(Lineage.SLOT_NECKLACE) != null && inv.getSlot(Lineage.SLOT_RING_LEFT) != null && inv.getSlot(Lineage.SLOT_RING_RIGHT) != null && inv.getSlot(Lineage.SLOT_BELT) != null) {
+				if ((inv.getSlot(Lineage.SLOT_NECKLACE).getBless() == 0 || inv.getSlot(Lineage.SLOT_NECKLACE).getBless() == -128)
+						&& (inv.getSlot(Lineage.SLOT_RING_LEFT).getBless() == 0 || inv.getSlot(Lineage.SLOT_RING_LEFT).getBless() == -128)
+						&& (inv.getSlot(Lineage.SLOT_RING_RIGHT).getBless() == 0 || inv.getSlot(Lineage.SLOT_RING_RIGHT).getBless() == -128)
+						&& (inv.getSlot(Lineage.SLOT_BELT).getBless() == 0 || inv.getSlot(Lineage.SLOT_BELT).getBless() == -128)) {
+					ChattingController.toChatting(cha, "축복받은 장신구 세트 효과 적용: 대미지 감소+2, mr+5", Lineage.CHATTING_MODE_MESSAGE);
+					cha.setDynamicReduction(cha.getDynamicReduction() + 2);
+					cha.setDynamicMr(cha.getDynamicMr() + 5);
+
+					cha.setBlessAcc(true);
+				}
 			}
 
-			if ((inv.getSlot(0).getEnLevel() == 10) && (inv.getSlot(3).getEnLevel() == 10) && (inv.getSlot(4).getEnLevel() == 10) && (inv.getSlot(5).getEnLevel() == 10) && (inv.getSlot(9).getEnLevel() == 10)
-					&& (inv.getSlot(12).getEnLevel() == 10)) {
-				ChattingController.toChatting(cha, "+10 방어구 세트 효과 적용: 대미지 감소+8 , HP+300", 20);
-				cha.setDynamicReduction(cha.getDynamicReduction() + 8);
-				cha.setDynamicHp(cha.getDynamicHp() + 300);
-				cha.armorEnchant8 = false;
-				cha.armorEnchant9 = false;
-				cha.armorEnchant10 = true;
+			if (cha.isBlessArmor() && (inv.getSlot(Lineage.SLOT_HELM) == null || inv.getSlot(Lineage.SLOT_SHIRT) == null || inv.getSlot(Lineage.SLOT_ARMOR) == null || inv.getSlot(Lineage.SLOT_CLOAK) == null
+					|| inv.getSlot(Lineage.SLOT_GLOVE) == null || inv.getSlot(Lineage.SLOT_BOOTS) == null)) {
+				ChattingController.toChatting(cha, "축복받은 방어구 세트 효과 해제", Lineage.CHATTING_MODE_MESSAGE);
+				cha.setDynamicAc(cha.getDynamicAc() - 5);
+				cha.setBlessArmor(false);
 			}
 
-		}
+			if (cha.isBlessAcc() && (inv.getSlot(Lineage.SLOT_NECKLACE) == null || inv.getSlot(Lineage.SLOT_RING_LEFT) == null || inv.getSlot(Lineage.SLOT_RING_RIGHT) == null || inv.getSlot(Lineage.SLOT_BELT) == null)) {
+				ChattingController.toChatting(cha, "축복받은 장신구 세트 효과 해제", Lineage.CHATTING_MODE_MESSAGE);
+				cha.setDynamicReduction(cha.getDynamicReduction() - 2);
+				cha.setDynamicMr(cha.getDynamicMr() - 5);
+				cha.setBlessAcc(false);
+			}
+			if ((!cha.armorEnchant8) && (!cha.armorEnchant9) && (!cha.armorEnchant10) && (inv.getSlot(0) != null) && (inv.getSlot(3) != null) && (inv.getSlot(4) != null) && (inv.getSlot(5) != null)
+					&& (inv.getSlot(9) != null) && (inv.getSlot(12) != null)) {
 
-		if ((cha.armorEnchant8 || cha.armorEnchant9 || cha.armorEnchant10)
-				&& ((inv.getSlot(0) == null) || (inv.getSlot(3) == null) || (inv.getSlot(4) == null) || (inv.getSlot(5) == null) || (inv.getSlot(9) == null) || (inv.getSlot(12) == null))) {
-			if (cha.armorEnchant8) {
-				ChattingController.toChatting(cha, "+8 방어구 세트 효과 해제", 20);
-				cha.setDynamicReduction(cha.getDynamicReduction() - 3);
-				cha.armorEnchant8 = false;
-			} else if (cha.armorEnchant9) {
-				ChattingController.toChatting(cha, "+9 방어구 세트 효과 해제", 20);
-				cha.setDynamicReduction(cha.getDynamicReduction() - 5);
-				cha.armorEnchant9 = false;
-			} else if (cha.armorEnchant10) {
-				ChattingController.toChatting(cha, "+10 방어구 세트 효과 해제", 20);
-				cha.setDynamicReduction(cha.getDynamicReduction() - 8);
-				cha.setDynamicHp(cha.getDynamicHp() - 300);
-				cha.armorEnchant10 = false;
+				if ((inv.getSlot(0).getEnLevel() >= 8) && (inv.getSlot(3).getEnLevel() >= 8) && (inv.getSlot(4).getEnLevel() >= 8) && (inv.getSlot(5).getEnLevel() >= 8) && (inv.getSlot(9).getEnLevel() >= 8)
+						&& (inv.getSlot(12).getEnLevel() >= 8)) {
+					ChattingController.toChatting(cha, "+8 방어구 세트 효과 적용: 대미지 감소+3", 20);
+					cha.setDynamicReduction(cha.getDynamicReduction() + 3);
+					cha.armorEnchant8 = true;
+					cha.armorEnchant9 = false;
+					cha.armorEnchant10 = false;
+				}
+
+				if ((inv.getSlot(0).getEnLevel() >= 9) && (inv.getSlot(3).getEnLevel() >= 9) && (inv.getSlot(4).getEnLevel() >= 9) && (inv.getSlot(5).getEnLevel() >= 9) && (inv.getSlot(9).getEnLevel() >= 9)
+						&& (inv.getSlot(12).getEnLevel() == 9)) {
+					ChattingController.toChatting(cha, "+9 방어구 세트 효과 적용: 대미지 감소+5", 20);
+					cha.setDynamicReduction(cha.getDynamicReduction() + 5);
+					cha.armorEnchant8 = false;
+					cha.armorEnchant9 = true;
+					cha.armorEnchant10 = false;
+				}
+
+				if ((inv.getSlot(0).getEnLevel() == 10) && (inv.getSlot(3).getEnLevel() == 10) && (inv.getSlot(4).getEnLevel() == 10) && (inv.getSlot(5).getEnLevel() == 10) && (inv.getSlot(9).getEnLevel() == 10)
+						&& (inv.getSlot(12).getEnLevel() == 10)) {
+					ChattingController.toChatting(cha, "+10 방어구 세트 효과 적용: 대미지 감소+8 , HP+300", 20);
+					cha.setDynamicReduction(cha.getDynamicReduction() + 8);
+					cha.setDynamicHp(cha.getDynamicHp() + 300);
+					cha.armorEnchant8 = false;
+					cha.armorEnchant9 = false;
+					cha.armorEnchant10 = true;
+				}
+
+			}
+
+			if ((cha.armorEnchant8 || cha.armorEnchant9 || cha.armorEnchant10)
+					&& ((inv.getSlot(0) == null) || (inv.getSlot(3) == null) || (inv.getSlot(4) == null) || (inv.getSlot(5) == null) || (inv.getSlot(9) == null) || (inv.getSlot(12) == null))) {
+				if (cha.armorEnchant8) {
+					ChattingController.toChatting(cha, "+8 방어구 세트 효과 해제", 20);
+					cha.setDynamicReduction(cha.getDynamicReduction() - 3);
+					cha.armorEnchant8 = false;
+				} else if (cha.armorEnchant9) {
+					ChattingController.toChatting(cha, "+9 방어구 세트 효과 해제", 20);
+					cha.setDynamicReduction(cha.getDynamicReduction() - 5);
+					cha.armorEnchant9 = false;
+				} else if (cha.armorEnchant10) {
+					ChattingController.toChatting(cha, "+10 방어구 세트 효과 해제", 20);
+					cha.setDynamicReduction(cha.getDynamicReduction() - 8);
+					cha.setDynamicHp(cha.getDynamicHp() - 300);
+					cha.armorEnchant10 = false;
+				}
 			}
 		}
 

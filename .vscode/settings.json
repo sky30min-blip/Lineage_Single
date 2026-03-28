@@ -1,5 +1,6 @@
 {
   "java.jdt.ls.java.home": "D:\\jdk8",
+  "java.import.genericProjects": true,
   "java.configuration.runtimes": [
     {
       "name": "JavaSE-1.8",
@@ -15,11 +16,9 @@
     "**/tools/**",
     "**/_tools/**",
     "**/zena pack/**",
-    "**/zena*/**",
-    "**/2.싱글리니지 팩/**"
+    "**/zena*/**"
   ],
   "java.project.importOnFirstStartup": "automatic",
-  "java.import.genericProjects": false,
   "java.configuration.updateBuildConfiguration": "automatic",
   "[java]": {
     "editor.codeActionsOnSave": {

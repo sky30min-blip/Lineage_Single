@@ -459,6 +459,7 @@ src\lineage\world\controller\AgitController.java
 src\lineage\world\controller\AuctionController.java
 src\lineage\world\controller\AutoHuntCheckController.java
 src\lineage\world\controller\AutoHuntController.java
+src\lineage\world\controller\AutoHuntHtmlBuilder.java
 src\lineage\world\controller\BaphometSystemController.java
 src\lineage\world\controller\BoardController.java
 src\lineage\world\controller\BookController.java

@@ -6,7 +6,6 @@ import lineage.network.packet.server.S_ObjectLock;
 import lineage.plugin.PluginController;
 import lineage.share.Lineage;
 import lineage.util.Util;
-import lineage.world.World;
 import lineage.world.object.object;
 import lineage.world.object.instance.ItemInstance;
 import lineage.world.object.instance.PcInstance;
@@ -134,8 +133,8 @@ public class LocationController {
 	}
 
 	/**
-	 * 에피소드8 봉인 지역(웰던/하이네/아덴) 텔레포트 목적지 차단 체크.
-	 * - false인 지역은 텔레포트 목적지로 사용할 수 없음.
+	 * 에피소드8 봉인 지역 텔레포트 목적지 차단.
+	 * lineage.conf 의 is_*_teleport 가 true 일 때만 해당 구역으로 이동 허용.
 	 */
 	static public boolean isBlockedEpisode8TeleportDestination(object o, int x, int y, int map, boolean message) {
 		if (!(o instanceof PcInstance))
@@ -146,13 +145,7 @@ public class LocationController {
 		if (pc.getGm() > 0)
 			return false;
 
-		boolean blocked = false;
-		if (!Lineage.is_welldone_teleport && World.isWelldone(x, y, map))
-			blocked = true;
-		if (!Lineage.is_heine_teleport && World.isHeine(x, y, map))
-			blocked = true;
-		if (!Lineage.is_aden_teleport && World.isAden(x, y, map))
-			blocked = true;
+		boolean blocked = Util.isRandomTeleportTownBlocked(x, y, map);
 
 		if (blocked) {
 			if (message)
