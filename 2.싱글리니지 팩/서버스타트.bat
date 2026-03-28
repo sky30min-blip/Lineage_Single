@@ -1,8 +1,8 @@
-@echo off
-REM 콘솔 UTF-8 + JVM UTF-8 (System.out 한글 깨짐 방지)
+﻿@echo off
+REM UTF-8 console + JVM encoding for Korean log output
 chcp 65001 >nul
 color 5F
-REM Java 8 권장. compile.bat / Cursor 설정과 동일하게 기본 D:\jdk8 (PATH의 java 21과 섞이지 않게)
+REM Use JDK8 if JAVA_HOME empty (same as compile.bat)
 if "%JAVA_HOME%"=="" set "JAVA_HOME=D:\jdk8"
 set "JAVA_EXE=%JAVA_HOME%\bin\java.exe"
 if not exist "%JAVA_EXE%" set "JAVA_EXE=java"
