@@ -9,6 +9,7 @@ import pandas as pd
 from utils.db_manager import get_db
 from utils.table_schemas import get_create_sql
 from utils.gm_feedback import show_pending_feedback, queue_feedback
+from utils.gm_tabs import gm_section_tabs
 
 # DB 연결 확인
 db = get_db()
@@ -417,10 +418,11 @@ def _delete_master_row_by_pk(db, table: str, pk_col: str, pk_val):
 
 
 # 탭 구성
-tab1, tab2, tab3 = st.tabs(["🎁 아이템 지급", "📦 인벤토리 조회", "🧹 미사용 마스터 정리"])
+_GRANT_TAB_LABELS = ["🎁 아이템 지급", "📦 인벤토리 조회", "🧹 미사용 마스터 정리"]
+_grant_ti = gm_section_tabs("item_grant", _GRANT_TAB_LABELS)
 
 # ========== 탭 1: 아이템 지급 ==========
-with tab1:
+if _grant_ti == 0:
     st.subheader("아이템 지급")
     st.caption("캐릭터가 접속 중이어도 지급됩니다. 약 1~2초 안에 인벤에 자동 반영됩니다.")
     with st.expander("❓ 접속 중인데 지급이 안 될 때"):
@@ -584,7 +586,7 @@ with tab1:
                     st.error(f"❌ 지급 실패: {err}")
 
 # ========== 탭 2: 인벤토리 조회 ==========
-with tab2:
+elif _grant_ti == 1:
     st.subheader("인벤토리 조회")
 
     char_list2 = db.fetch_all("SELECT name FROM characters ORDER BY name")
@@ -706,7 +708,7 @@ with tab2:
                         st.error(f"❌ 삭제 실패: {err}")
 
 # ========== 탭 3: 미사용 마스터 정리 ==========
-with tab3:
+else:
     st.subheader("미사용 마스터 아이템 정리")
     st.caption(
         "기준: **어떤 캐릭터 인벤(`characters_inventory`)에도 이름이 한 번도 없는** 마스터 테이블 행만 후보로 잡습니다. "

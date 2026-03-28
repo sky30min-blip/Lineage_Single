@@ -8,6 +8,7 @@ import pandas as pd
 import plotly.express as px
 from utils.db_manager import get_db
 from utils.gm_feedback import show_pending_feedback, queue_feedback
+from utils.gm_tabs import gm_section_tabs
 
 st.set_page_config(page_title="서버 모니터링", page_icon="🖥️", layout="wide")
 
@@ -35,9 +36,10 @@ def _safe_count(db, table: str, default=0) -> int:
         return default
 
 
-tab1, tab2 = st.tabs(["📊 실시간 통계", "💾 데이터베이스 현황"])
+_MON_TAB_LABELS = ["📊 실시간 통계", "💾 데이터베이스 현황"]
+_srvmon_ti = gm_section_tabs("server_monitor", _MON_TAB_LABELS)
 
-with tab1:
+if _srvmon_ti == 0:
     st.subheader("실시간 통계")
     placeholder = st.empty()
     with placeholder.container():
@@ -60,7 +62,7 @@ with tab1:
             st.rerun()
         st.caption("위 버튼으로 최신 수치를 갱신할 수 있습니다.")
 
-with tab2:
+else:
     st.subheader("데이터베이스 현황")
     # 싱글 DB는 `item` 한 테이블에 무기·방어구가 있고 `weapon`/`armor` 테이블이 없을 수 있음
     _want = [

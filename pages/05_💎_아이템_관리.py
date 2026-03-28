@@ -1,6 +1,7 @@
 import streamlit as st
 from utils.db_manager import get_db
 from utils.gm_feedback import show_pending_feedback, queue_feedback
+from utils.gm_tabs import gm_section_tabs
 from utils.field_help_ko import ITEM_HELP as IH
 from utils.gm_db_options import (
     CUSTOM_STR_LABEL,
@@ -19,9 +20,10 @@ if not _ok_db:
     st.stop()
 show_pending_feedback()
 
-tab1, tab2, tab3 = st.tabs(["🔍 아이템 조회", "✏️ 아이템 수정", "➕ 아이템 추가"])
+_ITEM_TAB_LABELS = ["🔍 아이템 조회", "✏️ 아이템 수정", "➕ 아이템 추가"]
+_item_ti = gm_section_tabs("item_manage", _ITEM_TAB_LABELS)
 
-with tab1:
+if _item_ti == 0:
     st.subheader("🔍 아이템 검색")
 
     # 연결·테이블 확인용 (에러 시 원인 파악)
@@ -121,7 +123,8 @@ with tab1:
             
             if st.button("✏️ 이 아이템 수정하기"):
                 st.session_state['edit_item'] = 선택
-                queue_feedback("info", "✏️ 수정 탭으로 전환했습니다. 위 탭에서 내용을 확인하세요.")
+                st.session_state["gm_sec_item_manage"] = "✏️ 아이템 수정"
+                queue_feedback("info", "✏️ 수정 탭으로 전환했습니다. 위에서 수정 섹션을 확인하세요.")
                 st.rerun()
         else:
             if 결과 is not None:
@@ -129,7 +132,7 @@ with tab1:
             else:
                 st.info("검색을 실행하지 못했습니다. 위 오류 메시지를 확인하세요.")
 
-with tab2:
+elif _item_ti == 1:
     st.subheader("✏️ 아이템 수정")
     
     if 'edit_item' in st.session_state:
@@ -317,7 +320,7 @@ with tab2:
     else:
         st.info("'아이템 조회' 탭에서 수정할 아이템을 선택하세요")
 
-with tab3:
+else:
     st.subheader("➕ 새 아이템 추가")
     st.caption("수정 탭과 동일한 상세 설정으로 새 아이템을 추가합니다. item 테이블에 없는 컬럼이 있으면 오류가 날 수 있습니다.")
 

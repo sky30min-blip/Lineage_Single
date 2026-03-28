@@ -8,6 +8,7 @@ import pandas as pd
 import streamlit as st
 from utils.db_manager import get_db
 from utils.gm_feedback import show_pending_feedback, queue_feedback
+from utils.gm_tabs import gm_section_tabs
 from utils.season_reset import (
     ACCOUNT_PROGRESS_COLUMNS,
     RESET_TABLE_DESCRIPTIONS,
@@ -441,20 +442,20 @@ def _event_row_enabled(row: dict) -> int:
         return 1
 
 
-# ---------- 탭 1: 서버 제어 ----------
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
-    [
-        "🖥️ 서버 제어",
-        "👥 플레이어 관리",
-        "🎭 이벤트 관리",
-        "🔄 사용 제한 초기화",
-        "📝 SQL 생성",
-        "📊 서버 배율·최고레벨",
-        "🧨 시즌 초기화",
-    ]
-)
+# ---------- 탭 (rerun 후에도 유지) ----------
+_SV_TAB_LABELS = [
+    "🖥️ 서버 제어",
+    "👥 플레이어 관리",
+    "🎭 이벤트 관리",
+    "🔄 사용 제한 초기화",
+    "📝 SQL 생성",
+    "📊 서버 배율·최고레벨",
+    "🧨 시즌 초기화",
+]
+_sv_ti = gm_section_tabs("server_admin", _SV_TAB_LABELS)
 
-with tab1:
+# ---------- 탭 1: 서버 제어 ----------
+if _sv_ti == 0:
     st.write("**서버/월드 조작** — 버튼 누르면 서버가 곧 실행합니다 (폴링 간격 내).")
 
     # 라우풀/카오틱(바포메트) 시스템 켜기/끄기 — lineage.conf is_batpomet_system
@@ -670,7 +671,7 @@ with tab1:
                 st.error(err)
 
 # ---------- 탭 2: 플레이어 관리 ----------
-with tab2:
+elif _sv_ti == 1:
     st.write("**올버프**")
     if st.button("⚡ 올버프", key="buf_all"):
         ok, err = _send_server_command("all_buff")
@@ -716,7 +717,7 @@ with tab2:
     )
 
 # ---------- 탭 3: 이벤트 관리 ----------
-with tab3:
+elif _sv_ti == 2:
     st.write("**변신 이벤트** · **랭킹 변신 이벤트** — 켜기/끄기를 서버에 요청합니다.")
     if st.button("🎭 변신 이벤트 켜기", key="ev_poly_on"):
         ok, err = _send_server_command("event_poly", "1")
@@ -816,7 +817,7 @@ with tab3:
             st.rerun()
 
 # ---------- 탭 4: 사용 제한 초기화 ----------
-with tab4:
+elif _sv_ti == 3:
     st.write(
         "DB 업데이트로 초기화합니다. 서버에 접속 중인 캐릭터는 **재접속**해야 화면에 반영됩니다. "
         "(기란감옥 남은 시간은 DB에 **초** 단위로 저장됩니다.)"
@@ -889,7 +890,7 @@ with tab4:
             st.error(f"❌ characters/accounts 모두 실패 — characters: {err_ch} | accounts: {err_ac}")
 
 # ---------- 탭 5: SQL 생성 ----------
-with tab5:
+elif _sv_ti == 4:
     st.write("DB 테이블을 읽어 SQL 파일 내용을 생성한 뒤 다운로드합니다.")
     sql_placeholder = st.empty()
 
@@ -992,7 +993,7 @@ with tab5:
         st.caption("spr_action.sql(spr_frame)은 서버의 sql/list.spr 파일을 읽어 생성하므로, 원본 툴에서 실행하세요.")
 
 # ---------- 탭 6: 서버 배율·최고레벨 ----------
-with tab6:
+elif _sv_ti == 5:
     st.write("**lineage.conf** 에서 배율·최고레벨을 읽어 표시하고, 저장 시 해당 파일을 수정합니다. **서버 재시작 후** 적용됩니다.")
     conf_path = _conf_path()
     if not os.path.isfile(conf_path):
@@ -1041,7 +1042,7 @@ with tab6:
                 st.error(err)
 
 # ---------- 탭 7: 시즌 원클릭 초기화 (계정 유지) ----------
-with tab7:
+else:
     st.subheader("🧨 시즌 원클릭 초기화 (계정 유지)")
     st.error(
         "유저 **플레이 데이터**를 삭제합니다. `accounts` 로그인 계정은 유지하고, "

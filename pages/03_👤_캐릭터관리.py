@@ -7,96 +7,9 @@ import streamlit as st
 import pandas as pd
 from utils.db_manager import get_db
 from utils.gm_feedback import show_pending_feedback, queue_feedback
+from utils.gm_tabs import gm_section_tabs
 import config
 
-# DB 연결 확인
-db = get_db()
-is_connected, msg = db.test_connection()
-if not is_connected:
-    st.error(f"❌ DB 연결 실패: {msg}")
-    st.stop()
-st.caption(
-    f"MariaDB 연결: `{config.DB_CONFIG['host']}:{config.DB_CONFIG['port']}` · 스키마 **`{config.DB_CONFIG['database']}`** "
-    "(`mysql.conf` url 과 동일)"
-)
-show_pending_feedback()
-
-# 탭 구성
-tab1, tab2, tab3, tab4 = st.tabs([
-    "📋 캐릭터 목록",
-    "✏️ 캐릭터 수정",
-    "💰 아데나 관리",
-    "📍 위치 이동",
-])
-
-# ========== 탭 1: 캐릭터 목록 ==========
-with tab1:
-    st.subheader("캐릭터 목록")
-    rows = db.fetch_all(
-        "SELECT name, level, class, account FROM characters ORDER BY level DESC"
-    )
-    if rows:
-        df = pd.DataFrame(rows)
-        df["class"] = df["class"].map(
-            lambda x: config.CLASS_NAMES.get(int(x) if x is not None else 0, str(x))
-        )
-        df = df.rename(columns={"name": "캐릭터명", "level": "레벨", "class": "직업", "account": "계정"})
-        st.dataframe(df, width="stretch")
-        st.caption(f"총 {len(df)}명")
-    else:
-        st.info("캐릭터가 없습니다.")
-
-# ========== 탭 2: 캐릭터 수정 ==========
-with tab2:
-    st.subheader("캐릭터 수정")
-
-    char_list = db.fetch_all("SELECT name FROM characters ORDER BY name")
-    if not char_list:
-        st.info("캐릭터가 없습니다.")
-    else:
-        names = [r["name"] for r in char_list]
-        selected_name = st.selectbox("캐릭터 선택", names, key="edit_char")
-
-        if selected_name:
-            char = db.fetch_one(
-                "SELECT * FROM characters WHERE name = %s", (selected_name,)
-            )
-            if not char:
-                st.warning("캐릭터 정보를 불러올 수 없습니다.")
-            else:
-                st.caption(f"현재 레벨: {char.get('level')} | HP: {char.get('nowHP')}/{char.get('maxHP')} | MP: {char.get('nowMP')}/{char.get('maxMP')}")
-
-                col1, col2 = st.columns(2)
-                with col1:
-                    level = st.number_input("레벨", min_value=1, max_value=99, value=int(char.get("level") or 1), key="edit_level")
-                    st.write("**스탯**")
-                    str_val = st.number_input("str", min_value=1, max_value=99, value=int(char.get("str") or 1), key="edit_str")
-                    dex_val = st.number_input("dex", min_value=1, max_value=99, value=int(char.get("dex") or 1), key="edit_dex")
-                    con_val = st.number_input("con", min_value=1, max_value=99, value=int(char.get("con") or 1), key="edit_con")
-                    wis_val = st.number_input("wis", min_value=1, max_value=99, value=int(char.get("wis") or 1), key="edit_wis")
-                    inter_val = st.number_input("inter", min_value=1, max_value=99, value=int(char.get("inter") or 1), key="edit_inter")
-                    cha_val = st.number_input("cha", min_value=1, max_value=99, value=int(char.get("cha") or 1), key="edit_cha")
-                with col2:
-                    st.write("**HP / MP**")
-                    nowHP = st.number_input("nowHP", min_value=0, value=int(char.get("nowHP") or 0), key="edit_nowHP")
-                    maxHP = st.number_input("maxHP", min_value=1, value=int(char.get("maxHP") or 1), key="edit_maxHP")
-                    nowMP = st.number_input("nowMP", min_value=0, value=int(char.get("nowMP") or 0), key="edit_nowMP")
-                    maxMP = st.number_input("maxMP", min_value=0, value=int(char.get("maxMP") or 0), key="edit_maxMP")
-
-                if st.button("저장", key="save_char"):
-                    ok, err = db.execute_query_ex(
-                        """UPDATE characters SET
-                           level=%s, str=%s, dex=%s, con=%s, wis=%s, inter=%s, cha=%s,
-                           nowHP=%s, maxHP=%s, nowMP=%s, maxMP=%s
-                           WHERE name=%s""",
-                        (level, str_val, dex_val, con_val, wis_val, inter_val, cha_val,
-                         nowHP, maxHP, nowMP, maxMP, selected_name),
-                    )
-                    if ok:
-                        queue_feedback("success", "✅ 캐릭터 정보가 저장되었습니다.")
-                        st.rerun()
-                    else:
-                        st.error(f"❌ 저장 실패: {err}")
 
 def _resolve_char_obj_id(char_row):
     """characters 행에서 objID 컬럼명 대소문자/별칭 차이 흡수 (PyMySQL·DB 설정별)."""
@@ -179,9 +92,98 @@ def _gm_location_delivery_insert(db, cha_obj_id, loc_x, loc_y, loc_map):
     )
     return err if not _ok else None
 
+# DB 연결 확인
+db = get_db()
+is_connected, msg = db.test_connection()
+if not is_connected:
+    st.error(f"❌ DB 연결 실패: {msg}")
+    st.stop()
+st.caption(
+    f"MariaDB 연결: `{config.DB_CONFIG['host']}:{config.DB_CONFIG['port']}` · 스키마 **`{config.DB_CONFIG['database']}`** "
+    "(`mysql.conf` url 과 동일)"
+)
+show_pending_feedback()
+
+# 탭 구성
+_CHAR_TAB_LABELS = [
+    "📋 캐릭터 목록",
+    "✏️ 캐릭터 수정",
+    "💰 아데나 관리",
+    "📍 위치 이동",
+]
+_char_ti = gm_section_tabs("character_admin", _CHAR_TAB_LABELS)
+
+# ========== 탭 1: 캐릭터 목록 ==========
+if _char_ti == 0:
+    st.subheader("캐릭터 목록")
+    rows = db.fetch_all(
+        "SELECT name, level, class, account FROM characters ORDER BY level DESC"
+    )
+    if rows:
+        df = pd.DataFrame(rows)
+        df["class"] = df["class"].map(
+            lambda x: config.CLASS_NAMES.get(int(x) if x is not None else 0, str(x))
+        )
+        df = df.rename(columns={"name": "캐릭터명", "level": "레벨", "class": "직업", "account": "계정"})
+        st.dataframe(df, width="stretch")
+        st.caption(f"총 {len(df)}명")
+    else:
+        st.info("캐릭터가 없습니다.")
+
+# ========== 탭 2: 캐릭터 수정 ==========
+elif _char_ti == 1:
+    st.subheader("캐릭터 수정")
+
+    char_list = db.fetch_all("SELECT name FROM characters ORDER BY name")
+    if not char_list:
+        st.info("캐릭터가 없습니다.")
+    else:
+        names = [r["name"] for r in char_list]
+        selected_name = st.selectbox("캐릭터 선택", names, key="edit_char")
+
+        if selected_name:
+            char = db.fetch_one(
+                "SELECT * FROM characters WHERE name = %s", (selected_name,)
+            )
+            if not char:
+                st.warning("캐릭터 정보를 불러올 수 없습니다.")
+            else:
+                st.caption(f"현재 레벨: {char.get('level')} | HP: {char.get('nowHP')}/{char.get('maxHP')} | MP: {char.get('nowMP')}/{char.get('maxMP')}")
+
+                col1, col2 = st.columns(2)
+                with col1:
+                    level = st.number_input("레벨", min_value=1, max_value=99, value=int(char.get("level") or 1), key="edit_level")
+                    st.write("**스탯**")
+                    str_val = st.number_input("str", min_value=1, max_value=99, value=int(char.get("str") or 1), key="edit_str")
+                    dex_val = st.number_input("dex", min_value=1, max_value=99, value=int(char.get("dex") or 1), key="edit_dex")
+                    con_val = st.number_input("con", min_value=1, max_value=99, value=int(char.get("con") or 1), key="edit_con")
+                    wis_val = st.number_input("wis", min_value=1, max_value=99, value=int(char.get("wis") or 1), key="edit_wis")
+                    inter_val = st.number_input("inter", min_value=1, max_value=99, value=int(char.get("inter") or 1), key="edit_inter")
+                    cha_val = st.number_input("cha", min_value=1, max_value=99, value=int(char.get("cha") or 1), key="edit_cha")
+                with col2:
+                    st.write("**HP / MP**")
+                    nowHP = st.number_input("nowHP", min_value=0, value=int(char.get("nowHP") or 0), key="edit_nowHP")
+                    maxHP = st.number_input("maxHP", min_value=1, value=int(char.get("maxHP") or 1), key="edit_maxHP")
+                    nowMP = st.number_input("nowMP", min_value=0, value=int(char.get("nowMP") or 0), key="edit_nowMP")
+                    maxMP = st.number_input("maxMP", min_value=0, value=int(char.get("maxMP") or 0), key="edit_maxMP")
+
+                if st.button("저장", key="save_char"):
+                    ok, err = db.execute_query_ex(
+                        """UPDATE characters SET
+                           level=%s, str=%s, dex=%s, con=%s, wis=%s, inter=%s, cha=%s,
+                           nowHP=%s, maxHP=%s, nowMP=%s, maxMP=%s
+                           WHERE name=%s""",
+                        (level, str_val, dex_val, con_val, wis_val, inter_val, cha_val,
+                         nowHP, maxHP, nowMP, maxMP, selected_name),
+                    )
+                    if ok:
+                        queue_feedback("success", "✅ 캐릭터 정보가 저장되었습니다.")
+                        st.rerun()
+                    else:
+                        st.error(f"❌ 저장 실패: {err}")
 
 # ========== 탭 3: 아데나 관리 ==========
-with tab3:
+elif _char_ti == 2:
     st.subheader("아데나 관리")
 
     char_list3 = db.fetch_all("SELECT name FROM characters ORDER BY name")
@@ -250,7 +252,7 @@ with tab3:
                         st.error(f"❌ 설정 실패: {err}")
 
 # ========== 탭 4: 위치 이동 ==========
-with tab4:
+else:
     st.subheader("위치 이동")
 
     char_list4 = db.fetch_all("SELECT name FROM characters ORDER BY name")

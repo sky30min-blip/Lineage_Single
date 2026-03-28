@@ -3,7 +3,7 @@
 """
 
 import pymysql
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 import config
 
 
@@ -90,6 +90,33 @@ class DBManager:
                 print(f"쿼리 실행 실패: {err}")
                 print(f"SQL: {sql}")
                 print(f"Params: {params}")
+            return False, err
+
+    def execute_transaction(self, statements: List[Tuple[str, Optional[tuple]]]) -> tuple[bool, str]:
+        """
+        여러 쿼리를 하나의 트랜잭션으로 실행. 중간 실패 시 전체 롤백.
+        statements: (sql, params) 리스트. params는 None이면 빈 튜플로 실행.
+        """
+        if not statements:
+            return True, ""
+        try:
+            self._ensure_connection()
+            conn = self.connection
+            with conn.cursor() as cursor:
+                for item in statements:
+                    sql = item[0]
+                    params = item[1] if len(item) > 1 else None
+                    cursor.execute(sql, params if params is not None else ())
+            conn.commit()
+            return True, ""
+        except Exception as e:
+            if self.connection:
+                try:
+                    self.connection.rollback()
+                except Exception:
+                    pass
+            err = str(e)
+            print(f"트랜잭션 실패: {err}")
             return False, err
 
     def execute_query(self, sql: str, params: tuple = None) -> bool:

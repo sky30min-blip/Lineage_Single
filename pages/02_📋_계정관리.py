@@ -7,6 +7,7 @@ import re
 import streamlit as st
 from utils.db_manager import get_db
 from utils.gm_feedback import show_pending_feedback, queue_feedback
+from utils.gm_tabs import gm_section_tabs
 
 # DB 연결 확인
 db = get_db()
@@ -16,15 +17,49 @@ if not is_connected:
     st.stop()
 show_pending_feedback()
 
-# 탭 구성
-tab1, tab2, tab3 = st.tabs([
-    "➕ 계정 생성",
-    "📋 계정 목록",
-    "🔐 GM 권한 관리",
-])
+# accounts: id, pw, uid, last_ip / characters: account_uid → accounts.uid, name
+def _get_account_list_full(db):
+    """계정 목록: id, pw, uid, last_ip + 소속 캐릭터명."""
+    for q in [
+        "SELECT uid, id, pw, last_ip FROM accounts ORDER BY id",
+        "SELECT uid, id, pw FROM accounts ORDER BY id",
+        "SELECT uid, id, pw FROM accounts ORDER BY id",
+    ]:
+        try:
+            rows = db.fetch_all(q)
+            if not rows:
+                continue
+            if "last_ip" not in rows[0]:
+                for r in rows:
+                    r["last_ip"] = ""
+            # 소속 캐릭터명 (account_uid로 연결) — 목록용 문자열 + 줄별 표시용 리스트
+            for r in rows:
+                uid = r.get("uid")
+                char_list = []
+                if uid is not None:
+                    try:
+                        chars = db.fetch_all("SELECT name FROM characters WHERE account_uid = %s", (uid,))
+                        char_list = [c.get("name") or "" for c in chars if c.get("name")]
+                    except Exception:
+                        try:
+                            chars = db.fetch_all("SELECT name FROM characters WHERE account = %s", (r.get("id"),))
+                            char_list = [c.get("name") or "" for c in chars if c.get("name")]
+                        except Exception:
+                            pass
+                r["char_list"] = char_list
+                # 테이블: "1. 이름1  2. 이름2  3. 이름3" 형태로 표시
+                r["characters"] = "  ".join(f"{i}. {n}" for i, n in enumerate(char_list, 1)) if char_list else ""
+            return rows
+        except Exception:
+            continue
+    return []
+
+# 탭 구성 (st.tabs는 rerun 시 첫 탭으로 초기화됨 → pills로 유지)
+_ACC_TAB_LABELS = ["➕ 계정 생성", "📋 계정 목록", "🔐 GM 권한 관리"]
+_acc_ti = gm_section_tabs("account_admin", _ACC_TAB_LABELS)
 
 # ========== 탭 1: 계정 생성 ==========
-with tab1:
+if _acc_ti == 0:
     st.subheader("계정 생성")
 
     account_id = st.text_input("계정 ID", max_chars=20, placeholder="영문/숫자 4~20자", key="new_account_id")
@@ -78,44 +113,7 @@ with tab1:
             except Exception as e:
                 st.error(f"❌ 조회/처리 실패: {e}")
 
-# accounts: id, pw, uid, last_ip / characters: account_uid → accounts.uid, name
-def _get_account_list_full(db):
-    """계정 목록: id, pw, uid, last_ip + 소속 캐릭터명."""
-    for q in [
-        "SELECT uid, id, pw, last_ip FROM accounts ORDER BY id",
-        "SELECT uid, id, pw FROM accounts ORDER BY id",
-        "SELECT uid, id, pw FROM accounts ORDER BY id",
-    ]:
-        try:
-            rows = db.fetch_all(q)
-            if not rows:
-                continue
-            if "last_ip" not in rows[0]:
-                for r in rows:
-                    r["last_ip"] = ""
-            # 소속 캐릭터명 (account_uid로 연결) — 목록용 문자열 + 줄별 표시용 리스트
-            for r in rows:
-                uid = r.get("uid")
-                char_list = []
-                if uid is not None:
-                    try:
-                        chars = db.fetch_all("SELECT name FROM characters WHERE account_uid = %s", (uid,))
-                        char_list = [c.get("name") or "" for c in chars if c.get("name")]
-                    except Exception:
-                        try:
-                            chars = db.fetch_all("SELECT name FROM characters WHERE account = %s", (r.get("id"),))
-                            char_list = [c.get("name") or "" for c in chars if c.get("name")]
-                        except Exception:
-                            pass
-                r["char_list"] = char_list
-                # 테이블: "1. 이름1  2. 이름2  3. 이름3" 형태로 표시
-                r["characters"] = "  ".join(f"{i}. {n}" for i, n in enumerate(char_list, 1)) if char_list else ""
-            return rows
-        except Exception:
-            continue
-    return []
-
-with tab2:
+elif _acc_ti == 1:
     st.subheader("계정 목록")
 
     search_term = st.text_input("계정명 검색 (필터)", placeholder="계정명 일부 입력", key="account_search")
@@ -234,7 +232,7 @@ with tab2:
         st.info("등록된 계정이 없습니다.")
 
 # ========== 탭 3: GM 권한 관리 ==========
-with tab3:
+else:
     st.subheader("GM 권한 관리")
     st.caption("GM 권한은 **캐릭터 단위**로 부여됩니다. 권한 변경 후 해당 캐릭터로 **한 번 로그아웃 후 재접속**하면 반영됩니다.")
     with st.expander("❓ GM 권한이 게임에 안 먹힐 때"):

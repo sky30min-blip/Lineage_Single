@@ -9,6 +9,7 @@ import hashlib
 import streamlit as st
 from utils.db_manager import get_db
 from utils.gm_feedback import show_pending_feedback, queue_feedback
+from utils.gm_tabs import gm_section_tabs
 from utils.field_help_ko import NPC_HELP as NH
 
 # 자주 쓰는 맵 번호 → 이름 (DB에 맵 테이블이 없을 때 보조). 서버팩마다 다를 수 있음.
@@ -119,12 +120,19 @@ if not _db_ok:
     st.error(f"❌ DB 연결 실패: {_db_msg}")
     st.stop()
 show_pending_feedback()
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-    "📋 NPC 목록", "➕ NPC 추가", "✏️ NPC 수정", "📍 NPC 배치", "🗑️ NPC 배치 제거", "🏪 상점 관리", "📍 스폰 위치 수정"
-])
+_NPC_TAB_LABELS = [
+    "📋 NPC 목록",
+    "➕ NPC 추가",
+    "✏️ NPC 수정",
+    "📍 NPC 배치",
+    "🗑️ NPC 배치 제거",
+    "🏪 상점 관리",
+    "📍 스폰 위치 수정",
+]
+_npc_ti = gm_section_tabs("npc_admin", _NPC_TAB_LABELS)
 
 # ========== tab1: NPC 목록 ==========
-with tab1:
+if _npc_ti == 0:
     st.subheader("📋 NPC 목록")
     try:
         # name이 숫자형이면 '0' 등이 정수로 오므로 str 통일. LIMIT 제거해 전체 조회
@@ -162,7 +170,7 @@ with tab1:
         st.warning(f"NPC 테이블 조회 실패 (테이블/컬럼 확인): {e}")
 
 # ========== tab2: NPC 추가 ==========
-with tab2:
+elif _npc_ti == 1:
     st.subheader("➕ NPC 추가")
     st.caption("npc 테이블에 등록하고, 원하면 맵 좌표를 넣어 스폰까지 한 번에 등록할 수 있습니다. 서버 재시작 후 반영됩니다.")
     try:
@@ -290,7 +298,7 @@ with tab2:
         st.error(f"NPC 추가 오류: {e}")
 
 # ========== tab3: NPC 수정 (기존 NPC 이미지/세부정보 변경) ==========
-with tab3:
+elif _npc_ti == 2:
     st.subheader("✏️ NPC 수정")
     st.caption("이미 등록된 NPC의 그래픽(gfxid), 타입, 체력 등 세부 정보를 변경합니다. 서버 재시작 후 반영됩니다.")
     try:
@@ -339,7 +347,7 @@ with tab3:
         st.error(f"NPC 수정 오류: {e}")
 
 # ========== tab4: 기존 NPC 배치 (맵에 스폰 추가) ==========
-with tab4:
+elif _npc_ti == 3:
     st.subheader("📍 NPC 배치")
     st.caption("이미 npc 테이블에 있는 NPC를 원하는 맵·좌표에 배치합니다. npc_spawnlist에 스폰을 추가합니다. 서버 재시작 후 반영됩니다.")
     st.info("**좌표 통일**: 게임 내에서 `[명령어]맵` 또는 `[명령어]좌표` 로 표시되는 **X, Y, 맵번호**가 DB(locX, locY, locMap)와 **동일**합니다. 원하는 위치에 서서 좌표를 확인한 값을 그대로 입력하면 해당 위치에 NPC가 배치됩니다.")
@@ -391,7 +399,7 @@ with tab4:
         st.error(f"NPC 배치 오류: {e}")
 
 # ========== tab5: NPC 배치 제거 (npc_spawnlist 영구 삭제 + 실행 중 서버 디스폰) ==========
-with tab5:
+elif _npc_ti == 4:
     st.subheader("🗑️ NPC 배치 제거")
     st.caption(
         "선택한 스폰을 **배치 목록(npc_spawnlist)**에서 삭제합니다. **재시작 후에도** 해당 위치에 다시 나오지 않습니다. "
@@ -462,7 +470,7 @@ with tab5:
         st.info("npc_spawnlist에 스폰이 없거나 조회할 수 없습니다.")
 
 # ========== tab6: 상점 관리 (npc_shop / item) ==========
-with tab6:
+elif _npc_ti == 5:
     st.subheader("🏪 NPC 상점 관리")
     try:
         # 상점이 있는 NPC 목록 (npc_shop.name 기준)
@@ -632,7 +640,7 @@ with tab6:
         st.caption("npc_shop, item 테이블이 lin200에 있는지 확인하세요.")
 
 # ========== tab7: 스폰 위치 수정 (npc_spawnlist에 등록된 NPC만, 위치 편집) ==========
-with tab7:
+else:
     st.subheader("📍 스폰 위치 수정")
     st.caption("npc_spawnlist에 등록된(현재 월드에 리스폰되는) NPC만 표시됩니다. 좌표·맵·방향을 수정한 뒤 저장하면 DB에 반영됩니다. **반영 후 서버에서 NPC 리로드**가 필요합니다.")
     try:

@@ -7,6 +7,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from utils.db_manager import get_db
+from utils.gm_tabs import gm_section_tabs
 import config
 
 
@@ -59,15 +60,16 @@ if not is_connected:
     st.error(f"❌ DB 연결 실패: {msg}")
     st.stop()
 
-tab1, tab2, tab3, tab4 = st.tabs([
+_STAT_TAB_LABELS = [
     "📊 레벨 통계",
     "👤 직업 통계",
     "🏆 랭킹",
     "🖥️ 서버 통계",
-])
+]
+_stat_ti = gm_section_tabs("stats_page", _STAT_TAB_LABELS)
 
 # ========== 탭 1: 레벨 통계 ==========
-with tab1:
+if _stat_ti == 0:
     st.subheader("레벨 통계")
 
     try:
@@ -109,7 +111,7 @@ with tab1:
         st.info("데이터가 없습니다.")
 
 # ========== 탭 2: 직업 통계 ==========
-with tab2:
+elif _stat_ti == 1:
     st.subheader("직업 통계")
 
     try:
@@ -154,7 +156,7 @@ with tab2:
         st.info("데이터가 없습니다.")
 
 # ========== 탭 3: 랭킹 ==========
-with tab3:
+elif _stat_ti == 2:
     st.subheader("랭킹")
 
     st.write("**레벨 순위 TOP 10**")
@@ -217,7 +219,7 @@ with tab3:
         st.caption("pkcount 컬럼이 없거나 조회할 수 없습니다.")
 
 # ========== 탭 4: 서버 통계 ==========
-with tab4:
+else:
     st.subheader("서버 통계")
 
     try:

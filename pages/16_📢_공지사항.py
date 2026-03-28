@@ -7,6 +7,7 @@ import os
 import streamlit as st
 from utils.gm_feedback import show_pending_feedback, queue_feedback
 from utils.db_manager import get_db
+from utils.gm_tabs import gm_section_tabs
 
 # 인게임 BoardController / DB 스키마와 동일한 제한
 BOARD_SUBJECT_MAX = 50
@@ -311,19 +312,18 @@ else:
     notice_indices = [i for i, e in enumerate(entries) if e["type"] == "notice"]
 
 # 탭: DB 팝업·게시판 / notice.txt·이벤트 등
-tab_popup, tab_board, tab1, tab2, tab3, tab4, tab5 = st.tabs(
-    [
-        "📣 공지 팝업 (접속)",
-        "📌 게임 게시판 (DB)",
-        "📋 목록 보기·수정·삭제",
-        "➕ 공지 추가",
-        "✏️ 전체 편집",
-        "⏰ 이벤트 공지사항",
-        "📡 기타 자동 공지 (코드)",
-    ]
-)
+_NOTICE_MAIN_LABELS = [
+    "📣 공지 팝업 (접속)",
+    "📌 게임 게시판 (DB)",
+    "📋 목록 보기·수정·삭제",
+    "➕ 공지 추가",
+    "✏️ 전체 편집",
+    "⏰ 이벤트 공지사항",
+    "📡 기타 자동 공지 (코드)",
+]
+_notice_main_i = gm_section_tabs("notice_admin", _NOTICE_MAIN_LABELS)
 
-with tab_popup:
+if _notice_main_i == 0:
     st.subheader("📣 server_notice (접속 시 팝업 공지)")
     st.caption(
         "**static (매번 접속 시)**: 접속할 때마다 표시(계정이 마지막으로 본 uid보다 큰 공지만 순서대로). "
@@ -424,7 +424,7 @@ with tab_popup:
                             queue_feedback("error", f"삭제 실패: {err}")
                         st.rerun()
 
-with tab_board:
+elif _notice_main_i == 1:
     st.subheader("📌 boards (게임 내 게시판 DB)")
     st.caption(
         f"DB 테이블 `boards` 를 직접 편집합니다. 인게임과 동일: **목록 한 페이지 {BOARD_LIST_PAGE_SIZE}개**, "
@@ -584,7 +584,7 @@ with tab_board:
                             queue_feedback("error", f"삭제 실패: {err}")
                         st.rerun()
 
-with tab1:
+elif _notice_main_i == 2:
     st.subheader("📋 현재 공지 목록 (공지별 출력 간격)")
     st.caption("각 공지는 **설정한 간격(분)**마다 따로 출력됩니다. # 주석 줄은 공지로 나가지 않습니다.")
     if err:
@@ -640,7 +640,7 @@ with tab1:
                         queue_feedback("success", "공지와 간격을 수정하고 저장했습니다.")
                     st.rerun()
 
-with tab2:
+elif _notice_main_i == 3:
     st.subheader("➕ 공지 추가")
     st.caption("새 공지 메시지와 **몇 분마다** 출력할지 설정하세요.")
     if err:
@@ -661,7 +661,7 @@ with tab2:
                     queue_feedback("success", f"공지를 추가했습니다. (간격 {new_delay}분)")
                 st.rerun()
 
-with tab3:
+elif _notice_main_i == 4:
     st.subheader("✏️ 전체 편집")
     st.caption("한 줄 형식: **분|메시지** (예: `5|환영합니다.`)  # 으로 시작하는 줄은 주석입니다.")
     if err:
@@ -676,7 +676,7 @@ with tab3:
                 queue_feedback("success", "notice.txt 를 저장했습니다. 서버는 다음 주기에 새 내용을 읽습니다.")
             st.rerun()
 
-with tab4:
+elif _notice_main_i == 5:
     st.subheader("⏰ 이벤트 공지사항 (타임 이벤트)")
     st.caption("게임 내 **타임 이벤트** 시작 시각과 지속 시간을 설정합니다. `lineage.conf`의 `time_event_time`, `time_event_play_time`을 수정합니다. 서버 재시작 후 적용됩니다.")
     conf_content, conf_err = read_lineage_conf()
@@ -697,8 +697,9 @@ with tab4:
         except ValueError:
             time_ment_sec = 60
 
-        sub_tab_a, sub_tab_b, sub_tab_c = st.tabs(["📋 이벤트 시각 목록·수정·삭제", "➕ 시각 추가", "⚙️ 지속 시간·공지 주기"])
-        with sub_tab_a:
+        _ev_sub_labels = ["📋 이벤트 시각 목록·수정·삭제", "➕ 시각 추가", "⚙️ 지속 시간·공지 주기"]
+        _ev_sub_i = gm_section_tabs("notice_event_sub", _ev_sub_labels)
+        if _ev_sub_i == 0:
             st.caption("타임 이벤트가 **시작되는 시각** 목록 (시:분). 서버가 이 시각에 맞춰 이벤트를 시작합니다.")
             if not event_times:
                 st.info("등록된 이벤트 시각이 없습니다. '시각 추가' 탭에서 추가하세요.")
@@ -755,7 +756,7 @@ with tab4:
                             except ValueError:
                                 queue_feedback("error", "시·분은 숫자로 입력하세요.")
                             st.rerun()
-        with sub_tab_b:
+        elif _ev_sub_i == 1:
             st.caption("새 **이벤트 시작 시각**을 추가합니다 (시:분).")
             add_h = st.number_input("시 (0~23)", min_value=0, max_value=23, value=12, key="ev_add_h")
             add_m = st.number_input("분 (0~59)", min_value=0, max_value=59, value=0, key="ev_add_m")
@@ -768,7 +769,7 @@ with tab4:
                 else:
                     queue_feedback("success", f"시각 {add_h:02d}:{add_m:02d} 를 추가하고 저장했습니다.")
                 st.rerun()
-        with sub_tab_c:
+        else:
             st.caption("**이벤트 지속 시간**(초)과 **이벤트 안내 공지 주기**(초)를 설정합니다.")
             new_play = st.number_input("이벤트 지속 시간 (초)", min_value=60, max_value=86400, value=play_time_sec, key="ev_play_sec", help="타임 이벤트가 몇 초 동안 유지되는지 (기본 3600=1시간)")
             new_ment = st.number_input("이벤트 안내 공지 주기 (초)", min_value=10, max_value=600, value=time_ment_sec, key="ev_ment_sec", help="게임 내 '타임이벤트 N분' 안내가 몇 초마다 뜨는지")
@@ -783,7 +784,7 @@ with tab4:
                     queue_feedback("error", f"저장 실패: {e}")
                 st.rerun()
 
-with tab5:
+else:
     st.subheader("📡 이 페이지(notice.txt)에 없는 월드 채팅 공지들")
     st.markdown(
         """

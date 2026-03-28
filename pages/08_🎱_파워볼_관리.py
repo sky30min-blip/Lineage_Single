@@ -10,6 +10,7 @@ import streamlit as st
 import config as gm_config
 from utils.db_manager import get_db
 from utils.gm_feedback import show_pending_feedback, queue_feedback
+from utils.gm_tabs import gm_section_tabs
 from utils.powerball_economy import (
     BOARD_POOL_FOUR_CLASS_PERCENT,
     BOARD_POOL_ROYAL_PERCENT,
@@ -510,9 +511,14 @@ if "powerball_reward_run" not in tables or "powerball_reward_line" not in tables
                 parts.append(f"powerball_reward_line: {err_b}")
             st.error("❌ 생성 실패 — " + " | ".join(parts))
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(
-    ["📅 일일 손익", "👤 캐릭터 누적", "🏆 일일 포상 정산", "📜 정산 이력", "💸 배당 수정"]
-)
+_PB_TAB_LABELS = [
+    "📅 일일 손익",
+    "👤 캐릭터 누적",
+    "🏆 일일 포상 정산",
+    "📜 정산 이력",
+    "💸 배당 수정",
+]
+_pb_ti = gm_section_tabs("powerball_admin", _PB_TAB_LABELS)
 
 if "pb_daily_date" not in st.session_state:
     st.session_state.pb_daily_date = date.today()
@@ -527,7 +533,7 @@ if "pb_reward_class_init" not in st.session_state:
     st.session_state.pb_chk_darkelf = bool(_d0.get("darkelf", False))
     st.session_state.pb_chk_royal = bool(_d0.get("royal", True))
 
-with tab1:
+if _pb_ti == 0:
     st.subheader("일일 서버 vs 유저(이론 지급액 기준)")
     c1, c2, c3 = st.columns([2, 1, 1])
     with c1:
@@ -546,7 +552,7 @@ with tab1:
 
     _pb_render_tab1_metrics()
 
-with tab2:
+elif _pb_ti == 1:
     st.subheader("파워볼 참여 캐릭터 누적 (기간별 손익 조회)")
     c21, c22, c23 = st.columns(3)
     with c21:
@@ -657,7 +663,7 @@ with tab2:
             "해당 기간에 `powerball_results`가 있는 회차 배팅이 있는지, 날짜 범위를 확인하세요."
         )
 
-with tab3:
+elif _pb_ti == 2:
     st.subheader("클래스별 레벨 1~3위 포상 (수동 실행)")
     d2 = st.date_input("정산일 (KST)", value=date.today() - timedelta(days=1), key="pb_reward_date")
     st.markdown("**정산에 포함할 클래스** (체크 해제 시 그 직업 몫은 나머지 **체크한 네 직업**에 균등 재분배)")
@@ -693,7 +699,7 @@ with tab3:
     )
     _pb_render_tab3_live_panel()
 
-with tab4:
+elif _pb_ti == 3:
     st.subheader("정산 이력")
     d3 = st.date_input("조회일", value=date.today() - timedelta(days=1), key="pb_hist_date")
     if "powerball_reward_run" not in db.get_all_tables():
@@ -737,7 +743,7 @@ with tab4:
         elif run:
             st.caption("라인 상세가 없습니다.")
 
-with tab5:
+else:
     st.subheader("💸 파워볼 배당률 수정")
     st.caption("서버 `lineage.conf`의 `powerball_payout_rate`와 GM 툴 `config.py`를 함께 갱신합니다.")
 

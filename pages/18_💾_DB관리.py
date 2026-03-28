@@ -7,6 +7,7 @@ import streamlit as st
 import pandas as pd
 from utils.db_manager import get_db
 from utils.gm_feedback import show_pending_feedback, queue_feedback
+from utils.gm_tabs import gm_section_tabs
 from utils.table_schemas import (
     get_all_required_tables,
     get_create_sql,
@@ -38,10 +39,11 @@ with st.sidebar:
         st.rerun()
 
 # 탭 구성
-tab1, tab2, tab3 = st.tabs(["🔍 SQL 실행", "📋 테이블 목록", "🔧 테이블 생성"])
+_DB_TAB_LABELS = ["🔍 SQL 실행", "📋 테이블 목록", "🔧 테이블 생성"]
+_db_ti = gm_section_tabs("db_admin", _DB_TAB_LABELS)
 
 # ========== 탭 1: SQL 직접 실행 ==========
-with tab1:
+if _db_ti == 0:
     st.subheader("SQL 쿼리 실행")
 
     if "sql_query" not in st.session_state:
@@ -85,7 +87,7 @@ with tab1:
                 st.error(f"❌ 쿼리 실행 실패: {err_q}")
 
 # ========== 탭 2: 테이블 목록 ==========
-with tab2:
+elif _db_ti == 1:
     st.subheader("전체 테이블 목록")
 
     tables = db.get_all_tables()
@@ -95,16 +97,16 @@ with tab2:
         selected_table = st.selectbox("테이블 선택", tables)
 
         if selected_table:
-            t1, t2, t3 = st.tabs(["구조", "데이터", "통계"])
+            _dsub = gm_section_tabs("db_table_detail", ["구조", "데이터", "통계"])
 
-            with t1:
+            if _dsub == 0:
                 structure = db.get_table_structure(selected_table)
                 if structure:
                     st.dataframe(pd.DataFrame(structure), width='stretch')
                 else:
                     st.info("구조 정보를 불러올 수 없습니다.")
 
-            with t2:
+            elif _dsub == 1:
                 limit = st.number_input("조회 개수", min_value=10, max_value=1000, value=100, step=10)
                 # 테이블명은 get_all_tables() 화이트리스트로 검증됨
                 data = db.fetch_all(f"SELECT * FROM `{selected_table}` LIMIT %s", (int(limit),))
@@ -114,12 +116,12 @@ with tab2:
                 else:
                     st.info("데이터가 없습니다.")
 
-            with t3:
+            else:
                 count = db.get_table_count(selected_table)
                 st.metric("총 레코드 수", count)
 
 # ========== 탭 3: 테이블 생성 ==========
-with tab3:
+else:
     st.subheader("누락 테이블 생성")
 
     required = get_all_required_tables()
