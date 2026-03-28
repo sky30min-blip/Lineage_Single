@@ -8,6 +8,7 @@
 import time
 import streamlit as st
 from utils.db_manager import get_db
+from utils.gm_feedback import show_pending_feedback, queue_feedback
 from utils.table_schemas import get_create_sql, get_all_required_tables
 from utils.log_reader import read_chatting_log_lines, list_chatting_log_dates, parse_chatting_line
 
@@ -17,6 +18,7 @@ is_connected, msg = db.test_connection()
 if not is_connected:
     st.error(f"❌ DB 연결 실패: {msg}")
     st.stop()
+show_pending_feedback()
 
 # 채널 코드 (Lineage.CHATTING_MODE_*)
 CHANNELS = {
@@ -177,14 +179,20 @@ with status_col2:
     btn_create = st.button("🔨 채팅 테이블 생성", key="create_chat_tables")
     btn_test = st.button("📝 테스트 메시지 삽입", key="insert_test_chat", help="GM툴에서 직접 한 줄 넣어봅니다. 보이면 DB·화면은 정상이고, 게임 채팅만 서버 미기록입니다.")
 if btn_create:
+    fb_parts: list[str] = []
     for tbl in ("gm_chat_log", "gm_chat_send"):
         sql = get_create_sql(tbl)
         if sql:
             ok_ct, err_ct = db.execute_query_ex(sql)
             if ok_ct:
-                st.success(f"✅ {tbl} 생성됨")
+                fb_parts.append(f"✅ {tbl} 생성됨")
             else:
-                st.error(f"❌ {tbl} 생성 실패: {err_ct}")
+                fb_parts.append(f"❌ {tbl}: {err_ct}")
+    if fb_parts:
+        if all(p.startswith("✅") for p in fb_parts):
+            queue_feedback("success", " ".join(fb_parts))
+        else:
+            queue_feedback("error", " | ".join(fb_parts))
     st.rerun()
 if btn_test and tbl_exists:
     try:
@@ -194,7 +202,7 @@ if btn_test and tbl_exists:
                 ("******", "", "[GM툴 테스트] 이 메시지가 보이면 DB·화면은 정상입니다. 게임 채팅이 안 쌓이면 서버 재시작을 확인하세요."),
             )
         db.connection.commit()
-        st.success("테스트 메시지를 넣었습니다. 잠시 후(약 2초) 채팅 목록에 표시됩니다.")
+        queue_feedback("success", "테스트 메시지를 넣었습니다. 잠시 후(약 2초) 채팅 목록에 표시됩니다.")
         st.rerun()
     except Exception as e:
         st.error(f"삽입 실패: {e}")
@@ -222,7 +230,7 @@ if send_btn and gm_msg and gm_msg.strip():
         (gm_msg.strip()[:500],),
     )
     if ok_send:
-        st.success("✅ 전송 요청되었습니다. 서버가 곧 전체 채팅으로 브로드캐스트합니다.")
+        queue_feedback("success", "✅ 전송 요청되었습니다. 서버가 곧 전체 채팅으로 브로드캐스트합니다.")
     else:
         st.error(f"❌ 전송 실패: {err_send}")
         _ensure_tables()

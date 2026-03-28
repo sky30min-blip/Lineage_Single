@@ -23,6 +23,11 @@ CLASS_DARKELF = 4
 
 PAYOUT_RATE = float(getattr(gm_config, "POWERBALL_PAYOUT_RATE", 1.9))
 
+# PowerballController 게시판·자정 자동 정산과 동일 (Java 상수와 맞출 것)
+BOARD_POOL_FOUR_CLASS_PERCENT = 22
+BOARD_POOL_ROYAL_PERCENT = 12
+BOARD_RANK_SPLIT_PERCENT = (50, 30, 20)
+
 # (슬롯 접두어, class 컬럼 값, 표시명)
 FOUR_CLASS_POOL: tuple[tuple[str, int, str], ...] = (
     ("knight", CLASS_KNIGHT, "기사"),
@@ -519,6 +524,53 @@ def rank_top3_by_level_for_class(db, class_id: int) -> list[dict[str, Any]]:
     ) or []
 
 
+def split_pool_by_board_rank(pool_amount: int) -> tuple[int, int, int]:
+    """PowerballController.splitByRank — 50/30/20, 나머지는 1위에 가산."""
+    if pool_amount <= 0:
+        return (0, 0, 0)
+    p50 = pool_amount * BOARD_RANK_SPLIT_PERCENT[0] // 100
+    p30 = pool_amount * BOARD_RANK_SPLIT_PERCENT[1] // 100
+    p20 = pool_amount * BOARD_RANK_SPLIT_PERCENT[2] // 100
+    used = p50 + p30 + p20
+    return (p50 + (pool_amount - used), p30, p20)
+
+
+def rank_top3_merged_classes_board(db, class_ids: tuple[int, ...]) -> list[dict[str, Any]]:
+    """
+    PowerballController.getTopTargetsByClass 와 동일:
+    `class IN (...)`, `block_date='0000-00-00 00:00:00'`, level·exp 상위 3명.
+    (게시판 미리보기·실제 자정 지급과 수혜자 기준을 맞춤; gm 컬럼은 서버 SQL에 없음)
+    """
+    if not class_ids:
+        return []
+    ph = ",".join(["%s"] * len(class_ids))
+    return db.fetch_all(
+        f"""
+        SELECT
+          c.objID AS char_obj_id,
+          c.name AS char_name,
+          c.class AS class_id,
+          CAST(c.`level` AS SIGNED) AS cha_level,
+          CAST(COALESCE(c.exp, 0) AS SIGNED) AS cha_exp
+        FROM characters c
+        WHERE c.class IN ({ph})
+          AND c.block_date = '0000-00-00 00:00:00'
+        ORDER BY c.`level` DESC, c.exp DESC, c.objID ASC
+        LIMIT 3
+        """,
+        tuple(class_ids),
+    ) or []
+
+
+_BOARD_CLASS_LABEL = {
+    CLASS_ROYAL: "군주",
+    CLASS_KNIGHT: "기사",
+    CLASS_ELF: "요정",
+    CLASS_WIZARD: "법사",
+    CLASS_DARKELF: "다크엘프",
+}
+
+
 def split_four_class_pool(server_profit: int) -> tuple[int, int, int]:
     """네 직업 4개 모두 참가 가정 시 1·2·3위 금액 (레거시·요약용)."""
     c4, _, _, _, _ = _pool_money_split(server_profit)
@@ -542,6 +594,60 @@ class RewardPreviewLine:
     amount: int
     level: int = 0
     exp: int = 0
+
+
+def build_reward_preview_board_style(db, server_profit: int) -> list[RewardPreviewLine]:
+    """
+    게임 파워볼 게시판(`refreshRewardBoardPost`)·`runAutoRewardSettlementIfDue` 와 동일:
+    순이익 ×22% 풀을 기사·요정·마법사 **통합** 레벨 TOP3 에 50:30:20,
+    ×12% 풀을 군주 TOP3 에 50:30:20.
+    """
+    lines: list[RewardPreviewLine] = []
+    if server_profit <= 0:
+        return lines
+
+    pool_four = server_profit * BOARD_POOL_FOUR_CLASS_PERCENT // 100
+    pool_royal = server_profit * BOARD_POOL_ROYAL_PERCENT // 100
+    am_four = split_pool_by_board_rank(pool_four)
+    am_royal = split_pool_by_board_rank(pool_royal)
+
+    merged_four = rank_top3_merged_classes_board(db, (CLASS_KNIGHT, CLASS_ELF, CLASS_WIZARD))
+    for i, row in enumerate(merged_four):
+        rank = i + 1
+        cid = int(row.get("class_id") or 0)
+        label = _BOARD_CLASS_LABEL.get(cid, f"class{cid}")
+        lines.append(
+            RewardPreviewLine(
+                slot_key=f"four_r{rank}",
+                char_obj_id=int(row["char_obj_id"]),
+                char_name=str(row.get("char_name") or ""),
+                class_id=cid,
+                class_label=label,
+                rank_in_class=rank,
+                amount=am_four[i] if i < len(am_four) else 0,
+                level=int(row.get("cha_level") or 0),
+                exp=int(row.get("cha_exp") or 0),
+            )
+        )
+
+    merged_royal = rank_top3_merged_classes_board(db, (CLASS_ROYAL,))
+    for i, row in enumerate(merged_royal):
+        rank = i + 1
+        lines.append(
+            RewardPreviewLine(
+                slot_key=f"royal_r{rank}",
+                char_obj_id=int(row["char_obj_id"]),
+                char_name=str(row.get("char_name") or ""),
+                class_id=CLASS_ROYAL,
+                class_label="군주",
+                rank_in_class=rank,
+                amount=am_royal[i] if i < len(am_royal) else 0,
+                level=int(row.get("cha_level") or 0),
+                exp=int(row.get("cha_exp") or 0),
+            )
+        )
+
+    return lines
 
 
 def build_reward_preview(

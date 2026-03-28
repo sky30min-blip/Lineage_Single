@@ -4,6 +4,7 @@
 
 # 필수 테이블 목록
 REQUIRED_TABLES = [
+    'gm_event_settings',
     'ban_word',
     'gm_item_delivery',
     'gm_adena_delivery',
@@ -18,6 +19,20 @@ REQUIRED_TABLES = [
 
 # 누락 테이블 생성 SQL
 TABLE_CREATION_SQLS = {
+    'gm_event_settings': """
+        CREATE TABLE IF NOT EXISTS `gm_event_settings` (
+          `event_key` VARCHAR(32) NOT NULL COMMENT 'hell,treasure,worldboss,icedungeon,timeevent,devil,dimension,dollrace',
+          `enabled` TINYINT NOT NULL DEFAULT 1 COMMENT '1=일정·월드알림, 0=끔',
+          `min_level` INT NOT NULL DEFAULT 0 COMMENT '0=lineage.conf 기본',
+          `play_time_seconds` INT NOT NULL DEFAULT 0 COMMENT '0=lineage.conf 기본(초)',
+          `monster_name` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '빈칸=서버 기본',
+          `bonus_drop_item` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '월드보스 처치 보상 아이템명(빈칸=기본)',
+          `bonus_drop_count` INT NOT NULL DEFAULT 1,
+          `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+          PRIMARY KEY (`event_key`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        COMMENT='GM 툴 스케줄 이벤트 런타임 설정(서버가 주기적으로 로드)';
+    """,
     'ban_word': """
         CREATE TABLE IF NOT EXISTS `ban_word` (
           `id` INT NOT NULL AUTO_INCREMENT,
@@ -87,7 +102,7 @@ TABLE_CREATION_SQLS = {
     'gm_server_command': """
         CREATE TABLE IF NOT EXISTS `gm_server_command` (
           `id` INT NOT NULL AUTO_INCREMENT,
-          `command` VARCHAR(64) NOT NULL COMMENT 'server_open_wait, server_open, world_clear, character_save, kingdom_war, all_buff, robot_on, robot_off, reload_robot, reload_robot_one, event_poly, event_rank_poly, npc_despawn, npc_respawn, reload',
+          `command` VARCHAR(64) NOT NULL COMMENT 'server_open_wait, server_open, world_clear, character_save, kingdom_war, kingdom_war_start, kingdom_war_stop, all_buff, robot_on, robot_off, reload_robot, reload_robot_one, event_poly, event_rank_poly, npc_despawn, npc_respawn, reload',
           `param` VARCHAR(64) NOT NULL DEFAULT '' COMMENT 'reload_robot_one 시: objId 숫자 / reload 시: npc,item,monster,...robot / 기타 명령별 파라미터',
           `executed` TINYINT NOT NULL DEFAULT 0,
           `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -135,6 +150,22 @@ TABLE_CREATION_SQLS = {
           KEY `idx_char` (`char_obj_id`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         COMMENT='파워볼 일일 포상 지급 명세';
+    """,
+    'gm_kingdom_war_schedule': """
+        CREATE TABLE IF NOT EXISTS `gm_kingdom_war_schedule` (
+          `kingdom_uid` TINYINT UNSIGNED NOT NULL COMMENT '1~7 Lineage KINGDOM_*',
+          `enabled` TINYINT NOT NULL DEFAULT 0 COMMENT '1=자동 공성 스케줄 사용',
+          `weekdays` TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '비트: Date.getDay 0=일..6=토',
+          `start_hour` TINYINT UNSIGNED NOT NULL DEFAULT 20,
+          `start_min` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+          `duration_minutes` SMALLINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0=lineage.conf kingdom_war_time',
+          `weekdays_2` TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '2차 시간대 요일 비트 0=비활성',
+          `start_hour_2` TINYINT UNSIGNED NOT NULL DEFAULT 20,
+          `start_min_2` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+          `updated_at` TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+          PRIMARY KEY (`kingdom_uid`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        COMMENT='GM 툴 공성 자동 시작 스케줄(서버 KingdomController)';
     """,
 }
 

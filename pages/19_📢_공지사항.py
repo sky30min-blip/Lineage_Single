@@ -4,6 +4,7 @@
 """
 import os
 import streamlit as st
+from utils.gm_feedback import show_pending_feedback, queue_feedback
 
 st.set_page_config(page_title="공지사항", page_icon="📢", layout="wide")
 st.title("📢 공지사항")
@@ -172,14 +173,7 @@ def update_conf_key_in_content(content: str, key: str, new_value: str) -> str:
     return "\n".join(out) + ("\n" if out else "")
 
 
-# 피드백
-if "notice_feedback" in st.session_state:
-    msg_type, msg_text = st.session_state["notice_feedback"]
-    if msg_type == "success":
-        st.success(msg_text)
-    else:
-        st.error(msg_text)
-    del st.session_state["notice_feedback"]
+show_pending_feedback()
 
 content, err = read_notice()
 if err:
@@ -229,9 +223,9 @@ with tab1:
                         entries.pop(i)
                         err = write_notice(build_content(entries))
                         if err:
-                            st.session_state["notice_feedback"] = ("error", f"저장 실패: {err}")
+                            queue_feedback("error", f"저장 실패: {err}")
                         else:
-                            st.session_state["notice_feedback"] = ("success", "해당 공지를 삭제하고 저장했습니다.")
+                            queue_feedback("success", "해당 공지를 삭제하고 저장했습니다.")
                         st.rerun()
         if editing_idx is not None and 0 <= editing_idx < len(entries) and entries[editing_idx]["type"] == "notice":
             with st.expander("✏️ 선택한 공지 수정", expanded=True):
@@ -246,9 +240,9 @@ with tab1:
                     st.session_state.pop("notice_edit_delay", None)
                     st.session_state.pop("notice_edit_value", None)
                     if err:
-                        st.session_state["notice_feedback"] = ("error", f"저장 실패: {err}")
+                        queue_feedback("error", f"저장 실패: {err}")
                     else:
-                        st.session_state["notice_feedback"] = ("success", "공지와 간격을 수정하고 저장했습니다.")
+                        queue_feedback("success", "공지와 간격을 수정하고 저장했습니다.")
                     st.rerun()
 
 with tab2:
@@ -267,9 +261,9 @@ with tab2:
                 entries.append({"type": "notice", "delay": new_delay, "message": msg})
                 err = write_notice(build_content(entries))
                 if err:
-                    st.session_state["notice_feedback"] = ("error", f"저장 실패: {err}")
+                    queue_feedback("error", f"저장 실패: {err}")
                 else:
-                    st.session_state["notice_feedback"] = ("success", f"공지를 추가했습니다. (간격 {new_delay}분)")
+                    queue_feedback("success", f"공지를 추가했습니다. (간격 {new_delay}분)")
                 st.rerun()
 
 with tab3:
@@ -282,9 +276,9 @@ with tab3:
         if st.button("저장"):
             write_err = write_notice(full_edit)
             if write_err:
-                st.session_state["notice_feedback"] = ("error", f"저장 실패: {write_err}")
+                queue_feedback("error", f"저장 실패: {write_err}")
             else:
-                st.session_state["notice_feedback"] = ("success", "notice.txt 를 저장했습니다. 서버는 다음 주기에 새 내용을 읽습니다.")
+                queue_feedback("success", "notice.txt 를 저장했습니다. 서버는 다음 주기에 새 내용을 읽습니다.")
             st.rerun()
 
 with tab4:
@@ -307,15 +301,6 @@ with tab4:
             time_ment_sec = int(time_ment_raw) if time_ment_raw else 60
         except ValueError:
             time_ment_sec = 60
-
-        # 피드백 (이벤트 탭 전용)
-        if st.session_state.get("event_feedback"):
-            msg_type, msg_text = st.session_state["event_feedback"]
-            if msg_type == "success":
-                st.success(msg_text)
-            else:
-                st.error(msg_text)
-            del st.session_state["event_feedback"]
 
         sub_tab_a, sub_tab_b, sub_tab_c = st.tabs(["📋 이벤트 시각 목록·수정·삭제", "➕ 시각 추가", "⚙️ 지속 시간·공지 주기"])
         with sub_tab_a:
@@ -350,9 +335,9 @@ with tab4:
                                 try:
                                     with open(LINEAGE_CONF_PATH, "w", encoding="utf-8", newline="") as f:
                                         f.write(new_content)
-                                    st.session_state["event_feedback"] = ("success", "해당 시각을 삭제하고 저장했습니다.")
+                                    queue_feedback("success", "해당 시각을 삭제하고 저장했습니다.")
                                 except Exception as e:
-                                    st.session_state["event_feedback"] = ("error", f"저장 실패: {e}")
+                                    queue_feedback("error", f"저장 실패: {e}")
                                 st.rerun()
                 if edit_idx is not None and 0 <= edit_idx < len(event_times):
                     with st.expander("✏️ 시각 수정", expanded=True):
@@ -369,11 +354,11 @@ with tab4:
                                     with open(LINEAGE_CONF_PATH, "w", encoding="utf-8", newline="") as f:
                                         f.write(new_content)
                                     st.session_state.pop("event_editing_idx", None)
-                                    st.session_state["event_feedback"] = ("success", "이벤트 시각을 수정하고 저장했습니다.")
+                                    queue_feedback("success", "이벤트 시각을 수정하고 저장했습니다.")
                                 else:
-                                    st.session_state["event_feedback"] = ("error", "시(0~23), 분(0~59) 범위로 입력하세요.")
+                                    queue_feedback("error", "시(0~23), 분(0~59) 범위로 입력하세요.")
                             except ValueError:
-                                st.session_state["event_feedback"] = ("error", "시·분은 숫자로 입력하세요.")
+                                queue_feedback("error", "시·분은 숫자로 입력하세요.")
                             st.rerun()
         with sub_tab_b:
             st.caption("새 **이벤트 시작 시각**을 추가합니다 (시:분).")
@@ -384,9 +369,9 @@ with tab4:
                 new_str = format_time_event_time(new_times)
                 new_content, write_err = write_conf_key(conf_content, "time_event_time", new_str)
                 if write_err:
-                    st.session_state["event_feedback"] = ("error", write_err)
+                    queue_feedback("error", write_err)
                 else:
-                    st.session_state["event_feedback"] = ("success", f"시각 {add_h:02d}:{add_m:02d} 를 추가하고 저장했습니다.")
+                    queue_feedback("success", f"시각 {add_h:02d}:{add_m:02d} 를 추가하고 저장했습니다.")
                 st.rerun()
         with sub_tab_c:
             st.caption("**이벤트 지속 시간**(초)과 **이벤트 안내 공지 주기**(초)를 설정합니다.")
@@ -398,9 +383,9 @@ with tab4:
                 try:
                     with open(LINEAGE_CONF_PATH, "w", encoding="utf-8", newline="") as f:
                         f.write(updated)
-                    st.session_state["event_feedback"] = ("success", "지속 시간과 공지 주기를 저장했습니다. 서버 재시작 후 적용됩니다.")
+                    queue_feedback("success", "지속 시간과 공지 주기를 저장했습니다. 서버 재시작 후 적용됩니다.")
                 except Exception as e:
-                    st.session_state["event_feedback"] = ("error", f"저장 실패: {e}")
+                    queue_feedback("error", f"저장 실패: {e}")
                 st.rerun()
 
 with tab5:

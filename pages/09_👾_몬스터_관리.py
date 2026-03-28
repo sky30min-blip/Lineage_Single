@@ -4,6 +4,7 @@
 """
 import streamlit as st
 from utils.db_manager import get_db
+from utils.gm_feedback import show_pending_feedback, queue_feedback
 from utils.field_help_ko import MONSTER_HELP as MH
 from utils.gm_db_options import (
     CUSTOM_NUM_LABEL,
@@ -34,6 +35,7 @@ is_connected, msg = db.test_connection()
 if not is_connected:
     st.error(f"❌ DB 연결 실패: {msg}")
     st.stop()
+show_pending_feedback()
 
 # monster, monster_drop 테이블 존재 여부
 try:
@@ -232,7 +234,7 @@ with tab2:
             )
             ok, err = db.execute_query_ex(sql, params)
             if ok:
-                st.success(f"✅ '{name}' 몬스터가 추가되었습니다. 서버 재시작 또는 몬스터 리로드 후 반영됩니다.")
+                queue_feedback("success", f"✅ '{name}' 몬스터가 추가되었습니다. 서버 재시작 또는 몬스터 리로드 후 반영됩니다.")
                 st.rerun()
             else:
                 st.error(f"❌ 몬스터 추가 실패: {err}")
@@ -412,7 +414,7 @@ with tab3:
                             )
                             ok, err = db.execute_query_ex(sql, params)
                             if ok:
-                                st.success("✅ 몬스터 정보가 수정 반영되었습니다. 서버 재시작 또는 몬스터 리로드 후 적용됩니다.")
+                                queue_feedback("success", "✅ 몬스터 정보가 수정 반영되었습니다. 서버 재시작 또는 몬스터 리로드 후 적용됩니다.")
                                 st.rerun()
                             else:
                                 st.error(f"❌ 수정 실패: {err}")
@@ -447,7 +449,7 @@ with tab3:
                                             (selected, item_name, bress, en),
                                         )
                                         if ok:
-                                            st.success("✅ 드랍 행이 삭제되었습니다.")
+                                            queue_feedback("success", "✅ 드랍 행이 삭제되었습니다.")
                                             st.rerun()
                                         else:
                                             st.error(f"❌ 삭제 실패: {err}")
@@ -464,7 +466,7 @@ with tab3:
                                                 (new_cmin, new_cmax, str(new_chance), selected, item_name, bress, en),
                                             )
                                             if ok:
-                                                st.success("✅ 드랍 정보가 수정되었습니다.")
+                                                queue_feedback("success", "✅ 드랍 정보가 수정되었습니다.")
                                                 st.rerun()
                                             else:
                                                 st.error(f"❌ 수정 실패: {err}")
@@ -512,7 +514,10 @@ with tab3:
                                         (name_val, selected, add_item_name, add_count_min, add_count_max, str(add_chance)),
                                     )
                                     if ok:
-                                        st.success(f"✅ '{add_item_name}' 드랍이 추가되었습니다. 서버 리로드 페이지에서 monster_drop 리로드를 실행하세요.")
+                                        queue_feedback(
+                                            "success",
+                                            f"✅ '{add_item_name}' 드랍이 추가되었습니다. 서버 리로드 페이지에서 monster_drop 리로드를 실행하세요.",
+                                        )
                                         st.rerun()
                                     else:
                                         st.error(f"❌ 드랍 추가 실패: {err}")

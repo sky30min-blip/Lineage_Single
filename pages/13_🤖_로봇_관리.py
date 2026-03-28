@@ -8,6 +8,7 @@ import pandas as pd
 
 import config
 from utils.db_manager import get_db
+from utils.gm_feedback import show_pending_feedback, queue_feedback
 
 st.set_page_config(page_title="로봇 관리", page_icon="🤖", layout="wide")
 st.title("🤖 무인 PC (로봇) 관리")
@@ -424,6 +425,7 @@ ok, msg = db.test_connection()
 if not ok:
     st.error(f"❌ DB 연결 실패: {msg}")
     st.stop()
+show_pending_feedback()
 
 tables = db.get_all_tables()
 has_robot = "_robot" in tables
@@ -456,7 +458,7 @@ if not has_robot:
     if st.button("🔨 `_robot` 테이블 생성 (추정 스키마)"):
         ok_t, err_t = db.execute_query_ex(ROBOT_CREATE_SQL.strip())
         if ok_t:
-            st.success("✅ `_robot` 생성 완료. 페이지를 새로고침하세요.")
+            queue_feedback("success", "✅ `_robot` 생성 완료. 페이지를 새로고침하세요.")
             st.rerun()
         else:
             st.error(f"❌ 생성 실패: {err_t}")
@@ -526,7 +528,7 @@ with tab_list:
                         "INSERT IGNORE INTO `gm_server_status` (`id`, `online`) VALUES (1, 0)"
                     )
                 if ok_ss and ok_ins:
-                    st.success("✅ 생성 완료. 페이지를 새로고침하세요.")
+                    queue_feedback("success", "✅ 생성 완료. 페이지를 새로고침하세요.")
                     st.rerun()
                 else:
                     st.error(f"❌ {err_ss or err_ins}")
@@ -539,7 +541,7 @@ with tab_list:
             if st.button("🔨 `gm_robot_live` 테이블 생성"):
                 ok_lt, err_lt = db.execute_query_ex(GM_ROBOT_LIVE_DDL.strip())
                 if ok_lt:
-                    st.success("✅ 생성 완료. 페이지를 새로고침하세요.")
+                    queue_feedback("success", "✅ 생성 완료. 페이지를 새로고침하세요.")
                     st.rerun()
                 else:
                     st.error(f"❌ {err_lt}")
@@ -605,7 +607,10 @@ with tab_list:
                         sql_del = f"DELETE FROM `_robot` WHERE `objId` IN ({ph})"
                         ok_del, err_del = db.execute_query_ex(sql_del, tuple(ids))
                         if ok_del:
-                            st.success(f"✅ {len(ids)}건을 `_robot`에서 삭제했습니다. 서버 반영은 「게임 서버 반영」에서 하세요.")
+                            queue_feedback(
+                                "success",
+                                f"✅ {len(ids)}건을 `_robot`에서 삭제했습니다. 서버 반영은 「게임 서버 반영」에서 하세요.",
+                            )
                             st.rerun()
                         else:
                             st.error(f"❌ 삭제 실패: {err_del}")
@@ -629,7 +634,7 @@ with tab_book:
         if st.button("🔨 `_robot_book` 테이블 생성", key="robot_book_create_tbl"):
             ok_tb, err_tb = db.execute_query_ex(ROBOT_BOOK_DDL.strip())
             if ok_tb:
-                st.success("✅ 생성했습니다.")
+                queue_feedback("success", "✅ 생성했습니다.")
                 st.rerun()
             else:
                 st.error(f"❌ {err_tb}")
@@ -682,13 +687,16 @@ with tab_book:
                     (oid_sel,),
                 )
                 if ok_d:
-                    st.success(f"✅ objId **{oid_sel}** 전용 `_robot_book` 행을 삭제했습니다.")
+                    fb = f"✅ objId **{oid_sel}** 전용 `_robot_book` 행을 삭제했습니다."
+                    fb_kind = "success"
                     if apply_reload:
                         ok_q, err_q = _queue_server_robot_reload_one(db, oid_sel)
                         if ok_q:
-                            st.success("✅ `reload_robot_one` 큐 등록.")
+                            fb += " `reload_robot_one` 큐 등록."
                         else:
-                            st.warning(err_q)
+                            fb_kind = "warning"
+                            fb += f" (⚠️ 큐 실패: {err_q})"
+                    queue_feedback(fb_kind, fb)
                     st.rerun()
                 else:
                     st.error(f"❌ {err_d}")
@@ -785,13 +793,16 @@ with tab_book:
                                 else:
                                     err_last = err_i or ""
                             if n_ok:
-                                st.success(f"✅ **{n_ok}**건 INSERT (`robot_objId`={oid_sel}).")
+                                fb = f"✅ **{n_ok}**건 INSERT (`robot_objId`={oid_sel})."
+                                fb_kind = "success"
                                 if apply_reload:
                                     ok_q, err_q = _queue_server_robot_reload_one(db, oid_sel)
                                     if ok_q:
-                                        st.success("✅ `reload_robot_one` 큐 등록.")
+                                        fb += " `reload_robot_one` 큐 등록."
                                     else:
-                                        st.warning(err_q)
+                                        fb_kind = "warning"
+                                        fb += f" (⚠️ 큐 실패: {err_q})"
+                                queue_feedback(fb_kind, fb)
                                 st.rerun()
                             else:
                                 st.error(f"❌ INSERT 실패: {err_last}")
@@ -844,15 +855,18 @@ with tab_book:
                             else:
                                 eg = err_g or ""
                         if ng:
-                            st.success(f"✅ 전역 북 **{ng}**건 추가했습니다.")
+                            fb = f"✅ 전역 북 **{ng}**건 추가했습니다."
+                            fb_kind = "success"
                             if reload_all_after_global:
                                 ok_ra, err_ra = _queue_server_robot_reload(db)
                                 if ok_ra:
-                                    st.success("✅ `reload_robot` 큐 등록.")
+                                    fb += " `reload_robot` 큐 등록."
                                 else:
-                                    st.warning(err_ra)
+                                    fb_kind = "warning"
+                                    fb += f" (⚠️ 큐 실패: {err_ra})"
                             else:
-                                st.info("「게임 서버 반영」에서 `reload_robot` 또는 봇별 리로드를 실행하세요.")
+                                fb += " 「게임 서버 반영」에서 `reload_robot` 또는 봇별 리로드를 실행하세요."
+                            queue_feedback(fb_kind, fb)
                             st.rerun()
                         else:
                             st.error(f"❌ {eg}")
@@ -995,17 +1009,20 @@ with tab_add:
                 )
                 ok_ins, err_ins = db.execute_query_ex(INSERT_ROBOT_SQL.strip(), params_a)
                 if ok_ins:
-                    st.success("✅ `_robot`에 자동 프리셋으로 저장했습니다.")
+                    fb = "✅ `_robot`에 자동 프리셋으로 저장했습니다."
+                    fb_kind = "success"
                     if apply_auto:
                         ok_q, err_q = _queue_server_robot_reload_one(db, int(obj_id))
                         if ok_q:
-                            st.success("✅ `reload_robot_one` 명령을 큐에 넣었습니다.")
+                            fb += " `reload_robot_one` 큐 등록."
                         else:
-                            st.warning(f"DB 저장은 됐으나 반영 큐 실패: {err_q}")
+                            fb_kind = "warning"
+                            fb += f" (⚠️ 반영 큐 실패: {err_q})"
                     else:
-                        st.info("「게임 서버 반영」 탭에서 해당 로봇만 리로드하세요.")
+                        fb += " 「게임 서버 반영」 탭에서 해당 로봇만 리로드하세요."
+                    queue_feedback(fb_kind, fb)
                 else:
-                    st.error(f"❌ INSERT 실패: {err_ins}")
+                    queue_feedback("error", f"❌ INSERT 실패: {err_ins}")
 
     else:
         c4, c5 = st.columns(2)
@@ -1122,17 +1139,20 @@ with tab_add:
                 )
                 ok_ins, err_ins = db.execute_query_ex(INSERT_ROBOT_SQL.strip(), params)
                 if ok_ins:
-                    st.success("✅ `_robot`에 저장했습니다.")
+                    fb = "✅ `_robot`에 저장했습니다."
+                    fb_kind = "success"
                     if apply_after_insert:
                         ok_q, err_q = _queue_server_robot_reload_one(db, int(obj_id))
                         if ok_q:
-                            st.success("✅ `reload_robot_one` 명령을 큐에 넣었습니다. 잠시 후 월드를 확인하세요.")
+                            fb += " `reload_robot_one` 큐 등록. 잠시 후 월드를 확인하세요."
                         else:
-                            st.warning(f"DB 저장은 됐으나 반영 큐 실패: {err_q}")
+                            fb_kind = "warning"
+                            fb += f" (⚠️ 반영 큐 실패: {err_q})"
                     else:
-                        st.info("「게임 서버 반영」 탭에서 해당 로봇만 또는 전체 리로드하세요.")
+                        fb += " 「게임 서버 반영」 탭에서 해당 로봇만 또는 전체 리로드하세요."
+                    queue_feedback(fb_kind, fb)
                 else:
-                    st.error(f"❌ INSERT 실패: {err_ins}")
+                    queue_feedback("error", f"❌ INSERT 실패: {err_ins}")
 
 with tab_reload:
     st.subheader("게임 서버에 로봇 반영")
@@ -1172,11 +1192,12 @@ with tab_reload:
             else:
                 ok_one, err_one = _queue_server_robot_reload_one(db, TARGET_ROBOT_OBJ_ID)
                 if ok_one:
-                    st.success(
-                        f"✅ `_robot.행동` → `{act_1900}` 저장 후 `reload_robot_one` 큐에 넣었습니다."
+                    queue_feedback(
+                        "success",
+                        f"✅ `_robot.행동` → `{act_1900}` 저장 후 `reload_robot_one` 큐에 넣었습니다.",
                     )
                 else:
-                    st.warning(f"DB는 갱신됐으나 큐 실패: {err_one}")
+                    queue_feedback("warning", f"DB는 갱신됐으나 큐 실패: {err_one}")
     else:
         st.info(f"`_robot`에 objId **{TARGET_ROBOT_OBJ_ID}** 행이 없습니다. 「로봇 추가」에서 먼저 등록하세요.")
 
@@ -1216,10 +1237,10 @@ with tab_reload:
                 else:
                     ok_one, err_one = _queue_server_robot_reload_one(db, oid)
                     if ok_one:
-                        st.success(f"✅ objId {oid} 스폰 ON + 리로드 큐 등록.")
+                        queue_feedback("success", f"✅ objId {oid} 스폰 ON + 리로드 큐 등록.")
                         st.rerun()
                     else:
-                        st.warning(f"DB는 갱신됐으나 큐 실패: {err_one}")
+                        queue_feedback("warning", f"DB는 갱신됐으나 큐 실패: {err_one}")
             if b_off:
                 ok_u, err_u = _set_robot_spawn_one(db, oid, False)
                 if not ok_u:
@@ -1227,24 +1248,27 @@ with tab_reload:
                 else:
                     ok_one, err_one = _queue_server_robot_reload_one(db, oid)
                     if ok_one:
-                        st.success(f"✅ objId {oid} 스폰 OFF + 리로드 큐 등록.")
+                        queue_feedback("success", f"✅ objId {oid} 스폰 OFF + 리로드 큐 등록.")
                         st.rerun()
                     else:
-                        st.warning(f"DB는 갱신됐으나 큐 실패: {err_one}")
+                        queue_feedback("warning", f"DB는 갱신됐으나 큐 실패: {err_one}")
             if b_reload:
                 ok_one, err_one = _queue_server_robot_reload_one(db, oid)
                 if ok_one:
-                    st.success(f"✅ objId {oid} 단건 리로드를 큐에 넣었습니다. 잠시 후 월드를 확인하세요.")
+                    queue_feedback(
+                        "success",
+                        f"✅ objId {oid} 단건 리로드를 큐에 넣었습니다. 잠시 후 월드를 확인하세요.",
+                    )
                 else:
-                    st.error(f"❌ 큐 INSERT 실패: {err_one}")
+                    queue_feedback("error", f"❌ 큐 INSERT 실패: {err_one}")
         st.divider()
 
     if st.button("📡 전체 로봇 리로드 (`reload_robot`) 넣기", type="primary"):
         ok_all, err_all = _queue_server_robot_reload(db)
         if ok_all:
-            st.success("✅ 전체 리로드 요청을 큐에 넣었습니다. 잠시 후 게임 월드를 확인하세요.")
+            queue_feedback("success", "✅ 전체 리로드 요청을 큐에 넣었습니다. 잠시 후 게임 월드를 확인하세요.")
         else:
-            st.error(f"❌ INSERT 실패: {err_all}")
+            queue_feedback("error", f"❌ INSERT 실패: {err_all}")
 
     st.divider()
     st.markdown("**전체 스폰 on/off** (`_robot` 모든 행의 `스폰_여부` + 리로드)")
@@ -1255,15 +1279,15 @@ with tab_reload:
         if st.button("🤖 로봇 전체 사용 (`robot_on`)", disabled=not bulk_robot):
             ok_on, err_on = _queue_gm_command(db, "robot_on", "")
             if ok_on:
-                st.success("✅ `robot_on` 큐 등록됨.")
+                queue_feedback("success", "✅ `robot_on` 큐 등록됨.")
                 st.rerun()
             else:
-                st.error(err_on)
+                queue_feedback("error", str(err_on))
     with c_off:
         if st.button("⏹️ 로봇 전체 사용 안함 (`robot_off`)", disabled=not bulk_robot):
             ok_off, err_off = _queue_gm_command(db, "robot_off", "")
             if ok_off:
-                st.success("✅ `robot_off` 큐 등록됨.")
+                queue_feedback("success", "✅ `robot_off` 큐 등록됨.")
                 st.rerun()
             else:
-                st.error(err_off)
+                queue_feedback("error", str(err_off))

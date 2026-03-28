@@ -8,6 +8,7 @@ import hashlib
 
 import streamlit as st
 from utils.db_manager import get_db
+from utils.gm_feedback import show_pending_feedback, queue_feedback
 from utils.field_help_ko import NPC_HELP as NH
 
 # 자주 쓰는 맵 번호 → 이름 (DB에 맵 테이블이 없을 때 보조). 서버팩마다 다를 수 있음.
@@ -112,16 +113,12 @@ def _format_world_placements(spawns: list[dict] | None, map_names: dict) -> str:
 st.set_page_config(page_title="NPC 관리", page_icon="🏰", layout="wide")
 st.title("🏰 NPC 관리")
 
-# 반영 버튼 누른 뒤 rerun 되어도 피드백 유지 (전체 툴 공통)
-if "npc_page_feedback" in st.session_state:
-    msg_type, msg_text = st.session_state["npc_page_feedback"]
-    if msg_type == "success":
-        st.success(msg_text)
-    else:
-        st.error(msg_text)
-    del st.session_state["npc_page_feedback"]
-
 db = get_db()
+_db_ok, _db_msg = db.test_connection()
+if not _db_ok:
+    st.error(f"❌ DB 연결 실패: {_db_msg}")
+    st.stop()
+show_pending_feedback()
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "📋 NPC 목록", "➕ NPC 추가", "✏️ NPC 수정", "📍 NPC 배치", "🗑️ NPC 배치 제거", "🏪 상점 관리", "📍 스폰 위치 수정"
 ])
@@ -282,10 +279,10 @@ with tab2:
                         else:
                             msg += f" (스폰 등록 실패: {sp_err})"
                     msg += " 서버 재시작 후 반영됩니다."
-                    st.session_state["npc_page_feedback"] = ("success", msg)
+                    queue_feedback("success", msg)
                     st.rerun()
                 else:
-                    st.session_state["npc_page_feedback"] = ("error", f"❌ NPC 추가 실패: {ins_err}")
+                    queue_feedback("error", f"❌ NPC 추가 실패: {ins_err}")
                     st.rerun()
             elif submitted and not (add_name and add_name.strip()):
                 st.warning("NPC 이름을 입력하세요.")
@@ -331,10 +328,10 @@ with tab3:
                                 (edit_type.strip() or "default", edit_nameid.strip() or "0", edit_gfxid, edit_gfxMode, edit_hp, edit_lawful, edit_light, edit_ai, edit_areaatk, edit_arrowGfx, edit_name)
                             )
                             if ok:
-                                st.session_state["npc_page_feedback"] = ("success", f"✅ NPC '{edit_name}' 수정 반영되었습니다. 서버 재시작 후 적용됩니다.")
+                                queue_feedback("success", f"✅ NPC '{edit_name}' 수정 반영되었습니다. 서버 재시작 후 적용됩니다.")
                                 st.rerun()
                             else:
-                                st.session_state["npc_page_feedback"] = ("error", f"❌ NPC 수정 실패: {uerr}")
+                                queue_feedback("error", f"❌ NPC 수정 실패: {uerr}")
                                 st.rerun()
                 else:
                     st.warning("해당 NPC를 찾을 수 없습니다.")
@@ -382,24 +379,19 @@ with tab4:
                          place_npc_name, place_locX, place_locY, place_locMap, place_heading, place_respawn, title_val)
                     )
                     if ok:
-                        st.session_state["npc_page_feedback"] = ("success", f"✅ '{place_npc_name}' 배치 추가됨 (스폰명: {spawn_name}, X={place_locX}, Y={place_locY}, 맵={place_locMap}). 서버 재시작 후 반영됩니다.")
+                        queue_feedback(
+                            "success",
+                            f"✅ '{place_npc_name}' 배치 추가됨 (스폰명: {spawn_name}, X={place_locX}, Y={place_locY}, 맵={place_locMap}). 서버 재시작 후 반영됩니다.",
+                        )
                         st.rerun()
                     else:
-                        st.session_state["npc_page_feedback"] = ("error", f"❌ 배치 추가 실패: {perr}")
+                        queue_feedback("error", f"❌ 배치 추가 실패: {perr}")
                         st.rerun()
     except Exception as e:
         st.error(f"NPC 배치 오류: {e}")
 
 # ========== tab5: NPC 배치 제거 (npc_spawnlist 영구 삭제 + 실행 중 서버 디스폰) ==========
 with tab5:
-    if "npc_tab3_feedback" in st.session_state:
-        msg_type, msg_text = st.session_state["npc_tab3_feedback"]
-        if msg_type == "success":
-            st.success(msg_text)
-        else:
-            st.error(msg_text)
-        del st.session_state["npc_tab3_feedback"]
-
     st.subheader("🗑️ NPC 배치 제거")
     st.caption(
         "선택한 스폰을 **배치 목록(npc_spawnlist)**에서 삭제합니다. **재시작 후에도** 해당 위치에 다시 나오지 않습니다. "
@@ -455,15 +447,16 @@ with tab5:
                         msg = f"✅ 스폰 '{del_spawn_name}'을(를) 배치에서 제거했습니다. 재시작 후에도 해당 배치는 없습니다."
                         if not ok_cmd:
                             msg += f" (참고: 즉시 디스폰 명령 삽입 실패 — {cmd_err})"
-                        st.session_state["npc_tab3_feedback"] = ("success", msg)
+                        queue_feedback("success", msg)
                         st.rerun()
                     else:
-                        st.session_state["npc_tab3_feedback"] = ("error", f"❌ 배치 제거 실패: {del_err}")
+                        queue_feedback("error", f"❌ 배치 제거 실패: {del_err}")
                         st.rerun()
                 else:
                     st.warning("스폰을 선택하세요.")
         with row1[1]:
             if st.button("🔄 목록 새로고침", key="npc_tab3_refresh"):
+                queue_feedback("info", "목록을 새로고침했습니다.")
                 st.rerun()
     else:
         st.info("npc_spawnlist에 스폰이 없거나 조회할 수 없습니다.")
@@ -527,10 +520,10 @@ with tab6:
                                 (npc_name, itemname, 수량, 판매가격)
                             )
                             if ok:
-                                st.session_state["npc_page_feedback"] = ("success", "✅ 반영되었습니다. 판매 물품이 추가되었습니다.")
+                                queue_feedback("success", "✅ 반영되었습니다. 판매 물품이 추가되었습니다.")
                                 st.rerun()
                             else:
-                                st.session_state["npc_page_feedback"] = ("error", f"❌ 판매 물품 추가 실패: {sh_err}")
+                                queue_feedback("error", f"❌ 판매 물품 추가 실패: {sh_err}")
                                 st.rerun()
                         else:
                             st.warning("아이템을 선택하세요.")
@@ -553,9 +546,9 @@ with tab6:
                                 if not ok_d:
                                     failed.append(f"{x.get('itemname')}: {e_d}")
                             if failed:
-                                st.session_state["npc_page_feedback"] = ("error", "❌ 일부 삭제 실패 — " + "; ".join(failed))
+                                queue_feedback("error", "❌ 일부 삭제 실패 — " + "; ".join(failed))
                             else:
-                                st.session_state["npc_page_feedback"] = ("success", f"✅ 반영되었습니다. 판매 물품 {len(삭제선택)}개 삭제 완료.")
+                                queue_feedback("success", f"✅ 반영되었습니다. 판매 물품 {len(삭제선택)}개 삭제 완료.")
                             st.rerun()
                     else:
                         st.caption("삭제할 판매 물품이 없습니다.")
@@ -601,10 +594,10 @@ with tab6:
                                 (npc_name, itemname, 매입가격)
                             )
                             if ok:
-                                st.session_state["npc_page_feedback"] = ("success", "✅ 반영되었습니다. 매입 물품이 추가되었습니다.")
+                                queue_feedback("success", "✅ 반영되었습니다. 매입 물품이 추가되었습니다.")
                                 st.rerun()
                             else:
-                                st.session_state["npc_page_feedback"] = ("error", f"❌ 매입 물품 추가 실패: {bh_err}")
+                                queue_feedback("error", f"❌ 매입 물품 추가 실패: {bh_err}")
                                 st.rerun()
                         else:
                             st.warning("아이템을 선택하세요.")
@@ -627,9 +620,9 @@ with tab6:
                                 if not ok_b:
                                     failed_b.append(f"{x.get('itemname')}: {e_b}")
                             if failed_b:
-                                st.session_state["npc_page_feedback"] = ("error", "❌ 일부 삭제 실패 — " + "; ".join(failed_b))
+                                queue_feedback("error", "❌ 일부 삭제 실패 — " + "; ".join(failed_b))
                             else:
-                                st.session_state["npc_page_feedback"] = ("success", f"✅ 반영되었습니다. 매입 물품 {len(삭제매입)}개 삭제 완료.")
+                                queue_feedback("success", f"✅ 반영되었습니다. 매입 물품 {len(삭제매입)}개 삭제 완료.")
                             st.rerun()
                     else:
                         st.caption("삭제할 매입 물품이 없습니다.")
@@ -696,25 +689,25 @@ with tab7:
                                         ("npc_respawn", spawn_name)
                                     )
                                     if ok_ds and ok_rs:
-                                        st.session_state["npc_page_feedback"] = (
+                                        queue_feedback(
                                             "success",
                                             f"✅ '{spawn_name}' 위치 저장됨 (X={new_x}, Y={new_y}, 맵={new_map}). "
                                             "즉시 적용 요청: npc_despawn → npc_respawn.",
                                         )
                                     else:
-                                        st.session_state["npc_page_feedback"] = (
+                                        queue_feedback(
                                             "error",
                                             f"❌ 좌표는 DB에 저장됐으나 서버 명령 큐 실패 — despawn: {e_ds or 'OK'}, respawn: {e_rs or 'OK'}",
                                         )
                                 else:
-                                    st.session_state["npc_page_feedback"] = (
+                                    queue_feedback(
                                         "success",
                                         f"✅ '{spawn_name}' 위치 저장됨 (X={new_x}, Y={new_y}, 맵={new_map}). "
                                         f"**서버 리로드** 페이지에서 'npc 테이블 리로드'를 실행하세요.",
                                     )
                                 st.rerun()
                             else:
-                                st.session_state["npc_page_feedback"] = ("error", f"❌ 위치 저장 실패: {pos_err}")
+                                queue_feedback("error", f"❌ 위치 저장 실패: {pos_err}")
                                 st.rerun()
     except Exception as e:
         st.error(f"스폰 위치 수정 오류: {e}")

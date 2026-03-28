@@ -4,6 +4,7 @@
 """
 import streamlit as st
 from utils.db_manager import get_db
+from utils.gm_feedback import show_pending_feedback, queue_feedback
 import pandas as pd
 import subprocess
 from datetime import datetime
@@ -15,6 +16,7 @@ st.title("🔄 서버 리로드")
 st.caption("DB를 수정한 뒤 **서버가 새 데이터를 읽도록** 리로드 명령을 보냅니다. 서버가 주기적으로 `gm_server_command`를 확인해 실행합니다.")
 
 db = get_db()
+show_pending_feedback()
 
 # 계정은 유지하고 유저 플레이 데이터만 시즌 초기화
 SEASON_RESET_TABLES = [
@@ -256,14 +258,6 @@ RELOAD_OPTIONS = [
     ("background_spawnlist", "background_spawnlist 테이블 리로드", "배경 스폰"),
 ]
 
-if "reload_feedback" in st.session_state:
-    msg_type, msg_text = st.session_state["reload_feedback"]
-    if msg_type == "success":
-        st.success(msg_text)
-    else:
-        st.error(msg_text)
-    del st.session_state["reload_feedback"]
-
 st.subheader("리로드 실행")
 for param_key, label, desc in RELOAD_OPTIONS:
     col1, col2 = st.columns([3, 1])
@@ -277,12 +271,12 @@ for param_key, label, desc in RELOAD_OPTIONS:
                 ("reload", param_key),
             )
             if ok:
-                st.session_state["reload_feedback"] = (
+                queue_feedback(
                     "success",
                     f"✅ '{label}' 리로드 요청이 큐에 등록되었습니다. 서버 콘솔에서 '[gm_server_command] reload: ...' 로그를 확인하세요.",
                 )
             else:
-                st.session_state["reload_feedback"] = ("error", f"❌ 명령 삽입 실패: {err}")
+                queue_feedback("error", f"❌ 명령 삽입 실패: {err}")
             st.rerun()
     st.divider()
 

@@ -1,5 +1,6 @@
 import streamlit as st
 from utils.db_manager import get_db
+from utils.gm_feedback import show_pending_feedback, queue_feedback
 from utils.field_help_ko import ITEM_HELP as IH
 from utils.gm_db_options import (
     CUSTOM_STR_LABEL,
@@ -12,6 +13,11 @@ st.set_page_config(page_title="아이템 관리", page_icon="💎", layout="wide
 st.title("💎 아이템 관리")
 
 db = get_db()
+_ok_db, _db_msg = db.test_connection()
+if not _ok_db:
+    st.error(f"❌ DB 연결 실패: {_db_msg}")
+    st.stop()
+show_pending_feedback()
 
 tab1, tab2, tab3 = st.tabs(["🔍 아이템 조회", "✏️ 아이템 수정", "➕ 아이템 추가"])
 
@@ -115,6 +121,7 @@ with tab1:
             
             if st.button("✏️ 이 아이템 수정하기"):
                 st.session_state['edit_item'] = 선택
+                queue_feedback("info", "✏️ 수정 탭으로 전환했습니다. 위 탭에서 내용을 확인하세요.")
                 st.rerun()
         else:
             if 결과 is not None:
@@ -272,7 +279,7 @@ with tab2:
                             (tp_name_edit, tp_x_edit, tp_y_edit, tp_map_edit, tp_range_edit, tp_heading_edit, teleport_uid)
                         )
                         if ok:
-                            st.success("✅ 이동 목적지가 수정되었습니다. 서버 재시작 또는 item_teleport 리로드 후 반영됩니다.")
+                            queue_feedback("success", "✅ 이동 목적지가 수정되었습니다. 서버 재시작 또는 item_teleport 리로드 후 반영됩니다.")
                             st.rerun()
                         else:
                             st.error(f"❌ 목적지 수정 실패: {tp_err}")
@@ -302,7 +309,7 @@ with tab2:
                   이펙트ID, delay, 원본이름))
             
             if 성공:
-                st.success("✅ 아이템 수정이 저장되었습니다.")
+                queue_feedback("success", "✅ 아이템 수정이 저장되었습니다.")
                 del st.session_state['edit_item']
                 st.rerun()
             else:
@@ -384,7 +391,10 @@ with tab3:
                                         )
                                     """, (tp_quick_name.strip(), 구분2_teleport, tp_quick_inven, tp_quick_gfx))
                                     if ins_ok:
-                                        st.success(f"✅ 이동 주문서 추가됨: **{tp_quick_name.strip()}** → ({tp_quick_x}, {tp_quick_y}) 맵 {tp_quick_map}. 구분2=**{구분2_teleport}**")
+                                        queue_feedback(
+                                            "success",
+                                            f"✅ 이동 주문서 추가됨: **{tp_quick_name.strip()}** → ({tp_quick_x}, {tp_quick_y}) 맵 {tp_quick_map}. 구분2=**{구분2_teleport}**",
+                                        )
                                         st.rerun()
                                     else:
                                         st.error(
@@ -587,7 +597,7 @@ with tab3:
                 )
                 성공, add_err = db.execute_query_ex(sql, params)
                 if 성공:
-                    st.success("✅ 아이템이 추가되었습니다. 서버 재시작 후 반영될 수 있습니다.")
+                    queue_feedback("success", "✅ 아이템이 추가되었습니다. 서버 재시작 후 반영될 수 있습니다.")
                     st.rerun()
                 else:
                     st.error(f"❌ 아이템 추가 실패: {add_err}")

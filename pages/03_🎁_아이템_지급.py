@@ -8,6 +8,7 @@ import streamlit as st
 import pandas as pd
 from utils.db_manager import get_db
 from utils.table_schemas import get_create_sql
+from utils.gm_feedback import show_pending_feedback, queue_feedback
 
 # DB 연결 확인
 db = get_db()
@@ -15,6 +16,7 @@ is_connected, msg = db.test_connection()
 if not is_connected:
     st.error(f"❌ DB 연결 실패: {msg}")
     st.stop()
+show_pending_feedback()
 
 # 검색 결과 세션에 유지 (탭 전환 시에도)
 if "item_search_results" not in st.session_state:
@@ -23,10 +25,6 @@ if "item_search_results_rows" not in st.session_state:
     st.session_state["item_search_results_rows"] = []
 if "item_search_label_to_name" not in st.session_state:
     st.session_state["item_search_label_to_name"] = {}
-# 지급 성공 메시지 (rerun 후에도 보이도록)
-if "item_grant_success" not in st.session_state:
-    st.session_state["item_grant_success"] = None
-
 # 아이템명으로 쓸 수 있는 컬럼 (대소문자 무관 + 싱글팩 통합 item 테이블)
 ITEM_NAME_COLUMN_LOWER = ("name", "item_name", "itemname", "아이템이름")
 # 아이템 검색에서 제외할 테이블 (캐릭터/계정 등)
@@ -387,9 +385,6 @@ with tab1:
         3. 위 두 가지를 한 뒤에도 안 되면, 캐릭터를 **한 번 로그아웃 후 재접속**하면 DB에 저장된 아이템이 인벤에 나타납니다.
         """)
 
-    if st.session_state.get("item_grant_success"):
-        st.success(st.session_state["item_grant_success"])
-        st.session_state["item_grant_success"] = None
     if st.session_state.get("item_grant_warning") == "no_delivery_table":
         st.warning(
             "⚠️ 접속 중 반영용 테이블(gm_item_delivery)이 없습니다. "
@@ -401,7 +396,8 @@ with tab1:
                 try:
                     ok, err_sql = db.execute_query_ex(sql)
                     if ok:
-                        st.success("✅ gm_item_delivery 테이블이 생성되었습니다. 게임 서버를 재시작하면 접속 중 지급이 반영됩니다.")
+                        queue_feedback("success", "✅ gm_item_delivery 테이블이 생성되었습니다. 게임 서버를 재시작하면 접속 중 지급이 반영됩니다.")
+                        st.rerun()
                     else:
                         st.error(f"❌ 테이블 생성 실패: {err_sql}")
                 except Exception as e:
@@ -514,9 +510,9 @@ with tab1:
                     force_equipment=force_equipment,
                 )
                 if ok:
-                    st.session_state["item_grant_success"] = "✅ 아이템이 지급되었습니다."
                     if err == "no_delivery_table":
                         st.session_state["item_grant_warning"] = "no_delivery_table"
+                    queue_feedback("success", "✅ 아이템이 지급되었습니다. (DB 저장 완료, 접속 중이면 수 초 내 인벤 반영)")
                     st.rerun()
                 else:
                     st.error(f"❌ 지급 실패: {err}")
@@ -595,7 +591,7 @@ with tab2:
                                     (selected_char2, name),
                                 )
                         db.connection.commit()
-                        st.success("수정했습니다. 게임에서 재접속하면 장비에 (수량)이 안 붙습니다.")
+                        queue_feedback("success", "✅ 수정했습니다. 게임에서 재접속하면 장비에 (수량)이 안 붙습니다.")
                         st.rerun()
                     except Exception as e:
                         st.error(f"수정 실패: {e}")
@@ -619,7 +615,7 @@ with tab2:
                                     (selected_char2, name),
                                 )
                         db.connection.commit()
-                        st.success(f"수정했습니다. ({', '.join(names_list)}) 재접속 후 반영됩니다.")
+                        queue_feedback("success", f"✅ 수정했습니다. ({', '.join(names_list)}) 재접속 후 반영됩니다.")
                         st.rerun()
                     except Exception as e:
                         st.error(f"수정 실패: {e}")
@@ -638,7 +634,7 @@ with tab2:
                 else:
                     ok, err = _delete_inventory_item(db, del_obj_id)
                     if ok:
-                        st.success("✅ 삭제되었습니다.")
+                        queue_feedback("success", "✅ 인벤토리에서 삭제되었습니다.")
                         st.rerun()
                     else:
                         st.error(f"❌ 삭제 실패: {err}")
@@ -646,12 +642,6 @@ with tab2:
 # ========== 탭 3: 미사용 마스터 정리 ==========
 with tab3:
     st.subheader("미사용 마스터 아이템 정리")
-    if st.session_state.get("unused_master_done_msg"):
-        st.success(st.session_state["unused_master_done_msg"])
-        st.session_state["unused_master_done_msg"] = None
-    if st.session_state.get("unused_master_fail_msg"):
-        st.error(st.session_state["unused_master_fail_msg"])
-        st.session_state["unused_master_fail_msg"] = None
     st.caption(
         "기준: **어떤 캐릭터 인벤(`characters_inventory`)에도 이름이 한 번도 없는** 마스터 테이블 행만 후보로 잡습니다. "
         "상점 전용·미지급 이벤트 아이템은 인벤에 없을 수 있어 **오판 가능**이니, 표를 보고 골라 삭제하세요."
@@ -739,14 +729,18 @@ with tab3:
                                 fail.append(f"{r['table']} pk={r['pk_val']}: {err}")
                         st.session_state["unused_master_rows"] = None
                         st.session_state["unused_master_errors"] = []
-                        if ok_n:
-                            st.session_state["unused_master_done_msg"] = (
-                                f"✅ {ok_n}건 삭제했습니다. 서버 재시작 후 아이템 DB가 기대와 맞는지 확인하세요."
+                        if ok_n and fail:
+                            queue_feedback(
+                                "warning",
+                                f"✅ {ok_n}건 삭제. 일부 실패:\n" + "\n".join(fail[:20]),
                             )
-                        if fail:
-                            st.session_state["unused_master_fail_msg"] = "일부 삭제 실패:\n" + "\n".join(
-                                fail[:20]
+                        elif ok_n:
+                            queue_feedback(
+                                "success",
+                                f"✅ {ok_n}건 삭제했습니다. 서버 재시작 후 아이템 DB가 기대와 맞는지 확인하세요.",
                             )
+                        elif fail:
+                            queue_feedback("error", "삭제 실패:\n" + "\n".join(fail[:20]))
                         if ok_n or fail:
                             st.rerun()
             elif not errs:

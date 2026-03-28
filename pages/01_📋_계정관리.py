@@ -6,6 +6,7 @@
 import re
 import streamlit as st
 from utils.db_manager import get_db
+from utils.gm_feedback import show_pending_feedback, queue_feedback
 
 # DB 연결 확인
 db = get_db()
@@ -13,6 +14,7 @@ is_connected, msg = db.test_connection()
 if not is_connected:
     st.error(f"❌ DB 연결 실패: {msg}")
     st.stop()
+show_pending_feedback()
 
 # 탭 구성
 tab1, tab2, tab3 = st.tabs([
@@ -67,7 +69,7 @@ with tab1:
                                     (account_id.strip(), password),
                                 )
                         db.connection.commit()
-                        st.success("✅ 계정이 생성되었습니다. GM 권한은 'GM 권한 관리' 탭에서 캐릭터 단위로 부여하세요.")
+                        queue_feedback("success", "✅ 계정이 생성되었습니다. GM 권한은 'GM 권한 관리' 탭에서 캐릭터 단위로 부여하세요.")
                         st.rerun()
                     except Exception as e:
                         if db.connection:
@@ -173,7 +175,7 @@ with tab2:
                                     pass
                                 cur.execute("DELETE FROM accounts WHERE uid = %s", (uid,))
                             db.connection.commit()
-                        st.success(f"✅ {len(to_delete)}개 계정이 삭제되었습니다.")
+                        queue_feedback("success", f"✅ {len(to_delete)}개 계정이 삭제되었습니다.")
                         st.rerun()
                     except Exception as e:
                         if db.connection:
@@ -220,7 +222,7 @@ with tab2:
                                     except Exception:
                                         pass
                                 db.connection.commit()
-                                st.success("✅ 수정되었습니다.")
+                                queue_feedback("success", "✅ 수정되었습니다.")
                                 st.rerun()
                             except Exception as e:
                                 if db.connection:
@@ -277,7 +279,7 @@ with tab3:
                 )
                 err_l = (err_a or "").lower()
                 if ok_a:
-                    st.success("✅ gm 컬럼이 추가되었습니다. 페이지를 새로고침해 주세요.")
+                    queue_feedback("success", "✅ gm 컬럼이 추가되었습니다. 페이지를 새로고침해 주세요.")
                     st.rerun()
                 elif "duplicate" in err_l or "already exists" in err_l:
                     st.info("ℹ️ gm 컬럼이 이미 있습니다.")
@@ -314,7 +316,7 @@ with tab3:
                         (selected_char.strip(),),
                     )
                     if ok_g:
-                        st.success(f"✅ **{selected_char}** 캐릭터에 GM 권한을 부여했습니다. **재접속 후** 적용됩니다.")
+                        queue_feedback("success", f"✅ **{selected_char}** 캐릭터에 GM 권한을 부여했습니다. **재접속 후** 적용됩니다.")
                         st.rerun()
                     else:
                         st.error(f"❌ GM 권한 부여 실패: {err_g}")
@@ -326,7 +328,7 @@ with tab3:
                         (selected_char.strip(),),
                     )
                     if ok_r:
-                        st.success(f"✅ **{selected_char}** 캐릭터의 GM 권한을 해제했습니다. **재접속 시** 반영됩니다.")
+                        queue_feedback("success", f"✅ **{selected_char}** 캐릭터의 GM 권한을 해제했습니다. **재접속 시** 반영됩니다.")
                         st.rerun()
                     else:
                         st.error(f"❌ GM 권한 해제 실패: {err_r}")
@@ -359,7 +361,7 @@ with tab3:
                             cur.execute("DELETE FROM characters WHERE account_uid = %s", (uid_row["uid"],))
                             cur.execute("DELETE FROM accounts WHERE uid = %s", (uid_row["uid"],))
                         db.connection.commit()
-                        st.success("✅ 계정이 삭제되었습니다.")
+                        queue_feedback("success", "✅ 계정이 삭제되었습니다.")
                         st.rerun()
                     else:
                         st.error("계정을 찾을 수 없습니다.")

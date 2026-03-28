@@ -6,6 +6,7 @@
 import streamlit as st
 import pandas as pd
 from utils.db_manager import get_db
+from utils.gm_feedback import show_pending_feedback, queue_feedback
 import config
 
 # DB 연결 확인
@@ -14,6 +15,7 @@ is_connected, msg = db.test_connection()
 if not is_connected:
     st.error(f"❌ DB 연결 실패: {msg}")
     st.stop()
+show_pending_feedback()
 
 # 탭 구성
 tab1, tab2, tab3, tab4 = st.tabs([
@@ -87,7 +89,7 @@ with tab2:
                          nowHP, maxHP, nowMP, maxMP, selected_name),
                     )
                     if ok:
-                        st.success("✅ 캐릭터 정보가 저장되었습니다.")
+                        queue_feedback("success", "✅ 캐릭터 정보가 저장되었습니다.")
                         st.rerun()
                     else:
                         st.error(f"❌ 저장 실패: {err}")
@@ -209,9 +211,10 @@ with tab3:
                     ok, err = _adena_upsert(db, selected_name3, cha_obj_id, new_count)
                     if ok:
                         derr = _gm_adena_delivery_insert(db, cha_obj_id, new_count)
-                        st.success("✅ 아데나가 지급되었습니다. (DB 반영 완료)")
+                        msg = "✅ 아데나가 지급되었습니다. (DB 반영 완료)"
                         if derr:
-                            st.warning(f"접속 중 즉시 반영 큐(gm_adena_delivery) INSERT 실패: {derr}")
+                            msg += f" — ⚠️ 즉시반영 큐 실패: {derr}"
+                        queue_feedback("success" if not derr else "warning", msg)
                         st.rerun()
                     else:
                         st.error(f"❌ 지급 실패: {err}")
@@ -221,9 +224,10 @@ with tab3:
                     ok, err = _adena_upsert(db, selected_name3, cha_obj_id, new_count)
                     if ok:
                         derr = _gm_adena_delivery_insert(db, cha_obj_id, new_count)
-                        st.success("✅ 아데나가 차감되었습니다. (DB 반영 완료)")
+                        msg = "✅ 아데나가 차감되었습니다. (DB 반영 완료)"
                         if derr:
-                            st.warning(f"접속 중 즉시 반영 큐(gm_adena_delivery) INSERT 실패: {derr}")
+                            msg += f" — ⚠️ 즉시반영 큐 실패: {derr}"
+                        queue_feedback("success" if not derr else "warning", msg)
                         st.rerun()
                     else:
                         st.error(f"❌ 차감 실패: {err}")
@@ -233,9 +237,10 @@ with tab3:
                     ok, err = _adena_upsert(db, selected_name3, cha_obj_id, new_count)
                     if ok:
                         derr = _gm_adena_delivery_insert(db, cha_obj_id, new_count)
-                        st.success("✅ 아데나 수량이 설정되었습니다. (DB 반영 완료)")
+                        msg = "✅ 아데나 수량이 설정되었습니다. (DB 반영 완료)"
                         if derr:
-                            st.warning(f"접속 중 즉시 반영 큐(gm_adena_delivery) INSERT 실패: {derr}")
+                            msg += f" — ⚠️ 즉시반영 큐 실패: {derr}"
+                        queue_feedback("success" if not derr else "warning", msg)
                         st.rerun()
                     else:
                         st.error(f"❌ 설정 실패: {err}")
@@ -274,9 +279,10 @@ with tab4:
                 )
                 if ok:
                     derr = _gm_location_delivery_insert(db, cha_obj_id_loc, co["x"], co["y"], co["map_id"])
-                    st.success("✅ 좌표가 마을로 변경되었습니다. (DB 반영 완료)")
+                    msg = "✅ 좌표가 마을로 변경되었습니다. (DB 반영 완료)"
                     if derr:
-                        st.warning(f"접속 중 즉시 반영 큐(gm_location_delivery) INSERT 실패: {derr}")
+                        msg += f" — ⚠️ 즉시반영 큐 실패: {derr}"
+                    queue_feedback("success" if not derr else "warning", msg)
                     st.rerun()
                 else:
                     st.error(f"❌ 이동 처리 실패: {err}")
@@ -293,9 +299,10 @@ with tab4:
                 )
                 if ok:
                     derr = _gm_location_delivery_insert(db, cha_obj_id_loc, locX, locY, locMAP)
-                    st.success("✅ 위치가 변경되었습니다. (DB 반영 완료)")
+                    msg = "✅ 위치가 변경되었습니다. (DB 반영 완료)"
                     if derr:
-                        st.warning(f"접속 중 즉시 반영 큐(gm_location_delivery) INSERT 실패: {derr}")
+                        msg += f" — ⚠️ 즉시반영 큐 실패: {derr}"
+                    queue_feedback("success" if not derr else "warning", msg)
                     st.rerun()
                 else:
                     st.error(f"❌ 이동 처리 실패: {err}")

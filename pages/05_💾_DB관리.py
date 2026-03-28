@@ -6,6 +6,7 @@ SQL 실행, 테이블 목록/구조/데이터, 테이블 생성
 import streamlit as st
 import pandas as pd
 from utils.db_manager import get_db
+from utils.gm_feedback import show_pending_feedback, queue_feedback
 from utils.table_schemas import (
     get_all_required_tables,
     get_create_sql,
@@ -18,6 +19,7 @@ is_connected, msg = db.test_connection()
 if not is_connected:
     st.error(f"❌ DB 연결 실패: {msg}")
     st.stop()
+show_pending_feedback()
 
 # 사이드바 - 쿼리 템플릿
 with st.sidebar:
@@ -32,6 +34,7 @@ with st.sidebar:
         if "sql_query" not in st.session_state:
             st.session_state["sql_query"] = ""
         st.session_state["sql_query"] = templates[selected_template]
+        queue_feedback("info", "✅ 쿼리 템플릿이 입력란에 적용되었습니다.")
         st.rerun()
 
 # 탭 구성
@@ -134,14 +137,15 @@ with tab3:
                 if st.button(f"생성: {table}", key=f"create_{table}"):
                     ok_c, err_c = db.execute_query_ex(sql)
                     if ok_c:
-                        st.success(f"✅ {table} 생성 완료")
                         init_sql = get_initial_data_sql(table)
+                        extra = ""
                         if init_sql:
                             ok_i, err_i = db.execute_query_ex(init_sql)
                             if ok_i:
-                                st.info("초기 데이터 삽입 완료")
+                                extra = " 초기 데이터 삽입 완료."
                             else:
-                                st.warning(f"초기 데이터 삽입 실패: {err_i}")
+                                extra = f" (초기 데이터 삽입 실패: {err_i})"
+                        queue_feedback("success", f"✅ `{table}` 테이블 생성 완료.{extra}")
                         st.rerun()
                     else:
                         st.error(f"❌ 생성 실패: {err_c}")
@@ -160,7 +164,7 @@ with tab3:
         if custom_sql.strip():
             ok_cc, err_cc = db.execute_query_ex(custom_sql.strip())
             if ok_cc:
-                st.success("✅ 테이블 생성 완료")
+                queue_feedback("success", "✅ 커스텀 테이블 생성이 완료되었습니다.")
                 st.rerun()
             else:
                 st.error(f"❌ 생성 실패: {err_cc}")

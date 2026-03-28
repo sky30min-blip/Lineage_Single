@@ -8,6 +8,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from utils.db_manager import get_db
+from utils.gm_feedback import show_pending_feedback, queue_feedback
 
 # lineage.conf 경로: pages/08_xxx.py → gm_tool → Lineage_Single → 2.싱글리니지 팩/lineage.conf
 def _get_lineage_conf_path():
@@ -107,6 +108,7 @@ with tab1:
             cnt_item = _safe_count(db, "item")
             st.metric("총 아이템 종류", f"{cnt_item:,}")
         if st.button("🔄 통계 새로고침", key="server_mon_refresh"):
+            queue_feedback("info", "📊 통계를 새로고침했습니다.")
             st.rerun()
         st.caption("위 버튼으로 최신 수치를 갱신할 수 있습니다.")
 
@@ -145,7 +147,7 @@ with tab2:
                 "rate_party": new_party,
             }
             if _write_rates_to_conf(conf_path, new_rates):
-                st.success("저장 완료! **서버 재시작 후** 적용됩니다.")
+                queue_feedback("success", "✅ 배율 저장 완료! **서버 재시작 후** 적용됩니다.")
                 st.rerun()
             else:
                 st.error("❌ 저장에 실패했습니다. 파일 경로와 쓰기 권한을 확인하세요.")

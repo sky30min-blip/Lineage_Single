@@ -28,7 +28,7 @@ PAGE_TITLE = "리니지 GM 툴"
 PAGE_ICON = "🎮"
 LAYOUT = "wide"
 
-# 파워볼 일일 포상: 서버 순이익 대비 풀 비율 (0.0 ~ 1.0)
+# 파워볼 배당(이론 당첨 추정). GM 포상 탭(체크박스)은 아래 풀 비율·분배식 사용.
 POWERBALL_PAYOUT_RATE = 1.95
 POWERBALL_POOL_FOUR_CLASSES_TOTAL_RATE = 0.22
 POWERBALL_POOL_ROYAL_TOTAL_RATE = 0.05

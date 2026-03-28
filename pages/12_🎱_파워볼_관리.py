@@ -9,7 +9,10 @@ import pandas as pd
 import streamlit as st
 import config as gm_config
 from utils.db_manager import get_db
+from utils.gm_feedback import show_pending_feedback, queue_feedback
 from utils.powerball_economy import (
+    BOARD_POOL_FOUR_CLASS_PERCENT,
+    BOARD_POOL_ROYAL_PERCENT,
     PAYOUT_RATE,
     RewardClassSelection,
     build_reward_preview,
@@ -60,8 +63,7 @@ st.caption(
     f"배당률 **{PAYOUT_RATE}배**는 서버 `PowerballController`와 동일하게 집계합니다. "
     "일자는 **한국 날짜** 기준이며, 집계 행은 **그날 `powerball_results.created_at`에 들어온 회차**이거나 "
     "**그날 `powerball_bets.created_at`(배팅 시각)** 인 경우 포함합니다. "
-    "NPC·쿠폰 구매만 한 경우도 `powerball_bets` 기준으로 포함하며, 결과 행이 아직 없으면 당첨 지급(추정)은 0으로 집계됩니다. "
-    "(동일 회차만 `UPDATE` 되면 결과 `created_at`이 옛날로 남아 일일 손익이 0으로만 보이는 문제를 막기 위함.)"
+    "일일 손익·포상 탭은 **`streamlit-autorefresh` 우선**으로 몇 초마다 **전체 페이지**를 갱신해 DB 최신값을 읽습니다."
 )
 
 db = get_db()
@@ -69,6 +71,7 @@ ok, msg = db.test_connection()
 if not ok:
     st.error(f"DB 연결 실패: {msg}")
     st.stop()
+show_pending_feedback()
 
 tables = db.get_all_tables()
 need_pb = ("powerball_bets" in tables) and ("powerball_results" in tables)
@@ -172,14 +175,12 @@ def _pb_streamlit_diag_lines() -> list[str]:
 
 def _pb_run_live_refresh_hooks() -> str:
     """
-    반환: 'fragment' | 'autorefresh' | 'none'
-    - fragment: 일부 UI만 주기 rerun (가장 가벼움)
-    - autorefresh: streamlit-autorefresh로 전체 스크립트 주기 rerun (PyArrow 불필요)
+    반환: 'autorefresh' | 'fragment' | 'none'
+    - autorefresh(우선): **전체 스크립트** 주기 rerun → DB·일일 손익이 게임 내 변동과 같이 갱신됨.
+      (fragment만 쓰면 환경에 따라 메트릭이 안 바뀌는 경우가 있어 autorefresh를 먼저 씀)
+    - fragment: autorefresh 미설치 시에만 일부 UI만 주기 rerun
     - none: 수동 새로고침만
     """
-    dec = _pb_fragment_decorator()
-    if dec is not None:
-        return "fragment"
     try:
         from streamlit_autorefresh import st_autorefresh
 
@@ -187,9 +188,13 @@ def _pb_run_live_refresh_hooks() -> str:
         st_autorefresh(interval=ms, limit=None, key="pb_gm_autorefresh")
         return "autorefresh"
     except ImportError:
-        return "none"
+        pass
     except Exception:
-        return "none"
+        pass
+    dec = _pb_fragment_decorator()
+    if dec is not None:
+        return "fragment"
+    return "none"
 
 
 _PB_LIVE_MODE = _pb_run_live_refresh_hooks()
@@ -275,6 +280,9 @@ if _PB_LIVE_MODE == "none":
 
 
 def _pb_live_fragment(fn):
+    """전체 autorefresh 사용 시 fragment 중복 주기 실행을 쓰지 않음."""
+    if _PB_LIVE_MODE == "autorefresh":
+        return fn
     dec = _pb_fragment_decorator()
     if dec is not None:
         return dec(run_every=timedelta(seconds=_pb_refresh_seconds()))(fn)
@@ -314,10 +322,10 @@ def _pb_render_tab1_metrics() -> None:
     _sec = int(_pb_refresh_seconds())
     _lm = st.session_state.get("_pb_live_mode", "none")
     _ts = datetime.now().strftime("%H:%M:%S")
-    if _lm == "fragment":
+    if _lm == "autorefresh":
+        frag_note = f"⏱ **{_sec}초마다** 전체 페이지 갱신·DB 재조회 (`streamlit-autorefresh`). 마지막 갱신 {_ts} · 주기는 사이드바"
+    elif _lm == "fragment":
         frag_note = f"⏱ **{_sec}초마다** DB 재조회 (`st.fragment`). 마지막 갱신 {_ts} · 주기는 사이드바"
-    elif _lm == "autorefresh":
-        frag_note = f"⏱ **{_sec}초마다** 전체 새로고침 (`streamlit-autorefresh`). 마지막 갱신 {_ts}"
     else:
         frag_note = f"⏱ 자동 갱신 **없음** (마지막 표시 {_ts}) — 아래 **DB 새로고침** 또는 브라우저 새로고침"
     st.caption(frag_note)
@@ -325,7 +333,7 @@ def _pb_render_tab1_metrics() -> None:
 
 @_pb_live_fragment
 def _pb_render_tab3_live_panel() -> None:
-    """포상 탭: 정산일·체크 기준 실시간 집계, 직업별 금액표, 랭킹 미리보기, 실행 버튼."""
+    """포상 탭: 정산일·체크박스 기준 집계, 직업별 금액표, 랭킹 미리보기, 실행 버튼."""
     d2 = st.session_state.get(
         "pb_reward_date", date.today() - timedelta(days=1)
     )
@@ -386,7 +394,6 @@ def _pb_render_tab3_live_panel() -> None:
         for col in ("1위", "2위", "3위", "직업 소계"):
             if col in sdf.columns:
                 sdf[col] = sdf[col].map(_comma_int)
-        # 전체 너비 dataframe 은 fragment 갱신 시 컬럼 재계산으로 화면이 흔들림 → 좁은 영역 + 고정 폭
         _sched_narrow, _sched_rest = st.columns([0.38, 0.62])
         with _sched_narrow:
             st.dataframe(
@@ -458,50 +465,29 @@ def _pb_render_tab3_live_panel() -> None:
     if st.button("✅ 원장 기록 + 아데나 지급 실행", type="primary", disabled=already or not sel.any_participant()):
         ok2, msg2, _lines = execute_daily_rewards(db, d2, dry_run=False, selection=sel)
         if ok2:
-            st.success(msg2)
+            queue_feedback("success", msg2)
         else:
-            st.error(msg2)
+            queue_feedback("error", msg2)
 
 
 with st.expander("📌 설계·제한 사항 (요청하신 규칙과 구현 해석)", expanded=False):
-    _fr = float(getattr(gm_config, "POWERBALL_POOL_FOUR_CLASSES_TOTAL_RATE", 0.22))
-    _rr = float(getattr(gm_config, "POWERBALL_POOL_ROYAL_TOTAL_RATE", 0.05))
-    _dv = float(getattr(gm_config, "POWERBALL_ROYAL_DIVERT_TO_FOUR_RATE", 0.3))
     _live_sec = int(_pb_refresh_seconds())
     st.markdown(
         f"""
-        **일일 서버 손익**  
-        - 해당 날짜에 **`powerball_results.created_at`이 속한 회차**이거나, **`powerball_bets.created_at`(배팅일)** 이 그날인 행을 집계합니다. (쿠폰만 구매해도 배팅 행 포함; 결과 미기록 시 당첨 추정 0.)  
-        - 서버가 동일 회차에 `UPDATE`만 하면 `created_at`이 갱신되지 않는 경우가 있어, 배팅일 조건을 같이 둡니다.  
-        - 서버가 `is_processed`를 아직 1로 안 올려도 **결과만 있으면 GM 집계에 포함**합니다 (정산 지연과 무관하게 최신 숫자).  
+        **일일 서버 손익 (실시간)**  
+        - 해당 날짜에 **`powerball_results.created_at`이 속한 회차**이거나, **`powerball_bets.created_at`(배팅일)** 이 그날인 행을 집계합니다.  
         - 당첨 지급(추정): **홀/짝**은 `pick_type`과 `result_type` 일치 시, **언더/오버**는 `pick_type` 2·3과 `under_over_type`(없으면 `total_sum≤72`) 일치 시 `배팅×{PAYOUT_RATE}` (`ROUND`).  
-        - **일일 손익** 탭: **홀/짝**·**언더/오버**·**종합** 순으로 표시합니다. **자정 포상 풀**은 **종합 서버 순이익**과 동일합니다.  
-        - 숫자 블록은 Streamlit **1.33+** 에서 **{_live_sec}초마다**(사이드바에서 변경) DB를 다시 읽습니다 (구버전은 클릭·새로고침 시 갱신).
+        - **자동 갱신**: `streamlit-autorefresh`가 있으면 **{_live_sec}초마다 전체 페이지**를 다시 실행해 DB를 읽습니다 (쿠폰 구매·당첨 반영). 없으면 `st.fragment` 폴백, 둘 다 없으면 수동 새로고침.
 
-        **포상 풀 (`config.py`에서 변경)**  
-        - 네 직업 기본 합 **`{_fr:.0%}`**, 군주 명목 합 **`{_rr:.0%}`** (순이익 기준).  
-        - 군주 명목 풀의 **`{_dv:.0%}`** 를 떼어 **네 직업 총풀**에 가산한 뒤, **포상 탭에서 체크한 직업 수**로 나눠 직업당 **12 : 7 : 3**.  
-        - **군주 미체크** 시 군주 실제 풀도 위 네 직업 총액에 **합쳐서** 다시 나눕니다. 체크 시 군주만 **7 : 3 : 2**.  
-        - `POWERBALL_REWARD_CLASS_DEFAULTS` + 이 페이지 체크박스로 참가 직업 지정. 자정 스크립트는 config 기본값 사용.  
-        - **정산일**은 파워볼 그날 순이익으로 위 금액만 정합니다.
+        **일일 포상 (포상 탭·체크박스·`config.py`)**  
+        - 네 직업 풀·군주 풀 비율, 군주→네직 이전 비율, 직업당 **12:7:3** / 군주 **7:3:2** 는 `config.py` 와 **체크박스**로 정합니다.  
+        - 수혜자는 직업별 레벨 랭킹( GM 캐릭터 `characters.gm` 제외 )입니다.
 
-        **포상 받는 사람 (순위)**  
-        - 파워볼 배팅 순위가 **아닙니다**. `characters`에서 **직업(class)별** 서로 다른 캐릭터 **3명**만 1·2·3위로 나갑니다 (한 사람이 두 순위에 들어가지 않음).  
-        - **GM 캐릭터**(`characters.gm` ≠ 0)는 **1·2·3위 후보에서 제외**됩니다.  
-        - **동일 레벨**이면 **경험치(exp)가 더 많은 쪽**이 위 순위, exp까지 같으면 **objID가 작은 쪽**이 위 순위입니다.  
-        - 순위는 **정산 실행 시점**의 DB 값입니다.
-
-        **제외 직업**  
-        - 용기사·환술사 등은 말씀에 없어 **포상 순위에서 제외**했습니다.
-
-        **자정 자동 지급**  
-        - `gm_tool/scripts/powerball_midnight_settle.py` 를 **매일 한국 시간 0시 직후**(예: 0:05)에 실행하세요.  
-        - Windows: `scripts/run_powerball_midnight_settle.bat` 을 **작업 스케줄러**에 등록 (배치가 있는 폴더 기준으로 동작).  
-        - 수동 테스트: `python scripts/powerball_midnight_settle.py --dry-run` / 특정일 `python scripts/powerball_midnight_settle.py --date 2025-03-19`
+        **게임 내 파워볼 게시판·서버 자정 정산**  
+        - 서버 `PowerballController` 고정: 순이익 **×{BOARD_POOL_FOUR_CLASS_PERCENT}%** (기사·요정·마법사 **통합** TOP3, **50:30:20**) + **×{BOARD_POOL_ROYAL_PERCENT}%** (군주 TOP3, **50:30:20**). GM 체크박스 방식과 **다를 수 있습니다.**
 
         **아데나 지급 (접속 불필요)**  
-        - `gm_adena_delivery`가 아니라 **`characters_inventory`를 DB에서 직접** 고칩니다. **오프라인이어도** 지급되며, 다음 접속 시 인벤에 반영됩니다.  
-        - 기존 **아데나 스택이 있으면** 수량만 합산하고, **없으면** 아데나 행을 새로 넣습니다. (접속 중이면 `gm_item_delivery`로 서버에 알려 동기화를 시도합니다.)
+        - GM 수동 실행 시 `characters_inventory`를 DB에서 직접 수정합니다.
         """
     )
 
@@ -514,7 +500,7 @@ if "powerball_reward_run" not in tables or "powerball_reward_line" not in tables
         ok_a, err_a = db.execute_query_ex(sql1, None)
         ok_b, err_b = db.execute_query_ex(sql2, None)
         if ok_a and ok_b:
-            st.success("✅ 테이블 생성이 완료되었습니다. 페이지를 새로고침하세요.")
+            queue_feedback("success", "✅ 테이블 생성이 완료되었습니다. 페이지를 새로고침하세요.")
             st.rerun()
         else:
             parts = []
@@ -771,7 +757,9 @@ with tab5:
         ok1, msg1 = _update_lineage_conf_payout(float(new_rate))
         ok2, msg2 = _update_gm_config_payout(float(new_rate))
         if ok1 and ok2:
-            st.success(f"✅ 저장 완료: {new_rate:.2f}배")
-            st.caption("반영 순서: **서버 재시작 + 서버 컴파일(소스 수정 시)**, GM 툴 새로고침")
+            queue_feedback(
+                "success",
+                f"✅ 저장 완료: {new_rate:.2f}배. 반영: 서버 재시작·컴파일(소스 수정 시), GM 툴 새로고침.",
+            )
         else:
-            st.error(f"❌ 저장 실패\n- {msg1}\n- {msg2}")
+            queue_feedback("error", f"❌ 저장 실패\n- {msg1}\n- {msg2}")
