@@ -48,14 +48,19 @@ def _monster_drop_row_from_db(d: dict) -> dict:
         en = 0
     ch = d.get("chance")
     iname = (d.get("item_name") or "").strip()
+    mname = (d.get("monster_name") or "").strip()
+    legacy_name = (d.get("name") or "").strip()
+    # DB 관례: name 열은 보통 monster_name 과 동일. 잘못 아이템명만 들어간 행은 monster_name 으로 교정 표시.
+    row_name = (mname or legacy_name or iname or "").strip()
     return {
-        "name": (d.get("name") or iname or "").strip(),
+        "name": row_name,
         "item_name": iname,
         "item_bress": bress,
         "item_en": en,
         "count_min": int(d.get("count_min") or 1),
         "count_max": int(d.get("count_max") or 1),
         "chance": str(ch) if ch is not None else "0",
+        "drop_enabled": _drop_enabled_from_db_row(d),
         "_sid": uuid.uuid4().hex[:12],
     }
 
@@ -65,6 +70,33 @@ def _chance_to_float(s) -> float:
         return float(s)
     except (TypeError, ValueError):
         return 0.0
+
+
+def _ensure_monster_drop_enabled_column(db) -> bool:
+    """monster_drop.drop_enabled 없으면 추가. 실패 시 False."""
+    try:
+        struct = db.get_table_structure("monster_drop")
+        fields = {str(r.get("Field") or "") for r in (struct or [])}
+        if "drop_enabled" in fields:
+            return True
+        ok, _err = db.execute_query_ex(
+            "ALTER TABLE monster_drop ADD COLUMN drop_enabled TINYINT(1) NOT NULL DEFAULT 1 "
+            "COMMENT '1=드랍 0=비활성' AFTER chance",
+            (),
+        )
+        return ok
+    except Exception:
+        return False
+
+
+def _drop_enabled_from_db_row(d: dict) -> int:
+    v = d.get("drop_enabled")
+    if v is None:
+        return 1
+    try:
+        return 0 if int(v) == 0 else 1
+    except (TypeError, ValueError):
+        return 1
 
 
 st.set_page_config(page_title="몬스터 관리", page_icon="🐉", layout="wide")
@@ -478,13 +510,24 @@ elif _mon_ti == 2:
                     if has_monster_drop:
                         st.divider()
                         st.subheader("🎁 드랍 아이템 수정")
+                        _drop_col_ok = _ensure_monster_drop_enabled_column(db)
+                        if not _drop_col_ok:
+                            st.warning(
+                                "⚠️ `monster_drop.drop_enabled` 컬럼을 추가하지 못했습니다. "
+                                "DB에 ALTER 권한을 주거나 `2.싱글리니지 팩/db/monster_drop_add_drop_enabled.sql` 을 수동 실행하세요. "
+                                "그 전까지는 **비활성화** 기능을 쓸 수 없습니다."
+                            )
+                        _drop_select_sql = (
+                            "SELECT name, monster_name, item_name, item_bress, item_en, count_min, count_max, chance, drop_enabled "
+                            "FROM monster_drop WHERE monster_name = %s ORDER BY item_name, item_bress, item_en"
+                            if _drop_col_ok
+                            else
+                            "SELECT name, monster_name, item_name, item_bress, item_en, count_min, count_max, chance "
+                            "FROM monster_drop WHERE monster_name = %s ORDER BY item_name, item_bress, item_en"
+                        )
                         _draft_key = f"monster_drop_draft_{_edit_sk}"
                         if _draft_key not in st.session_state:
-                            drops_init = db.fetch_all(
-                                "SELECT name, monster_name, item_name, item_bress, item_en, count_min, count_max, chance "
-                                "FROM monster_drop WHERE monster_name = %s ORDER BY item_name, item_bress, item_en",
-                                (selected,),
-                            )
+                            drops_init = db.fetch_all(_drop_select_sql, (selected,))
                             st.session_state[_draft_key] = [
                                 _monster_drop_row_from_db(x) for x in (drops_init or [])
                             ]
@@ -494,16 +537,14 @@ elif _mon_ti == 2:
                             "아데나: 최소~최대 드랍량. 주문서 등: 최소~최대 개수. "
                             "**item_bress**: 서버가 드랍 시 `setBless`에 넣는 값 — **0=축복, 1=일반, 2=저주**. "
                             "DB **PRIMARY KEY**는 `(monster_name, item_name, item_bress, item_en)` 입니다. "
-                            "**삭제·추가·수량 변경은 임시 목록에만 반영**되며, **「변경사항 DB에 저장 (확인)」** 을 눌러야 DB에 쓰이고 서버 리로드 후 적용됩니다."
+                            "**비활성화**: 행은 DB에 남기고 서버는 드랍하지 않음(나중에 **활성화**로 복구). "
+                            "**목록에서 제거**는 임시 목록에서만 삭제하며, **확인** 시 DB에서도 해당 행이 사라집니다. "
+                            "**삭제·비활성·추가·수량 변경은 임시 목록에만 반영**되며, **「변경사항 DB에 저장 (확인)」** 을 눌러야 DB에 쓰이고 서버 리로드 후 적용됩니다."
                         )
                         b1, b2, b3 = st.columns([1, 1, 2])
                         with b1:
                             if st.button("🔄 DB에서 다시 불러오기", key=f"drop_reload_{_edit_sk}"):
-                                drops_init = db.fetch_all(
-                                    "SELECT name, monster_name, item_name, item_bress, item_en, count_min, count_max, chance "
-                                    "FROM monster_drop WHERE monster_name = %s ORDER BY item_name, item_bress, item_en",
-                                    (selected,),
-                                )
+                                drops_init = db.fetch_all(_drop_select_sql, (selected,))
                                 st.session_state[_draft_key] = [
                                     _monster_drop_row_from_db(x) for x in (drops_init or [])
                                 ]
@@ -542,28 +583,47 @@ elif _mon_ti == 2:
                                     stmts = [
                                         ("DELETE FROM monster_drop WHERE monster_name=%s", (selected,))
                                     ]
-                                    ins = (
-                                        "INSERT INTO monster_drop (name, monster_name, item_name, item_bress, item_en, "
-                                        "count_min, count_max, chance) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)"
-                                    )
+                                    if _drop_col_ok:
+                                        ins = (
+                                            "INSERT INTO monster_drop (name, monster_name, item_name, item_bress, item_en, "
+                                            "count_min, count_max, chance, drop_enabled) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+                                        )
+                                    else:
+                                        ins = (
+                                            "INSERT INTO monster_drop (name, monster_name, item_name, item_bress, item_en, "
+                                            "count_min, count_max, chance) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)"
+                                        )
                                     for r in draft_rows:
                                         inm = (r["item_name"] or "").strip()
-                                        nm = (r.get("name") or inm).strip() or inm
-                                        stmts.append(
-                                            (
-                                                ins,
-                                                (
-                                                    nm,
-                                                    selected,
-                                                    inm,
-                                                    int(r["item_bress"]),
-                                                    int(r["item_en"]),
-                                                    int(r["count_min"]),
-                                                    int(r["count_max"]),
-                                                    str(r["chance"]),
-                                                ),
+                                        # 이 화면의 임시 목록은 항상 `selected` 몬스터 전용 — name 열은 몬스터명과 맞춤.
+                                        nm = (selected or r.get("name") or inm).strip() or inm
+                                        if _drop_col_ok:
+                                            de = int(r.get("drop_enabled", 1))
+                                            if de not in (0, 1):
+                                                de = 1
+                                            params = (
+                                                nm,
+                                                selected,
+                                                inm,
+                                                int(r["item_bress"]),
+                                                int(r["item_en"]),
+                                                int(r["count_min"]),
+                                                int(r["count_max"]),
+                                                str(r["chance"]),
+                                                de,
                                             )
-                                        )
+                                        else:
+                                            params = (
+                                                nm,
+                                                selected,
+                                                inm,
+                                                int(r["item_bress"]),
+                                                int(r["item_en"]),
+                                                int(r["count_min"]),
+                                                int(r["count_max"]),
+                                                str(r["chance"]),
+                                            )
+                                        stmts.append((ins, params))
                                     ok_tx, err_tx = db.execute_transaction(stmts)
                                     if ok_tx:
                                         if _draft_key in st.session_state:
@@ -585,8 +645,10 @@ elif _mon_ti == 2:
                                 _bn = int(d["item_bress"])
                                 _en = int(d["item_en"])
                                 _bl = "축복" if _bn == 0 else "저주" if _bn == 2 else "일반"
+                                _en_on = int(d.get("drop_enabled", 1)) != 0
                                 _tbl.append(
                                     {
+                                        "드랍": "○" if _en_on else "✕(비활성)",
                                         "아이템": d["item_name"],
                                         "축복구분": _bl,
                                         "bress": _bn,
@@ -594,7 +656,7 @@ elif _mon_ti == 2:
                                         "최소": d["count_min"],
                                         "최대": d["count_max"],
                                         "확률(%)": d["chance"],
-                                        "name(참고)": d.get("name") or "",
+                                        "name(DB·보통몬스터)": d.get("name") or "",
                                     }
                                 )
                             st.dataframe(
@@ -611,13 +673,38 @@ elif _mon_ti == 2:
                                 cmax = dr["count_max"]
                                 ch = dr["chance"]
                                 bress_lbl = "축복" if bress == 0 else "저주" if bress == 2 else "일반"
-                                col1, col2 = st.columns([4, 1])
+                                _en = int(dr.get("drop_enabled", 1)) != 0
+                                col1, col2, col3 = st.columns([3, 1, 1])
                                 with col1:
+                                    _pfx = "" if _en else "⏸ "
                                     st.text(
-                                        f"• {item_name}  |  {bress_lbl}(bress={bress})  |  인챈{en}  |  "
+                                        f"{_pfx}• {item_name}  |  {bress_lbl}(bress={bress})  |  인챈{en}  |  "
                                         f"최소 {cmin} ~ 최대 {cmax}  |  확률 {ch}%"
                                     )
                                 with col2:
+                                    if _drop_col_ok:
+                                        if _en:
+                                            if st.button("비활성", key=f"drop_dis_{_edit_sk}_{sid}"):
+                                                for x in st.session_state[_draft_key]:
+                                                    if x["_sid"] == sid:
+                                                        x["drop_enabled"] = 0
+                                                        break
+                                                queue_feedback(
+                                                    "info",
+                                                    "임시 목록에서 비활성으로 표시했습니다. 서버에 적용하려면 「확인」 저장 후 monster_drop 리로드하세요.",
+                                                )
+                                                st.rerun()
+                                        else:
+                                            if st.button("활성", key=f"drop_en_{_edit_sk}_{sid}"):
+                                                for x in st.session_state[_draft_key]:
+                                                    if x["_sid"] == sid:
+                                                        x["drop_enabled"] = 1
+                                                        break
+                                                queue_feedback("info", "임시 목록에서 다시 활성으로 바꿨습니다. 「확인」 저장 후 리로드하세요.")
+                                                st.rerun()
+                                    else:
+                                        st.caption("—")
+                                with col3:
                                     if st.button("목록에서 제거", key=f"drop_rm_{_edit_sk}_{sid}"):
                                         st.session_state[_draft_key] = [
                                             x for x in st.session_state[_draft_key] if x["_sid"] != sid
@@ -682,7 +769,7 @@ elif _mon_ti == 2:
                                                     rr["count_min"] = ncm
                                                     rr["count_max"] = ncx
                                                     rr["chance"] = str(nch)
-                                                    rr["name"] = (rr.get("name") or rr["item_name"]).strip()
+                                                    rr["name"] = (rr.get("name") or selected).strip()
                                                     break
                                             queue_feedback("info", "임시 목록에 반영했습니다. DB 저장은 「확인」 버튼으로 하세요.")
                                             st.rerun()
@@ -781,13 +868,14 @@ elif _mon_ti == 2:
                                     else:
                                         st.session_state[_draft_key].append(
                                             {
-                                                "name": add_item_name,
+                                                "name": selected,
                                                 "item_name": add_item_name,
                                                 "item_bress": ib,
                                                 "item_en": ie,
                                                 "count_min": int(add_count_min),
                                                 "count_max": int(add_count_max),
                                                 "chance": str(add_chance),
+                                                "drop_enabled": 1,
                                                 "_sid": uuid.uuid4().hex[:12],
                                             }
                                         )

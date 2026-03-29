@@ -16,7 +16,7 @@ BOSS_SPAWN_PRESETS: List[Dict[str, Any]] = [
         "label": "데스나이트",
         "name": "데스나이트",
         "monster": "데스나이트",
-        "spawn_x_y_map": "0, 0, 13",
+        "spawn_x_y_map": "0, 0, 11 & 0, 0, 12 & 0, 0, 13",
         "spawn_time": "10:00, 22:00",
         "spawn_day": "월, 화, 수, 목, 금, 토, 일",
         "group_monster": "",

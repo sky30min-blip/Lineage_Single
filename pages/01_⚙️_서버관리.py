@@ -237,7 +237,7 @@ def _schedule_event_help(event_key: str, title: str) -> str:
         )
     if event_key == "dollrace":
         return common + (
-            "[동작] DollRaceController2 — 맵 508 자리 쟁탈 라운드·최종 보스(기본 데스나이트).\n"
+            "[동작] DollRaceController2 — 맵 508 자리 쟁탈 라운드·최종 몬스터(기본 킹 버그베어, `gm_event_settings.monster_name`로 변경 가능). 데스나이트는 본토 던전 보스표만 사용.\n"
             "[시각] bug_time → 서버에서 bug_list 로 파싱\n"
             "[주의] conf에 bug_time 이 여러 줄이면 이 툴은 파일 위에서 첫 줄만 읽음\n"
             "[진행] bug_play_time (초) 등은 conf·코드 참고"

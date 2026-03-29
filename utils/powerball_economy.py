@@ -110,6 +110,66 @@ def _split_7_3_2(pool: int) -> tuple[int, int, int]:
 RANK_METRIC_LEVEL = "level"
 
 
+def reward_pool_percent_of_profit() -> float:
+    """서버 순이익 중 일일 포상 풀로 쓸 비율 (0~1)."""
+    v = float(getattr(gm_config, "POWERBALL_REWARD_POOL_PERCENT_OF_PROFIT", 0.27))
+    return max(0.0, min(1.0, v))
+
+
+def reward_class_weights_from_config() -> dict[str, float]:
+    """직업별 가중치(음수는 0). 키: knight, wizard, elf, darkelf, royal."""
+    return {
+        "knight": max(0.0, float(getattr(gm_config, "POWERBALL_REWARD_WEIGHT_KNIGHT", 100))),
+        "wizard": max(0.0, float(getattr(gm_config, "POWERBALL_REWARD_WEIGHT_WIZARD", 100))),
+        "elf": max(0.0, float(getattr(gm_config, "POWERBALL_REWARD_WEIGHT_ELF", 100))),
+        "darkelf": max(0.0, float(getattr(gm_config, "POWERBALL_REWARD_WEIGHT_DARKELF", 100))),
+        "royal": max(0.0, float(getattr(gm_config, "POWERBALL_REWARD_WEIGHT_ROYAL", 60))),
+    }
+
+
+def _enabled_reward_class_keys(sel: RewardClassSelection) -> list[str]:
+    out: list[str] = []
+    for prefix, _, __ in FOUR_CLASS_POOL:
+        if _four_enabled_for_prefix(sel, prefix):
+            out.append(prefix)
+    if sel.royal:
+        out.append("royal")
+    return out
+
+
+def allocate_reward_pools_for_selection(
+    server_profit: int, sel: RewardClassSelection
+) -> tuple[int, dict[str, int]]:
+    """
+    순이익 × `POWERBALL_REWARD_POOL_PERCENT_OF_PROFIT` = 총 풀.
+    체크된 직업만 설정 가중치 비율로 나눔(정수, 최대 소수부 우선으로 나머지 1원 배분).
+    """
+    pct = reward_pool_percent_of_profit()
+    total = max(0, int(server_profit * pct))
+    keys_all = ("knight", "wizard", "elf", "darkelf", "royal")
+    zero = {k: 0 for k in keys_all}
+    enabled = _enabled_reward_class_keys(sel)
+    if not enabled or total <= 0:
+        return total, dict(zero)
+
+    wmap = reward_class_weights_from_config()
+    weights = [wmap[k] for k in enabled]
+    sum_w = sum(weights)
+    if sum_w <= 0:
+        return total, dict(zero)
+
+    raw = [total * w / sum_w for w in weights]
+    floors = [int(x) for x in raw]
+    rem = total - sum(floors)
+    order = sorted(range(len(enabled)), key=lambda i: raw[i] - floors[i], reverse=True)
+    for i in range(rem):
+        floors[order[i]] += 1
+    out = dict(zero)
+    for i, k in enumerate(enabled):
+        out[k] = floors[i]
+    return total, out
+
+
 def _pool_rates() -> tuple[float, float]:
     """(네직업 합산 비율, 군주 합산 비율). config 없으면 보수적 기본."""
     try:
@@ -150,37 +210,48 @@ def _pool_money_split(server_profit: int) -> tuple[int, int, int, int, int]:
 
 
 def describe_pool_amounts(server_profit: int) -> dict[str, int]:
-    """UI용: 네직업 총풀(가산 후), 직업당 풀(4분할 가정), 군주 실제 풀, 이전액, 군주 명목."""
-    c4, pc, reff, div, rn = _pool_money_split(server_profit)
+    """UI·요약용: 전 직업 참가 가정 시 풀(레거시 키 일부 호환)."""
+    sel_all = RewardClassSelection(
+        knight=True, wizard=True, elf=True, darkelf=True, royal=True
+    )
+    total, pools = allocate_reward_pools_for_selection(server_profit, sel_all)
+    four_sum = sum(pools[k] for k in ("knight", "wizard", "elf", "darkelf"))
+    per_four = four_sum // 4 if four_sum else 0
     return {
-        "four_total_after_divert": c4,
-        "per_class_pool": pc,
-        "royal_pool_after_divert": reff,
-        "divert_to_four": div,
-        "royal_nominal": rn,
+        "four_total_after_divert": four_sum,
+        "per_class_pool": per_four,
+        "royal_pool_after_divert": pools.get("royal", 0),
+        "divert_to_four": 0,
+        "royal_nominal": pools.get("royal", 0),
+        "total_reward_pool": total,
     }
 
 
 def describe_pool_with_selection(
     server_profit: int, sel: RewardClassSelection
 ) -> dict[str, Any]:
-    """선택 직업 반영 후 네직업 쪽 총액·직업당 풀·군주 분리 여부."""
-    c4, _pc_legacy, reff, div, rn = _pool_money_split(server_profit)
+    """선택 직업·가중치 반영 후 직업별 풀·총 풀."""
+    total, pools = allocate_reward_pools_for_selection(server_profit, sel)
     n = sel.count_four_enabled()
-    four_total = c4 + (0 if sel.royal else reff)
-    per = four_total // n if n else 0
-    royal_pay = reff + (c4 if (n == 0 and sel.royal) else 0)
+    four_sum = sum(pools[k] for k in ("knight", "wizard", "elf", "darkelf"))
+    per_even = four_sum // n if n else 0
     return {
-        "combined_four": c4,
-        "royal_nominal": rn,
-        "divert_to_four": div,
-        "royal_effective": reff,
-        "royal_payout_pool": royal_pay,
-        "four_total_for_enabled": four_total,
+        "total_reward_pool": total,
+        "pool_percent": reward_pool_percent_of_profit(),
+        "pools_by_prefix": dict(pools),
+        "pools": pools,
         "four_enabled_count": n,
-        "per_class_pool": per,
         "royal_separate": sel.royal,
         "four_folded_to_royal": n == 0 and sel.royal,
+        "per_class_pool_even_if_equal": per_even,
+        # 레거시 UI 키 (숫자만 유지)
+        "combined_four": four_sum,
+        "royal_effective": pools.get("royal", 0),
+        "royal_payout_pool": pools.get("royal", 0),
+        "royal_nominal": pools.get("royal", 0),
+        "divert_to_four": 0,
+        "four_total_for_enabled": four_sum,
+        "per_class_pool": per_even,
     }
 
 
@@ -193,15 +264,13 @@ def payout_schedule_for_selection(
     """
     if server_profit <= 0 or not sel.any_participant():
         return []
-    combined_four, _, royal_eff, _, _ = _pool_money_split(server_profit)
-    n = sel.count_four_enabled()
-    four_total = combined_four + (0 if sel.royal else royal_eff)
-    per = four_total // n if n > 0 else 0
-    r1, r2, r3 = _split_12_7_3(per)
+    _, pools = allocate_reward_pools_for_selection(server_profit, sel)
     out: list[dict[str, Any]] = []
     for prefix, _cid, label in FOUR_CLASS_POOL:
         if not _four_enabled_for_prefix(sel, prefix):
             continue
+        per = pools.get(prefix, 0)
+        r1, r2, r3 = _split_12_7_3(per)
         out.append(
             {
                 "직업": label,
@@ -212,7 +281,7 @@ def payout_schedule_for_selection(
             }
         )
     if sel.royal:
-        royal_pool = royal_eff + (combined_four if n == 0 else 0)
+        royal_pool = pools.get("royal", 0)
         rk1, rk2, rk3 = _split_7_3_2(royal_pool)
         out.append(
             {
@@ -517,6 +586,7 @@ def rank_top3_by_level_for_class(db, class_id: int) -> list[dict[str, Any]]:
         FROM characters c
         WHERE c.class = %s
           AND COALESCE(c.gm, 0) = 0
+          AND (c.block_date = '0000-00-00 00:00:00' OR c.block_date IS NULL)
         ORDER BY c.`level` DESC, COALESCE(c.exp, 0) DESC, c.objID ASC
         LIMIT 3
         """,
@@ -572,15 +642,21 @@ _BOARD_CLASS_LABEL = {
 
 
 def split_four_class_pool(server_profit: int) -> tuple[int, int, int]:
-    """네 직업 4개 모두 참가 가정 시 1·2·3위 금액 (레거시·요약용)."""
-    c4, _, _, _, _ = _pool_money_split(server_profit)
-    return _split_12_7_3(c4 // 4)
+    """네 직업 4개만 참가·군주 제외 가정 시 기사 풀 기준 1·2·3위 금액 (요약용)."""
+    sel = RewardClassSelection(
+        knight=True, wizard=True, elf=True, darkelf=True, royal=False
+    )
+    _, pools = allocate_reward_pools_for_selection(server_profit, sel)
+    return _split_12_7_3(pools.get("knight", 0))
 
 
 def split_royal_pool(server_profit: int) -> tuple[int, int, int]:
-    """군주 실제 풀 7:3:2."""
-    _, _, pool, _, _ = _pool_money_split(server_profit)
-    return _split_7_3_2(pool)
+    """군주만 참가 가정 시 7:3:2 (요약용)."""
+    sel = RewardClassSelection(
+        knight=False, wizard=False, elf=False, darkelf=False, royal=True
+    )
+    _, pools = allocate_reward_pools_for_selection(server_profit, sel)
+    return _split_7_3_2(pools.get("royal", 0))
 
 
 @dataclass
@@ -655,20 +731,18 @@ def build_reward_preview(
     server_profit: int,
     sel: Optional[RewardClassSelection] = None,
 ) -> list[RewardPreviewLine]:
-    """포상 금액은 server_profit·선택 직업, 수혜자는 레벨 랭킹."""
+    """포상 금액은 server_profit·설정 풀%·가중치·선택 직업, 수혜자는 레벨 랭킹."""
     if sel is None:
         sel = default_reward_selection()
-    combined_four, _, royal_eff, _, _ = _pool_money_split(server_profit)
-    n = sel.count_four_enabled()
-    four_total = combined_four + (0 if sel.royal else royal_eff)
-    per = four_total // n if n > 0 else 0
-    r1, r2, r3 = _split_12_7_3(per)
-    amounts_four = (r1, r2, r3)
+    _, pools = allocate_reward_pools_for_selection(server_profit, sel)
 
     lines: list[RewardPreviewLine] = []
     for prefix, cid, label in FOUR_CLASS_POOL:
         if not _four_enabled_for_prefix(sel, prefix):
             continue
+        per = pools.get(prefix, 0)
+        r1, r2, r3 = _split_12_7_3(per)
+        amounts_four = (r1, r2, r3)
         ranked = rank_top3_by_level_for_class(db, cid)
         for i, row in enumerate(ranked):
             rank = i + 1
@@ -688,7 +762,7 @@ def build_reward_preview(
             )
 
     if sel.royal:
-        royal_pool = royal_eff + (combined_four if n == 0 else 0)
+        royal_pool = pools.get("royal", 0)
         rk1, rk2, rk3 = _split_7_3_2(royal_pool)
         royal_ranked = rank_top3_by_level_for_class(db, CLASS_ROYAL)
         for i, row in enumerate(royal_ranked):
@@ -764,6 +838,67 @@ def fetch_top3_powerball_by_class_for_day(
     return db.fetch_all(sql, p) or []
 
 
+def remove_auto_negative_profit_reward_run(db, d: date) -> None:
+    """
+    서버 `runAutoRewardSettlementIfDue` 가 순이익 0 이하일 때 남기는
+    `note` 에 `AUTO_0005_NEGATIVE_OR_ZERO` 가 있으면 해당 원장만 삭제한다.
+    (이 행이 남아 있으면 GM 수동 정산이 '이미 정산됨'으로 막힌다.)
+    """
+    iso = d.isoformat()
+    row = db.fetch_one(
+        "SELECT note FROM powerball_reward_run WHERE reward_date = %s",
+        (iso,),
+    )
+    if not row:
+        return
+    note = str(row.get("note") or "")
+    if "AUTO_0005_NEGATIVE_OR_ZERO" not in note:
+        return
+    try:
+        db._ensure_connection()
+        with db.connection.cursor() as cur:
+            cur.execute(
+                "DELETE FROM powerball_reward_line WHERE reward_date = %s", (iso,)
+            )
+            cur.execute("DELETE FROM powerball_reward_run WHERE reward_date = %s", (iso,))
+        db.connection.commit()
+    except Exception:
+        try:
+            db.connection.rollback()
+        except Exception:
+            pass
+
+
+def repay_adena_from_saved_reward_lines(db, d: date) -> tuple[bool, str]:
+    """
+    이미 저장된 `powerball_reward_line` 만 보고 아데나를 다시 넣는다.
+    (원장 기록은 성공했는데 인벤 UPDATE/INSERT 가 실패했을 때용. **중복 지급** 주의.)
+    """
+    iso = d.isoformat()
+    lines = db.fetch_all(
+        """
+        SELECT char_obj_id, char_name, amount
+        FROM powerball_reward_line
+        WHERE reward_date = %s AND amount > 0
+        ORDER BY id
+        """,
+        (iso,),
+    )
+    if not lines:
+        return False, f"{iso} 에 해당하는 지급 라인(powerball_reward_line)이 없습니다."
+    errs: list[str] = []
+    for ln in lines:
+        oid = int(ln.get("char_obj_id") or 0)
+        nm = str(ln.get("char_name") or "")
+        amt = int(ln.get("amount") or 0)
+        ok_a, err_a = add_adena_inventory_delta(db, nm, oid, amt)
+        if not ok_a:
+            errs.append(f"{nm}({oid}): {err_a}")
+    if errs:
+        return False, "아데나 지급 실패 — " + " | ".join(errs)
+    return True, f"원장 {len(lines)}건 기준 아데나 지급을 반영했습니다."
+
+
 def add_adena_inventory_delta(
     db, char_name: str, char_obj_id: int, delta: int
 ) -> tuple[bool, str]:
@@ -771,6 +906,8 @@ def add_adena_inventory_delta(
     접속 여부와 무관하게 DB `characters_inventory`에 반영 (오프라인도 다음 접속 시 그대로 보임).
     기존 아데나 스택이 있으면 합산, 없으면 새 행 INSERT. 접속 중 캐릭터 동기화를 위해
     신규 INSERT 시 `gm_item_delivery`가 있으면 한 줄 넣어 시도한다.
+
+    UPDATE는 **cha_objId** 기준(이름만 쓰면 동명·SQL_SAFE_UPDATES 등으로 실패하기 쉬움).
     """
     if delta <= 0:
         return True, ""
@@ -780,11 +917,11 @@ def add_adena_inventory_delta(
                 """
                 UPDATE characters_inventory
                 SET `count` = `count` + %s
-                WHERE cha_name = %s AND `name` = %s
+                WHERE cha_objId = %s AND `name` = %s
                 ORDER BY objId ASC
                 LIMIT 1
                 """,
-                (delta, char_name, "아데나"),
+                (delta, char_obj_id, "아데나"),
             )
             if cur.rowcount:
                 db.connection.commit()
@@ -798,7 +935,7 @@ def add_adena_inventory_delta(
             cur.execute(
                 """
                 INSERT INTO characters_inventory
-                  (objId, cha_objId, cha_name, name, count, en, quantity, equipped)
+                  (objId, cha_objId, cha_name, `name`, `count`, en, quantity, equipped)
                 VALUES (%s, %s, %s, %s, %s, 0, 1, 0)
                 """,
                 (next_id, char_obj_id, char_name, "아데나", delta),
@@ -829,6 +966,7 @@ def execute_daily_rewards(
     sm = fetch_daily_summary(db, d)
     if sm is None:
         return False, "일별 집계 조회 실패", []
+    remove_auto_negative_profit_reward_run(db, d)
     profit = sm.server_profit
     if profit <= 0:
         return False, f"서버 순이익이 0 이하입니다 ({profit}). 포상 풀이 없습니다.", []
@@ -849,13 +987,9 @@ def execute_daily_rewards(
     if not any(ln.amount > 0 for ln in preview):
         return False, "계산된 지급액이 모두 0입니다. (순이익이 작거나 반올림으로 소멸)", preview
 
-    combined_four, _, royal_eff, _, _ = _pool_money_split(profit)
-    n_exec = sel.count_four_enabled()
-    four_total = combined_four + (0 if sel.royal else royal_eff)
-    pool_four_record = 0 if (n_exec == 0 and sel.royal) else four_total
-    pool_royal_record = (
-        (royal_eff + combined_four) if (n_exec == 0 and sel.royal) else (royal_eff if sel.royal else 0)
-    )
+    _, pools_exec = allocate_reward_pools_for_selection(profit, sel)
+    pool_four_record = sum(pools_exec[k] for k in ("knight", "wizard", "elf", "darkelf"))
+    pool_royal_record = int(pools_exec.get("royal", 0))
     note = f"GM툴|{selection_compact_note(sel)}"
 
     try:

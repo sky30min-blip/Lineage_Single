@@ -5,12 +5,21 @@ NPC 관리 페이지 (NPC 목록, NPC 추가, NPC 배치 제거, 상점 관리)
 from __future__ import annotations
 
 import hashlib
+from pathlib import Path
 
 import streamlit as st
 from utils.db_manager import get_db
 from utils.gm_feedback import show_pending_feedback, queue_feedback
 from utils.gm_tabs import gm_section_tabs
 from utils.field_help_ko import NPC_HELP as NH
+from utils.npc_shop_display_price import (
+    calc_buy_display_price,
+    calc_sell_display_price,
+    fetch_item_row_by_display_name,
+    invert_buy_display_to_db_price,
+    load_lineage_shop_conf,
+    resolve_pack_dir,
+)
 
 # 자주 쓰는 맵 번호 → 이름 (DB에 맵 테이블이 없을 때 보조). 서버팩마다 다를 수 있음.
 _COMMON_MAP_NAMES = {
@@ -76,6 +85,72 @@ def _row_val(row: dict, *keys: str):
     return None
 
 
+def _ensure_npc_face_player_on_talk_column(db) -> bool:
+    """npc.face_player_on_talk 없으면 추가 (대화 시 PC 방향으로 heading)."""
+    try:
+        struct = db.get_table_structure("npc")
+        fields = {str(r.get("Field") or "") for r in (struct or [])}
+        if "face_player_on_talk" in fields:
+            return True
+        ok, _err = db.execute_query_ex(
+            "ALTER TABLE npc ADD COLUMN face_player_on_talk TINYINT(1) NOT NULL DEFAULT 0 "
+            "COMMENT '1=GM강제 바라보기 0=예전 클래스 동작' AFTER arrowGfx",
+            (),
+        )
+        return ok
+    except Exception:
+        return False
+
+
+def _ensure_npc_shop_enabled_column(db) -> bool:
+    """npc_shop.shop_enabled 없으면 추가."""
+    try:
+        struct = db.get_table_structure("npc_shop")
+        fields = {str(r.get("Field") or "") for r in (struct or [])}
+        if "shop_enabled" in fields:
+            return True
+        ok, _err = db.execute_query_ex(
+            "ALTER TABLE npc_shop ADD COLUMN shop_enabled TINYINT(1) NOT NULL DEFAULT 1 "
+            "COMMENT '1=상점노출 0=비활성' AFTER aden_type",
+            (),
+        )
+        return ok
+    except Exception:
+        return False
+
+
+def _shop_enabled_int_from_row(d: dict) -> int:
+    v = d.get("shop_enabled")
+    if v is None:
+        return 1
+    try:
+        return 0 if int(v) == 0 else 1
+    except (TypeError, ValueError):
+        return 1
+
+
+def _npc_shop_price_int(v) -> int:
+    try:
+        return max(0, int(v))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _sync_streamlit_price_input(source_key: str, widget_key: str, source_tuple: tuple, prc_show: int) -> None:
+    """
+    Streamlit number_input 은 key 가 있으면 이후 rerun 에서 value= 를 무시한다.
+    DB의 npc_shop.price 나 추정식 결과가 바뀌면 표(게임표시)와 입력란을 맞춘다.
+    """
+    if source_key not in st.session_state:
+        st.session_state[source_key] = source_tuple
+        st.session_state[widget_key] = int(prc_show)
+    elif st.session_state[source_key] != source_tuple:
+        st.session_state[source_key] = source_tuple
+        st.session_state[widget_key] = int(prc_show)
+    elif widget_key not in st.session_state:
+        st.session_state[widget_key] = int(prc_show)
+
+
 def _npc_spawn_index_by_npcname(db) -> dict[str, list[dict]]:
     """npc_spawnlist의 npcName 기준으로 스폰 행 목록 (같은 NPC 여러 스폰 허용)."""
     try:
@@ -91,6 +166,43 @@ def _npc_spawn_index_by_npcname(db) -> dict[str, list[dict]]:
             continue
         idx.setdefault(key, []).append(r)
     return idx
+
+
+def _search_shop_items(db, query: str, *, limit: int = 400) -> list:
+    """상점 추가용 item 검색. 기존 LIMIT 20 + 무정렬 때문에 '이동' 검색 시 이동주문서가 빠지는 문제 보완."""
+    q = (query or "").strip()
+    if not q:
+        return []
+    lim = max(1, min(int(limit), 2000))
+    try:
+        return db.fetch_all(
+            f"""
+            SELECT `아이템이름`, `구분2` FROM `item`
+            WHERE `아이템이름` LIKE CONCAT('%%', %s, '%%')
+               OR IFNULL(`구분2`, '') LIKE CONCAT('%%', %s, '%%')
+            ORDER BY `아이템이름`
+            LIMIT {lim}
+            """,
+            (q, q),
+        )
+    except Exception:
+        return db.fetch_all(
+            f"""
+            SELECT `아이템이름` FROM `item`
+            WHERE `아이템이름` LIKE CONCAT('%%', %s, '%%')
+            ORDER BY `아이템이름`
+            LIMIT {lim}
+            """,
+            (q,),
+        )
+
+
+def _format_shop_item_row(row: dict) -> str:
+    name = str(row.get("아이템이름") or "").strip()
+    t2 = str(row.get("구분2") or "").strip()
+    if t2:
+        return f"{name}  [{t2}]"
+    return name
 
 
 def _format_world_placements(spawns: list[dict] | None, map_names: dict) -> str:
@@ -119,6 +231,7 @@ _db_ok, _db_msg = db.test_connection()
 if not _db_ok:
     st.error(f"❌ DB 연결 실패: {_db_msg}")
     st.stop()
+_ensure_npc_face_player_on_talk_column(db)
 show_pending_feedback()
 _NPC_TAB_LABELS = [
     "📋 NPC 목록",
@@ -245,6 +358,11 @@ elif _npc_ti == 1:
                     value=0,
                     help="원거리 공격 시 화살 이펙트 ID. 0=없음."
                 )
+                add_face_talk = st.checkbox(
+                    "클릭 시 플레이어 방향으로 바라보기 (GM 강제)",
+                    value=False,
+                    help=NH.get("face_player_on_talk", ""),
+                )
             # --- 스폰 위치 (맵에 배치) ---
             st.markdown("---")
             st.markdown("**스폰 위치 (맵에 배치)**")
@@ -265,10 +383,11 @@ elif _npc_ti == 1:
             if submitted and add_name and add_name.strip():
                 name = add_name.strip()
                 ok, ins_err = db.execute_query_ex(
-                    """INSERT INTO npc (name, type, nameid, gfxid, gfxMode, hp, lawful, light, ai, areaatk, arrowGfx)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                    """INSERT INTO npc (name, type, nameid, gfxid, gfxMode, hp, lawful, light, ai, areaatk, arrowGfx, face_player_on_talk)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                     (name, add_type.strip() or "default", add_nameid.strip() or "0",
-                     add_gfxid, add_gfxMode, add_hp, add_lawful, add_light, add_ai, add_areaatk, add_arrowGfx)
+                     add_gfxid, add_gfxMode, add_hp, add_lawful, add_light, add_ai, add_areaatk, add_arrowGfx,
+                     1 if add_face_talk else 0)
                 )
                 if ok:
                     msg = f"✅ 반영되었습니다. NPC '{name}' 추가됨."
@@ -300,7 +419,10 @@ elif _npc_ti == 1:
 # ========== tab3: NPC 수정 (기존 NPC 이미지/세부정보 변경) ==========
 elif _npc_ti == 2:
     st.subheader("✏️ NPC 수정")
-    st.caption("이미 등록된 NPC의 그래픽(gfxid), 타입, 체력 등 세부 정보를 변경합니다. 서버 재시작 후 반영됩니다.")
+    st.caption(
+        "이미 등록된 NPC의 그래픽(gfxid), 타입, 체력, **클릭 시 플레이어 바라보기** 등을 변경합니다. "
+        "DB 반영 후 서버 **재시작** 또는 게임 내 **npc 테이블 리로드**가 있으면 그때 적용됩니다."
+    )
     try:
         npc_names = db.fetch_all("SELECT name FROM npc ORDER BY name")
         if not npc_names:
@@ -310,7 +432,10 @@ elif _npc_ti == 2:
             edit_choices = [str(r["name"]) if r.get("name") is not None else "" for r in npc_names]
             edit_name = st.selectbox("수정할 NPC 선택", edit_choices, key="npc_edit_select")
             if edit_name:
-                row = db.fetch_one("SELECT name, type, nameid, gfxid, gfxMode, hp, lawful, light, ai, areaatk, arrowGfx FROM npc WHERE name = %s", (str(edit_name),))
+                row = db.fetch_one(
+                    "SELECT name, type, nameid, gfxid, gfxMode, hp, lawful, light, ai, areaatk, arrowGfx, face_player_on_talk FROM npc WHERE name = %s",
+                    (str(edit_name),),
+                )
                 if row:
                     # 선택 NPC가 바뀌어도 위젯 key가 같으면 session_state 가 이전 값을 유지함 → NPC별 고유 접미사
                     _ek = hashlib.md5(str(edit_name).encode("utf-8", errors="replace")).hexdigest()[:16]
@@ -330,10 +455,18 @@ elif _npc_ti == 2:
                             edit_ai = st.selectbox("AI 사용 (ai)", ["false", "true"], index=1 if (row.get("ai") and str(row.get("ai")).lower() == "true") else 0, key=f"npc_edit_ai_{_ek}", help=NH["ai"])
                             edit_areaatk = st.number_input("범위 공격 (areaatk)", min_value=0, value=int(row.get("areaatk") or 0), key=f"npc_edit_areaatk_{_ek}", help=NH["areaatk"])
                             edit_arrowGfx = st.number_input("화살 그래픽 (arrowGfx)", min_value=0, value=int(row.get("arrowGfx") or 0), key=f"npc_edit_arrowGfx_{_ek}", help=NH["arrowGfx"])
+                            _fpt = row.get("face_player_on_talk")
+                            _fpt_on = False if _fpt is None else (int(_fpt) != 0)
+                            edit_face_talk = st.checkbox(
+                                "클릭 시 플레이어 방향으로 바라보기",
+                                value=_fpt_on,
+                                key=f"npc_edit_face_talk_{_ek}",
+                                help=NH.get("face_player_on_talk", ""),
+                            )
                         if st.form_submit_button("수정 반영"):
                             ok, uerr = db.execute_query_ex(
-                                """UPDATE npc SET type=%s, nameid=%s, gfxid=%s, gfxMode=%s, hp=%s, lawful=%s, light=%s, ai=%s, areaatk=%s, arrowGfx=%s WHERE name=%s""",
-                                (edit_type.strip() or "default", edit_nameid.strip() or "0", edit_gfxid, edit_gfxMode, edit_hp, edit_lawful, edit_light, edit_ai, edit_areaatk, edit_arrowGfx, edit_name)
+                                """UPDATE npc SET type=%s, nameid=%s, gfxid=%s, gfxMode=%s, hp=%s, lawful=%s, light=%s, ai=%s, areaatk=%s, arrowGfx=%s, face_player_on_talk=%s WHERE name=%s""",
+                                (edit_type.strip() or "default", edit_nameid.strip() or "0", edit_gfxid, edit_gfxMode, edit_hp, edit_lawful, edit_light, edit_ai, edit_areaatk, edit_arrowGfx, 1 if edit_face_talk else 0, edit_name)
                             )
                             if ok:
                                 queue_feedback("success", f"✅ NPC '{edit_name}' 수정 반영되었습니다. 서버 재시작 후 적용됩니다.")
@@ -472,7 +605,26 @@ elif _npc_ti == 4:
 # ========== tab6: 상점 관리 (npc_shop / item) ==========
 elif _npc_ti == 5:
     st.subheader("🏪 NPC 상점 관리")
+    st.caption(
+        "베리타 등 **이동주문서 89종 패치**는 `2.싱글리니지 팩/db/patch_verita_item_teleport_shop.sql`을 "
+        "**이 GM 툴과 같은 DB(MariaDB, `mysql.conf` / `config.py`에 맞는 쪽)** 에 직접 실행해야 "
+        "`item`·`npc_shop`에 들어갑니다. (HeidiSQL·DBeaver·`mariadb`/`mysql` CLI 등 아무 클라이언트나 됩니다.) "
+        "파일만 두고 실행 안 하면 게임·GM 모두 예전 데이터입니다."
+    )
     try:
+        _shop_en_ok = _ensure_npc_shop_enabled_column(db)
+        if not _shop_en_ok:
+            st.warning(
+                "⚠️ `npc_shop.shop_enabled` 컬럼을 추가하지 못했습니다. "
+                "DB에 ALTER 권한을 주거나 `2.싱글리니지 팩/db/npc_shop_add_shop_enabled.sql` 을 수동 실행하세요. "
+                "그 전까지는 **비활성화** 버튼을 쓸 수 없습니다."
+            )
+        _shop_sel_extra = ", shop_enabled" if _shop_en_ok else ""
+        _pack_dir = resolve_pack_dir()
+        _shop_conf = load_lineage_shop_conf(_pack_dir)
+        if not (_pack_dir.is_dir() and (_pack_dir / "lineage.conf").is_file()):
+            st.caption("⚠️ `2.싱글리니지 팩/lineage.conf` 를 찾지 못해 상점 가격 추정에 기본값을 씁니다.")
+
         # 상점이 있는 NPC 목록 (npc_shop.name 기준)
         상점NPC목록 = db.fetch_all(
             "SELECT DISTINCT name FROM npc_shop ORDER BY name"
@@ -489,30 +641,130 @@ elif _npc_ti == 5:
             # 왼쪽: 판매 물품 (NPC가 파는 것 = buy='true')
             with col1:
                 st.markdown("#### 💰 판매 물품 (플레이어 구매)")
+                st.caption(
+                    "**비활성**: DB 행은 남기고 서버가 상점에 안 올림(삭제와 동일 효과). **활성**으로 다시 켤 수 있습니다. "
+                    "적용 후 **npc_shop 리로드** 또는 재시작."
+                )
                 판매목록 = db.fetch_all(
-                    """SELECT name, itemname, itemcount, price, sell, buy 
+                    f"""SELECT uid, name, itemname, itemcount, price, sell, buy {_shop_sel_extra}
                        FROM npc_shop 
                        WHERE name = %s AND buy = 'true' 
                        ORDER BY itemname""",
-                    (npc_name,)
+                    (npc_name,),
                 )
                 if 판매목록:
-                    st.dataframe(판매목록, height=300, width="stretch")
+                    _sell_item_cache: dict[str, dict | None] = {}
+                    _sell_df_rows = []
+                    for _r in 판매목록:
+                        _inm = str(_r.get("itemname") or "")
+                        if _inm not in _sell_item_cache:
+                            _sell_item_cache[_inm] = fetch_item_row_by_display_name(db, _inm)
+                        _ir = _sell_item_cache[_inm]
+                        _dpy = calc_buy_display_price(db, _r, _ir, _shop_conf)
+                        _row = dict(_r)
+                        _row["게임표시(추정)"] = _dpy
+                        _sell_df_rows.append(_row)
+                    st.dataframe(_sell_df_rows, height=300, width="stretch")
+                    st.markdown("**행별 가격·비활성** — 가격 저장 후 **npc_shop 리로드**")
+                    st.caption(
+                        "가격 입력란은 **게임 상점 창과 같은 금액(추정)** 으로 채웁니다. "
+                        "`npc_shop.price` 가 0이면 `item.shop_price`·인챈·축복 등으로 계산합니다. "
+                        "성(혈맹) **상점 세율**은 알 수 없어 **0%** 로 둔 값입니다."
+                    )
+                    st.caption("열: 물품(uid) · 가격 입력(아데나) · **가격 저장** · 비활성/활성")
+                    for srow in 판매목록:
+                        uid = int(srow.get("uid") or 0)
+                        if uid <= 0:
+                            continue
+                        en = _shop_enabled_int_from_row(srow) if _shop_en_ok else 1
+                        itn = str(srow.get("itemname") or "")
+                        _ir = _sell_item_cache.get(itn) or fetch_item_row_by_display_name(db, itn)
+                        prc_show = calc_buy_display_price(db, srow, _ir, _shop_conf)
+                        _pdbc = int(srow.get("price") or 0)
+                        _src_k = f"shop_sell_price_src_{npc_name}_{uid}"
+                        _wid_k = f"shop_sell_price_{npc_name}_{uid}"
+                        _sync_streamlit_price_input(
+                            _src_k,
+                            _wid_k,
+                            (_pdbc, int(prc_show)),
+                            int(prc_show),
+                        )
+                        if _shop_en_ok:
+                            c_a, c_b, c_c, c_d = st.columns([2.1, 1.0, 0.65, 0.65])
+                        else:
+                            c_a, c_b, c_c = st.columns([2.4, 1.1, 0.85])
+                            c_d = None
+                        with c_a:
+                            _off = _shop_en_ok and not en
+                            st.caption(("⏸ " if _off else "") + f"`uid={uid}` · {itn}")
+                        with c_b:
+                            new_p = st.number_input(
+                                "가격",
+                                min_value=0,
+                                step=1,
+                                key=_wid_k,
+                                label_visibility="collapsed",
+                            )
+                        with c_c:
+                            if st.button("가격 저장", key=f"shop_sell_psave_{uid}"):
+                                db_p = invert_buy_display_to_db_price(
+                                    int(new_p),
+                                    bool(_shop_conf.get("add_tax")),
+                                    0.0,
+                                )
+                                ok_u, e_u = db.execute_query_ex(
+                                    "UPDATE npc_shop SET price=%s WHERE uid=%s AND name=%s AND buy='true'",
+                                    (db_p, uid, npc_name),
+                                )
+                                if ok_u:
+                                    queue_feedback(
+                                        "success",
+                                        f"판매 가격 저장(uid={uid}, npc_shop.price={db_p}, 표시≈{int(new_p)}). npc_shop 리로드하세요.",
+                                    )
+                                else:
+                                    queue_feedback("error", f"가격 저장 실패: {e_u}")
+                                st.rerun()
+                        if c_d is not None:
+                            with c_d:
+                                if en:
+                                    if st.button("비활성", key=f"shop_sell_dis_{uid}"):
+                                        ok_u, e_u = db.execute_query_ex(
+                                            "UPDATE npc_shop SET shop_enabled=0 WHERE uid=%s",
+                                            (uid,),
+                                        )
+                                        if ok_u:
+                                            queue_feedback("success", f"판매 행 비활성(uid={uid}). npc_shop 리로드하세요.")
+                                        else:
+                                            queue_feedback("error", f"실패: {e_u}")
+                                        st.rerun()
+                                else:
+                                    if st.button("활성", key=f"shop_sell_en_{uid}"):
+                                        ok_u, e_u = db.execute_query_ex(
+                                            "UPDATE npc_shop SET shop_enabled=1 WHERE uid=%s",
+                                            (uid,),
+                                        )
+                                        if ok_u:
+                                            queue_feedback("success", f"판매 행 활성(uid={uid}). npc_shop 리로드하세요.")
+                                        else:
+                                            queue_feedback("error", f"실패: {e_u}")
+                                        st.rerun()
                 else:
                     st.caption("판매 물품 없음")
 
                 with st.expander("➕ 판매 물품 추가"):
-                    아이템검색 = st.text_input("아이템 이름 검색", key="sell_search")
+                    아이템검색 = st.text_input(
+                        "아이템 검색 (이름 또는 구분2, 예: 이동 / teleport / 오만)",
+                        key="sell_search",
+                    )
                     if 아이템검색:
-                        아이템목록 = db.fetch_all(
-                            "SELECT `아이템이름` FROM item WHERE `아이템이름` LIKE CONCAT('%', %s, '%') LIMIT 20",
-                            (아이템검색,)
-                        )
+                        아이템목록 = _search_shop_items(db, 아이템검색)
+                        if 아이템목록 and len(아이템목록) >= 400:
+                            st.caption("검색 결과가 많습니다. 더 좁은 키워드로 검색해 보세요 (최대 400건 표시).")
                         선택아이템 = st.selectbox(
                             "아이템",
                             아이템목록 if 아이템목록 else [],
-                            format_func=lambda x: x.get("아이템이름", ""),
-                            key="sell_item"
+                            format_func=_format_shop_item_row,
+                            key="sell_item",
                         )
                     else:
                         선택아이템 = None
@@ -521,12 +773,20 @@ elif _npc_ti == 5:
                     if st.button("판매 물품 추가", key="add_sell"):
                         if 선택아이템:
                             itemname = 선택아이템.get("아이템이름")
-                            ok, sh_err = db.execute_query_ex(
-                                """INSERT INTO npc_shop 
-                                   (name, itemname, itemcount, itembress, itemenlevel, itemtime, sell, buy, gamble, price, aden_type) 
-                                   VALUES (%s, %s, %s, 1, 0, 0, 'false', 'true', 'false', %s, '')""",
-                                (npc_name, itemname, 수량, 판매가격)
-                            )
+                            if _shop_en_ok:
+                                ok, sh_err = db.execute_query_ex(
+                                    """INSERT INTO npc_shop 
+                                       (name, itemname, itemcount, itembress, itemenlevel, itemtime, sell, buy, gamble, price, aden_type, shop_enabled) 
+                                       VALUES (%s, %s, %s, 1, 0, 0, 'false', 'true', 'false', %s, '', 1)""",
+                                    (npc_name, itemname, 수량, 판매가격),
+                                )
+                            else:
+                                ok, sh_err = db.execute_query_ex(
+                                    """INSERT INTO npc_shop 
+                                       (name, itemname, itemcount, itembress, itemenlevel, itemtime, sell, buy, gamble, price, aden_type) 
+                                       VALUES (%s, %s, %s, 1, 0, 0, 'false', 'true', 'false', %s, '')""",
+                                    (npc_name, itemname, 수량, 판매가격),
+                                )
                             if ok:
                                 queue_feedback("success", "✅ 반영되었습니다. 판매 물품이 추가되었습니다.")
                                 st.rerun()
@@ -541,16 +801,23 @@ elif _npc_ti == 5:
                         삭제선택 = st.multiselect(
                             "삭제할 물품",
                             판매목록,
-                            format_func=lambda x: f"{x.get('itemname','')} - {x.get('price',0)} 아데나",
+                            format_func=lambda x: f"{x.get('itemname','')} - {x.get('price',0)} 아데나 (uid={x.get('uid')})",
                             key="del_sell"
                         )
                         if st.button("판매 물품 삭제", key="del_sell_btn") and 삭제선택:
                             failed = []
                             for x in 삭제선택:
-                                ok_d, e_d = db.execute_query_ex(
-                                    "DELETE FROM npc_shop WHERE name = %s AND itemname = %s AND buy = 'true'",
-                                    (npc_name, x.get("itemname"))
-                                )
+                                uid = x.get("uid")
+                                if uid is not None:
+                                    ok_d, e_d = db.execute_query_ex(
+                                        "DELETE FROM npc_shop WHERE uid = %s AND name = %s AND buy = 'true'",
+                                        (int(uid), npc_name),
+                                    )
+                                else:
+                                    ok_d, e_d = db.execute_query_ex(
+                                        "DELETE FROM npc_shop WHERE name = %s AND itemname = %s AND buy = 'true'",
+                                        (npc_name, x.get("itemname")),
+                                    )
                                 if not ok_d:
                                     failed.append(f"{x.get('itemname')}: {e_d}")
                             if failed:
@@ -564,30 +831,120 @@ elif _npc_ti == 5:
             # 오른쪽: 매입 물품 (NPC가 사는 것 = sell='true')
             with col2:
                 st.markdown("#### 💵 매입 물품 (플레이어 판매)")
+                st.caption(
+                    "**비활성** / **활성**은 판매 탭과 동일합니다. 적용 후 **npc_shop 리로드**."
+                )
                 매입목록 = db.fetch_all(
-                    """SELECT name, itemname, itemcount, price, sell, buy 
+                    f"""SELECT uid, name, itemname, itemcount, price, sell, buy {_shop_sel_extra}
                        FROM npc_shop 
                        WHERE name = %s AND sell = 'true' 
                        ORDER BY itemname""",
-                    (npc_name,)
+                    (npc_name,),
                 )
                 if 매입목록:
-                    st.dataframe(매입목록, height=300, width="stretch")
+                    _buy_item_cache: dict[str, dict | None] = {}
+                    _buy_df_rows = []
+                    for _r in 매입목록:
+                        _inm = str(_r.get("itemname") or "")
+                        if _inm not in _buy_item_cache:
+                            _buy_item_cache[_inm] = fetch_item_row_by_display_name(db, _inm)
+                        _ir = _buy_item_cache[_inm]
+                        _dpy = calc_sell_display_price(db, _r, _ir, _shop_conf)
+                        _row = dict(_r)
+                        _row["게임표시(추정)"] = _dpy
+                        _buy_df_rows.append(_row)
+                    st.dataframe(_buy_df_rows, height=300, width="stretch")
+                    st.markdown("**행별 가격·비활성** — 가격 저장 후 **npc_shop 리로드**")
+                    st.caption(
+                        "매입: `npc_shop.price` 가 0이면 `sell_item_rate`·축복주문서 배율 등으로 **추정**합니다. "
+                        "price 가 0이 아니면 서버는 그 값을 그대로 씁니다."
+                    )
+                    st.caption("열: 물품(uid) · 가격 입력(아데나) · **가격 저장** · 비활성/활성")
+                    for brow in 매입목록:
+                        uid = int(brow.get("uid") or 0)
+                        if uid <= 0:
+                            continue
+                        en = _shop_enabled_int_from_row(brow) if _shop_en_ok else 1
+                        itn = str(brow.get("itemname") or "")
+                        _ir = _buy_item_cache.get(itn) or fetch_item_row_by_display_name(db, itn)
+                        prc_show = calc_sell_display_price(db, brow, _ir, _shop_conf)
+                        _pdbc = int(brow.get("price") or 0)
+                        _src_k = f"shop_buy_price_src_{npc_name}_{uid}"
+                        _wid_k = f"shop_buy_price_{npc_name}_{uid}"
+                        _sync_streamlit_price_input(
+                            _src_k,
+                            _wid_k,
+                            (_pdbc, int(prc_show)),
+                            int(prc_show),
+                        )
+                        if _shop_en_ok:
+                            c_a, c_b, c_c, c_d = st.columns([2.1, 1.0, 0.65, 0.65])
+                        else:
+                            c_a, c_b, c_c = st.columns([2.4, 1.1, 0.85])
+                            c_d = None
+                        with c_a:
+                            _off = _shop_en_ok and not en
+                            st.caption(("⏸ " if _off else "") + f"`uid={uid}` · {itn}")
+                        with c_b:
+                            new_p = st.number_input(
+                                "가격",
+                                min_value=0,
+                                step=1,
+                                key=_wid_k,
+                                label_visibility="collapsed",
+                            )
+                        with c_c:
+                            if st.button("가격 저장", key=f"shop_buy_psave_{uid}"):
+                                ok_u, e_u = db.execute_query_ex(
+                                    "UPDATE npc_shop SET price=%s WHERE uid=%s AND name=%s AND sell='true'",
+                                    (int(new_p), uid, npc_name),
+                                )
+                                if ok_u:
+                                    queue_feedback("success", f"매입 가격 저장(uid={uid} → {int(new_p)}). npc_shop 리로드하세요.")
+                                else:
+                                    queue_feedback("error", f"가격 저장 실패: {e_u}")
+                                st.rerun()
+                        if c_d is not None:
+                            with c_d:
+                                if en:
+                                    if st.button("비활성", key=f"shop_buy_dis_{uid}"):
+                                        ok_u, e_u = db.execute_query_ex(
+                                            "UPDATE npc_shop SET shop_enabled=0 WHERE uid=%s",
+                                            (uid,),
+                                        )
+                                        if ok_u:
+                                            queue_feedback("success", f"매입 행 비활성(uid={uid}). npc_shop 리로드하세요.")
+                                        else:
+                                            queue_feedback("error", f"실패: {e_u}")
+                                        st.rerun()
+                                else:
+                                    if st.button("활성", key=f"shop_buy_en_{uid}"):
+                                        ok_u, e_u = db.execute_query_ex(
+                                            "UPDATE npc_shop SET shop_enabled=1 WHERE uid=%s",
+                                            (uid,),
+                                        )
+                                        if ok_u:
+                                            queue_feedback("success", f"매입 행 활성(uid={uid}). npc_shop 리로드하세요.")
+                                        else:
+                                            queue_feedback("error", f"실패: {e_u}")
+                                        st.rerun()
                 else:
                     st.caption("매입 물품 없음")
 
                 with st.expander("➕ 매입 물품 추가"):
-                    아이템검색2 = st.text_input("아이템 이름 검색", key="buy_search")
+                    아이템검색2 = st.text_input(
+                        "아이템 검색 (이름 또는 구분2)",
+                        key="buy_search",
+                    )
                     if 아이템검색2:
-                        아이템목록2 = db.fetch_all(
-                            "SELECT `아이템이름` FROM item WHERE `아이템이름` LIKE CONCAT('%', %s, '%') LIMIT 20",
-                            (아이템검색2,)
-                        )
+                        아이템목록2 = _search_shop_items(db, 아이템검색2)
+                        if 아이템목록2 and len(아이템목록2) >= 400:
+                            st.caption("검색 결과가 많습니다. 더 좁은 키워드로 검색해 보세요 (최대 400건 표시).")
                         선택아이템2 = st.selectbox(
                             "아이템",
                             아이템목록2 if 아이템목록2 else [],
-                            format_func=lambda x: x.get("아이템이름", ""),
-                            key="buy_item"
+                            format_func=_format_shop_item_row,
+                            key="buy_item",
                         )
                     else:
                         선택아이템2 = None
@@ -595,12 +952,20 @@ elif _npc_ti == 5:
                     if st.button("매입 물품 추가", key="add_buy"):
                         if 선택아이템2:
                             itemname = 선택아이템2.get("아이템이름")
-                            ok, bh_err = db.execute_query_ex(
-                                """INSERT INTO npc_shop 
-                                   (name, itemname, itemcount, itembress, itemenlevel, itemtime, sell, buy, gamble, price, aden_type) 
-                                   VALUES (%s, %s, 1, 1, 0, 0, 'true', 'false', 'false', %s, '')""",
-                                (npc_name, itemname, 매입가격)
-                            )
+                            if _shop_en_ok:
+                                ok, bh_err = db.execute_query_ex(
+                                    """INSERT INTO npc_shop 
+                                       (name, itemname, itemcount, itembress, itemenlevel, itemtime, sell, buy, gamble, price, aden_type, shop_enabled) 
+                                       VALUES (%s, %s, 1, 1, 0, 0, 'true', 'false', 'false', %s, '', 1)""",
+                                    (npc_name, itemname, 매입가격),
+                                )
+                            else:
+                                ok, bh_err = db.execute_query_ex(
+                                    """INSERT INTO npc_shop 
+                                       (name, itemname, itemcount, itembress, itemenlevel, itemtime, sell, buy, gamble, price, aden_type) 
+                                       VALUES (%s, %s, 1, 1, 0, 0, 'true', 'false', 'false', %s, '')""",
+                                    (npc_name, itemname, 매입가격),
+                                )
                             if ok:
                                 queue_feedback("success", "✅ 반영되었습니다. 매입 물품이 추가되었습니다.")
                                 st.rerun()
@@ -615,16 +980,23 @@ elif _npc_ti == 5:
                         삭제매입 = st.multiselect(
                             "삭제할 물품",
                             매입목록,
-                            format_func=lambda x: f"{x.get('itemname','')} - {x.get('price',0)} 아데나",
+                            format_func=lambda x: f"{x.get('itemname','')} - {x.get('price',0)} 아데나 (uid={x.get('uid')})",
                             key="del_buy"
                         )
                         if st.button("매입 물품 삭제", key="del_buy_btn") and 삭제매입:
                             failed_b = []
                             for x in 삭제매입:
-                                ok_b, e_b = db.execute_query_ex(
-                                    "DELETE FROM npc_shop WHERE name = %s AND itemname = %s AND sell = 'true'",
-                                    (npc_name, x.get("itemname"))
-                                )
+                                uid = x.get("uid")
+                                if uid is not None:
+                                    ok_b, e_b = db.execute_query_ex(
+                                        "DELETE FROM npc_shop WHERE uid = %s AND name = %s AND sell = 'true'",
+                                        (int(uid), npc_name),
+                                    )
+                                else:
+                                    ok_b, e_b = db.execute_query_ex(
+                                        "DELETE FROM npc_shop WHERE name = %s AND itemname = %s AND sell = 'true'",
+                                        (npc_name, x.get("itemname")),
+                                    )
                                 if not ok_b:
                                     failed_b.append(f"{x.get('itemname')}: {e_b}")
                             if failed_b:

@@ -115,11 +115,22 @@ PAGE_TITLE = "리니지 GM 툴"
 PAGE_ICON = "🎮"
 LAYOUT = "wide"
 
-# 파워볼 배당(이론 당첨 추정). GM 포상 탭(체크박스)은 아래 풀 비율·분배식 사용.
+# 파워볼 배당(이론 당첨 추정).
 POWERBALL_PAYOUT_RATE = 1.95
+# 게시판·board-style 미리보기용 (Java PowerballController 상수와 맞출 것). 일일 GM 포상 분배에는 미사용.
 POWERBALL_POOL_FOUR_CLASSES_TOTAL_RATE = 0.22
 POWERBALL_POOL_ROYAL_TOTAL_RATE = 0.05
 POWERBALL_ROYAL_DIVERT_TO_FOUR_RATE = 0.3
+
+# 일일 포상: 서버 순이익 대비 총 지급 풀 비율(0~1). 예: 0.27 = 순이익의 27%를 랭커 풀로.
+POWERBALL_REWARD_POOL_PERCENT_OF_PROFIT = 1
+# 위 풀을 나눌 직업별 가중치(비율). 체크 해제된 직업은 제외하고 나머지 가중치만 재정규화.
+# 기본값은 구 22%+5%·다크엘프 제외·4직업 균등에 근접하도록 맞춤(기사/법사/요정/다크/군주).
+POWERBALL_REWARD_WEIGHT_KNIGHT = 100
+POWERBALL_REWARD_WEIGHT_WIZARD = 100
+POWERBALL_REWARD_WEIGHT_ELF = 100
+POWERBALL_REWARD_WEIGHT_DARKELF = 100
+POWERBALL_REWARD_WEIGHT_ROYAL = 60
 
 POWERBALL_REWARD_CLASS_DEFAULTS = {
     "knight": True,

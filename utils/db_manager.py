@@ -21,6 +21,13 @@ class DBManager:
             return
         try:
             self.connection.ping(reconnect=True)
+            # 예전 연결(autocommit 꺼짐) 호환: 트랜잭션 종료 + 이후부터 autocommit 유지
+            try:
+                if not self.connection.get_autocommit():
+                    self.connection.commit()
+                    self.connection.autocommit(True)
+            except Exception:
+                pass
         except Exception:
             self.connect()
     
@@ -47,6 +54,9 @@ class DBManager:
                 charset=self.config.get('charset', 'utf8mb4'),
                 cursorclass=pymysql.cursors.DictCursor,
                 init_command="SET SESSION time_zone = '+09:00'",
+                # 기본 False면 첫 SELECT 이후 같은 세션에서 RR 스냅샷에 묶여
+                # 게임 서버가 넣은 최신 배팅/결과가 GM 대시보드에 안 보이는 현상이 난다.
+                autocommit=True,
             )
             return True
         except Exception as e:
