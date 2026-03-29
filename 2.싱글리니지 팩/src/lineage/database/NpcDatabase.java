@@ -37,6 +37,12 @@ public final class NpcDatabase {
 				n.setAi(rs.getString("ai").equalsIgnoreCase("true"));
 				n.setAreaAtk(rs.getInt("areaatk"));
 				n.setArrowGfx(rs.getInt("arrowGfx"));
+				try {
+					rs.findColumn("face_player_on_talk");
+					n.setFacePlayerOnTalk(rs.getInt("face_player_on_talk") != 0);
+				} catch (Exception e) {
+					n.setFacePlayerOnTalk(false);
+				}
 
 				// 라우풀 값 확인.
 				if (n.getLawful() < Lineage.CHAOTIC)
@@ -88,6 +94,12 @@ public final class NpcDatabase {
 					n.setAi(rs.getString("ai").equalsIgnoreCase("true"));
 					n.setAreaAtk(rs.getInt("areaatk"));
 					n.setArrowGfx(rs.getInt("arrowGfx"));
+					try {
+						rs.findColumn("face_player_on_talk");
+						n.setFacePlayerOnTalk(rs.getInt("face_player_on_talk") != 0);
+					} catch (Exception e) {
+						n.setFacePlayerOnTalk(false);
+					}
 
 					// 라우풀 값 확인.
 					if (n.getLawful() < Lineage.CHAOTIC)

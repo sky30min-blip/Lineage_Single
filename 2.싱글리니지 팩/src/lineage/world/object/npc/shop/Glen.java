@@ -21,6 +21,7 @@ import lineage.network.packet.server.S_ShopBuy;
 import lineage.network.packet.server.S_ShopSell;
 import lineage.share.Lineage;
 import lineage.world.controller.KingdomController;
+import lineage.world.controller.NpcTalkHeading;
 import lineage.world.object.instance.ItemInstance;
 import lineage.world.object.instance.PcInstance;
 import lineage.world.object.instance.ShopInstance;
@@ -34,6 +35,8 @@ public class Glen extends ShopInstance {
 
 	@Override
 	public void toTalk(PcInstance pc, ClientBasePacket cbp) {
+		super.toTalk(pc, cbp);
+		NpcTalkHeading.legacyFacePlayerWhenDbOff(this, pc);
 		if (pc.getLawful() < Lineage.NEUTRAL) {
 			pc.toSender(S_Html.clone(BasePacketPooling.getPool(S_Html.class), this, "glen1"));
 		} else {
@@ -43,6 +46,7 @@ public class Glen extends ShopInstance {
 
 	@Override
 	public void toTalk(PcInstance pc, String action, String type, ClientBasePacket cbp) {
+		NpcTalkHeading.apply(this, pc);
 		if (action.equalsIgnoreCase("buy")) {
 			pc.toSender(S_ShopBuy.clone(BasePacketPooling.getPool(S_ShopBuy.class), this));
 		} else if (action.equalsIgnoreCase("sell")) {

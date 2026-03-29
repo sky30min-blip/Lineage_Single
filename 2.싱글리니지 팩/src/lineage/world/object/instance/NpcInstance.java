@@ -118,12 +118,15 @@ public class NpcInstance extends Character {
 
 	@Override
 	public void toTalk(PcInstance pc, ClientBasePacket cbp) {
+		super.toTalk(pc, cbp);
+		// face_player_on_talk=0 이면 예전처럼 항상 PC 쪽으로 (NpcInstance 계열)
+		if (!isFacePlayerOnTalk()) {
+			setHeading(Util.calcheading(this, pc.getX(), pc.getY()));
+			toSender(S_ObjectHeading.clone(BasePacketPooling.getPool(S_ObjectHeading.class), this), false);
+		}
 		// ai_talk true로 변경해야 도망가지 않고 해당 stay_count를 0까지 완료함.
 		ai_talk = true;
 		ai_walk_stay_count = Lineage.npc_talk_stay_time;
-		// pc 쪽으로 방향 전환.
-		setHeading(Util.calcheading(this, pc.getX(), pc.getY()));
-		toSender(S_ObjectHeading.clone(BasePacketPooling.getPool(S_ObjectHeading.class), this), false);
 	}
 
 	@Override

@@ -17,7 +17,6 @@ public class TalkNpc extends object {
 
 	private String talk;
 	private boolean isHeading;
-	private int heading_temp;
 	private List<String> list_pcname;
 	
 	public TalkNpc(String talk, boolean isHeading){
@@ -29,11 +28,11 @@ public class TalkNpc extends object {
 	@Override
 	public void toTalk(PcInstance pc, ClientBasePacket cbp){
 		super.toTalk(pc, cbp);
-
-		if(isHeading){
-			heading_temp = Util.calcheading(this, pc.getX(), pc.getY());
-			if(heading != heading_temp){
-				setHeading( heading_temp );
+		// DB 플래그 꺼짐: 예전 TalkNpc(isHeading) 동작. 켜짐: object.toTalk 에서만 통합 처리.
+		if (!isFacePlayerOnTalk() && isHeading) {
+			int heading_temp = Util.calcheading(this, pc.getX(), pc.getY());
+			if (heading != heading_temp) {
+				setHeading(heading_temp);
 				toSender(S_ObjectHeading.clone(BasePacketPooling.getPool(S_ObjectHeading.class), this), false);
 			}
 		}

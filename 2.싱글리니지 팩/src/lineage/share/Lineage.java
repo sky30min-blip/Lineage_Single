@@ -1504,7 +1504,9 @@ public final class Lineage {
 	static public boolean is_aden_teleport;
 	// 웰던 랜덤텔레포트 여부.
 	static public boolean is_welldone_teleport;
-	// 성 외성·기란 아지트 텔 허용 여부는 TeleportPolicy (IDE/분석기 호환용 소형 클래스)
+	// 기란 상아탑 일대(map4) 랜덤/범위 텔 허용 여부.
+	static public boolean is_ivory_tower_teleport;
+	// 성 외성·기란 아지트·잊혀진 섬 텔 허용 여부는 TeleportPolicy (IDE/분석기 호환용 소형 클래스)
 
 	// 잠수용 허수아비 사용여부
 	static public boolean is_rest_cracker;
@@ -3406,10 +3408,14 @@ public final class Lineage {
 						is_aden_teleport = value.equalsIgnoreCase("true");
 					else if (key.equalsIgnoreCase("is_welldone_teleport"))
 						is_welldone_teleport = value.equalsIgnoreCase("true");
+					else if (key.equalsIgnoreCase("is_ivory_tower_teleport"))
+						is_ivory_tower_teleport = value.equalsIgnoreCase("true");
 					else if (key.equalsIgnoreCase("is_kingdom_outer_teleport"))
 						TeleportPolicy.kingdomOuterTeleport = value.equalsIgnoreCase("true");
 					else if (key.equalsIgnoreCase("is_giran_agit_teleport"))
 						TeleportPolicy.giranAgitTeleport = value.equalsIgnoreCase("true");
+					else if (key.equalsIgnoreCase("is_forgotten_island_teleport"))
+						TeleportPolicy.forgottenIslandTeleport = value.equalsIgnoreCase("true");
 
 					else if (key.equalsIgnoreCase("boss_live_time"))
 						boss_live_time = Integer.valueOf(value);

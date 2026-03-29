@@ -16,6 +16,7 @@ public class Npc {
 	private int Light;
 	private int AreaAtk;
 	private int arrowGfx;
+	private boolean facePlayerOnTalk = false;
 	private List<Shop> shop_list = new ArrayList<Shop>();
 	private List<int[]> spawn_list = new ArrayList<int[]>();
 
@@ -113,6 +114,14 @@ public class Npc {
 
 	public void setArrowGfx(int arrowGfx) {
 		this.arrowGfx = arrowGfx;
+	}
+
+	public boolean isFacePlayerOnTalk() {
+		return facePlayerOnTalk;
+	}
+
+	public void setFacePlayerOnTalk(boolean facePlayerOnTalk) {
+		this.facePlayerOnTalk = facePlayerOnTalk;
 	}
 
 	public List<Shop> getShop_list() {

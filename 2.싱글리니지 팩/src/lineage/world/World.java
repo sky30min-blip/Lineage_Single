@@ -446,6 +446,16 @@ public final class World {
 	}
 
 	/**
+	 * 기란 상아탑 및 입구·주변 필드 (본토 map4).
+	 * 랜덤텔·이동 주문서의 범위 랜덤 등에서 제외하려면 {@link Lineage#is_ivory_tower_teleport}=false 유지.
+	 */
+	static public boolean isIvoryTowerVicinity(int x, int y, int map) {
+		if (map != 4)
+			return false;
+		return x >= 32935 && x <= 33305 && y >= 32685 && y <= 33025;
+	}
+
+	/**
 	 * 각 성 외성(외곽) 내부 좌표 여부. {@link Lineage#KINGDOMLOCATION}
 	 */
 	static public boolean isKingdomOuterWallInner(int x, int y, int map) {

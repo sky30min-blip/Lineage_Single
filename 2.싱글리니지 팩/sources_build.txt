@@ -25,10 +25,10 @@ src\kuberaitem\RandomDollOptionGrantingOrderForm.java
 src\kuberaitem\ScrollOfChangeBlessdoll.java
 src\kuberaitem\ScrollOfEnchantElementalWeaponRe.java
 src\kuberaitem\SelfSpell.java
-src\kuberaitem\ï¿½ï¿½È¥ï¿½ï¿½ï¿½ï¿½.java
-src\kuberaitem\ï¿½â¸¶ï¿½ï¿½ï¿½ï¿½.java
-src\kuberaitem\ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Å±ï¿½ï¿½ï¿½.java
-src\kuberaitem\ï¿½ï¿½ï¿½ï¿½Ñ±ï¿½ï¿½ï¿½Ç±ï¿½ï¿½ï¿½.java
+src\kuberaitem\°áÈ¥¹ÝÁö.java
+src\kuberaitem\±â¸¶Åõ±¸.java
+src\kuberaitem\±â¾ïÁ¦°Å±¸½½.java
+src\kuberaitem\Èñ¹ÌÇÑ±â¾ïÀÇ±¸½½.java
 src\lineage\Main.java
 src\lineage\bean\LogConnect.java
 src\lineage\bean\LogExp.java
@@ -432,6 +432,7 @@ src\lineage\share\Log.java
 src\lineage\share\Mysql.java
 src\lineage\share\Socket.java
 src\lineage\share\System.java
+src\lineage\share\TeleportPolicy.java
 src\lineage\share\TimeLine.java
 src\lineage\thread\AiExecuteThread.java
 src\lineage\thread\AiThread.java
@@ -460,6 +461,7 @@ src\lineage\world\controller\AuctionController.java
 src\lineage\world\controller\AutoHuntCheckController.java
 src\lineage\world\controller\AutoHuntController.java
 src\lineage\world\controller\AutoHuntHtmlBuilder.java
+src\lineage\world\controller\AutoHuntHtmParams.java
 src\lineage\world\controller\BaphometSystemController.java
 src\lineage\world\controller\BoardController.java
 src\lineage\world\controller\BookController.java
@@ -502,6 +504,7 @@ src\lineage\world\controller\LuckyController.java
 src\lineage\world\controller\MagicDollController.java
 src\lineage\world\controller\MapPolicy.java
 src\lineage\world\controller\NoticeController.java
+src\lineage\world\controller\NpcTalkHeading.java
 src\lineage\world\controller\PartyController.java
 src\lineage\world\controller\PcMarketController.java
 src\lineage\world\controller\PcTradeController.java
@@ -990,8 +993,8 @@ src\lineage\world\object\monster\StoneGolem.java
 src\lineage\world\object\monster\Unicorn.java
 src\lineage\world\object\monster\Wolf.java
 src\lineage\world\object\monster\Wolf2.java
-src\lineage\world\object\monster\ï¿½×ºï¿½ï¿½Æ´ï¿½ï¿½ï¿½.java
-src\lineage\world\object\monster\ï¿½×ºï¿½È£ï¿½ç½º.java
+src\lineage\world\object\monster\Å×º£¾Æ´©ºñ½º.java
+src\lineage\world\object\monster\Å×º£È£·ç½º.java
 src\lineage\world\object\monster\event\JackLantern.java
 src\lineage\world\object\monster\quest\AtubaOrc.java
 src\lineage\world\object\monster\quest\BetrayedOrcChief.java
@@ -1010,6 +1013,7 @@ src\lineage\world\object\monster\quest\Skeleton.java
 src\lineage\world\object\monster\quest\Zombie.java
 src\lineage\world\object\npc\Alfons.java
 src\lineage\world\object\npc\AttendanceCheck.java
+src\lineage\world\object\npc\AutoHuntMenuNpc.java
 src\lineage\world\object\npc\AutoPotion.java
 src\lineage\world\object\npc\BossTimer.java
 src\lineage\world\object\npc\BuffNpc.java
@@ -1043,6 +1047,7 @@ src\lineage\world\object\npc\OmanSealCreate.java
 src\lineage\world\object\npc\OmanShop.java
 src\lineage\world\object\npc\PenguinTeleporter.java
 src\lineage\world\object\npc\PolyCardCompose.java
+src\lineage\world\object\npc\PolyMonlistNpc.java
 src\lineage\world\object\npc\PowerballNpc.java
 src\lineage\world\object\npc\PriceCheck.java
 src\lineage\world\object\npc\Promot_npc.java
@@ -1066,7 +1071,7 @@ src\lineage\world\object\npc\Trank_bronze3.java
 src\lineage\world\object\npc\TreasureHuntTeleporter.java
 src\lineage\world\object\npc\WeaponChange.java
 src\lineage\world\object\npc\WorldBossTeleporter.java
-src\lineage\world\object\npc\ï¿½Úµï¿½ï¿½Ç¸ï¿½.java
+src\lineage\world\object\npc\ÀÚµ¿ÆÇ¸Å.java
 src\lineage\world\object\npc\background\BackgroundTile.java
 src\lineage\world\object\npc\background\BattleRoyalTeamLine.java
 src\lineage\world\object\npc\background\Chaotic.java

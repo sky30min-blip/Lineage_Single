@@ -34,6 +34,7 @@ import lineage.world.controller.BuffController;
 import lineage.world.controller.ChattingController;
 import lineage.world.controller.EventController;
 import lineage.world.controller.FightController;
+import lineage.world.controller.NpcTalkHeading;
 import lineage.world.object.instance.BackgroundInstance;
 import lineage.world.object.instance.BoardInstance;
 import lineage.world.object.instance.DwarfInstance;
@@ -122,6 +123,8 @@ public class object {
 	public int lastRank; // 랭킹 채팅 시스템을 위한 변수
 	public boolean isMark; // 마크를 위한 변수
 
+	/** npc.face_player_on_talk=1 일 때만 통합 바라보기(GM). 0이면 클래스별 예전 동작 */
+	private boolean facePlayerOnTalk = false;
 
 	private boolean persnalShopSellInsert;
 	private boolean persnalShopSellEdit;
@@ -1894,6 +1897,14 @@ public class object {
 		this.heading = heading;
 	}
 
+	public boolean isFacePlayerOnTalk() {
+		return facePlayerOnTalk;
+	}
+
+	public void setFacePlayerOnTalk(boolean facePlayerOnTalk) {
+		this.facePlayerOnTalk = facePlayerOnTalk;
+	}
+
 	public int getLight() {
 		return light;
 	}
@@ -2403,6 +2414,7 @@ public class object {
 	 * @param cbp
 	 */
 	public void toTalk(PcInstance pc, ClientBasePacket cbp) {
+		NpcTalkHeading.apply(this, pc);
 	}
 
 	/**
@@ -2414,6 +2426,7 @@ public class object {
 	 * @param cbp
 	 */
 	public void toTalk(PcInstance pc, String action, String type, ClientBasePacket cbp) {
+		NpcTalkHeading.apply(this, pc);
 	}
 
 	/**

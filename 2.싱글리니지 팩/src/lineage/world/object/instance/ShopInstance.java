@@ -78,6 +78,7 @@ public class ShopInstance extends object {
 
 	@Override
 	public void toTalk(PcInstance pc, String action, String type, ClientBasePacket cbp) {
+		super.toTalk(pc, action, type, cbp);
 		//자동판매 초기화
 		pc.isAutoSellAdding = false;
 		pc.isAutoSellDeleting = false;

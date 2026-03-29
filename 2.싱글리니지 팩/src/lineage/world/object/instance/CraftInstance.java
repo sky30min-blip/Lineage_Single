@@ -39,6 +39,7 @@ public class CraftInstance extends NpcInstance {
 
 	@Override
 	public void toTalk(PcInstance pc, String action, String type, ClientBasePacket cbp){
+		super.toTalk(pc, action, type, cbp);
 		Item craft = craft_list.get(action);
 
 		if(craft != null){

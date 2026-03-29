@@ -420,17 +420,22 @@ public class Util {
 	static public boolean isRandomTeleportTownBlocked(int x, int y, int map) {
 		if (!Lineage.is_fire_nest_teleport && World.isFireNest(x, y, map))
 			return true;
+		// 웰던을 오렌보다 먼저 검사 (겹치는 동쪽 띠에서 봉인 우선)
+		if (!Lineage.is_welldone_teleport && World.isWelldone(x, y, map))
+			return true;
 		if (!Lineage.is_oren_teleport && World.isOren(x, y, map))
 			return true;
 		if (!Lineage.is_heine_teleport && World.isHeine(x, y, map))
 			return true;
 		if (!Lineage.is_aden_teleport && World.isAden(x, y, map))
 			return true;
-		if (!Lineage.is_welldone_teleport && World.isWelldone(x, y, map))
+		if (!Lineage.is_ivory_tower_teleport && World.isIvoryTowerVicinity(x, y, map))
 			return true;
 		if (!TeleportPolicy.kingdomOuterTeleport && World.isKingdomOuterWallInner(x, y, map))
 			return true;
 		if (!TeleportPolicy.giranAgitTeleport && World.isGiranAgitArea(x, y, map))
+			return true;
+		if (!TeleportPolicy.forgottenIslandTeleport && World.isLostIsland(map))
 			return true;
 		return false;
 	}
@@ -1278,6 +1283,9 @@ public class Util {
 		case 5167:
 			local = "[악마왕의 영토]";
 			break;
+		case 508:
+			local = "[인형경주]";
+			break;
 		case 5300:
 			local = "[낚싯터]";
 			break;
@@ -1863,6 +1871,9 @@ public class Util {
 				break;
 			case 5167:
 				local = "[악마왕의 영토]";
+				break;
+			case 508:
+				local = "[인형경주]";
 				break;
 			case 5300:
 				local = "[낚싯터]";
@@ -2492,6 +2503,9 @@ public class Util {
 				break;
 			case 5167:
 				local = "[악마왕의 영토]";
+				break;
+			case 508:
+				local = "[인형경주]";
 				break;
 			case 5300:
 				local = "[낚싯터]";

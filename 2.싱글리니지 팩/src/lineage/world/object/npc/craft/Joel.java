@@ -12,10 +12,9 @@ import lineage.database.ServerDatabase;
 import lineage.network.packet.BasePacketPooling;
 import lineage.network.packet.ClientBasePacket;
 import lineage.network.packet.server.S_Html;
-import lineage.network.packet.server.S_ObjectHeading;
 import lineage.share.Lineage;
-import lineage.util.Util;
 import lineage.world.controller.ChattingController;
+import lineage.world.controller.NpcTalkHeading;
 import lineage.world.object.object;
 import lineage.world.object.instance.CraftInstance;
 import lineage.world.object.instance.ItemInstance;
@@ -58,10 +57,8 @@ public class Joel extends object {
 
 	@Override
 	public void toTalk(PcInstance pc, ClientBasePacket cbp) {
-		// pc 쪽으로 방향 전환.
-		setHeading(Util.calcheading(this, pc.getX(), pc.getY()));
-		toSender(S_ObjectHeading.clone(BasePacketPooling.getPool(S_ObjectHeading.class), this), false);
-
+		super.toTalk(pc, cbp);
+		NpcTalkHeading.legacyFacePlayerWhenDbOff(this, pc);
 		if (pc.getLawful() < Lineage.NEUTRAL)
 			pc.toSender(S_Html.clone(BasePacketPooling.getPool(S_Html.class), this, "JoelC1"));
 		else
@@ -70,6 +67,7 @@ public class Joel extends object {
 
 	@Override
 	public void toTalk(PcInstance pc, String action, String type, ClientBasePacket cbp) {
+		NpcTalkHeading.apply(this, pc);
 		pc.setTempShop(null);
 		if (action.equalsIgnoreCase("request adena10")) {
 			if (pc.getInventory().find("뼈조각") != null) {

@@ -413,6 +413,7 @@ public final class NpcSpawnlistDatabase {
 			o.setHomeHeading(heading);
 			o.setHeading(heading);
 			o.setReSpawnTime(respawn);
+			o.setFacePlayerOnTalk(n.isFacePlayerOnTalk());
 			o.toTeleport(o.getHomeX(), o.getHomeY(), o.getHomeMap(), false);
 			n.getSpawnList().add(new int[] { x, y, map });
 			

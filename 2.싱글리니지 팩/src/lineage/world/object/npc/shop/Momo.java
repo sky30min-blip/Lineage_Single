@@ -17,12 +17,11 @@ import lineage.bean.database.Shop;
 import lineage.network.packet.BasePacketPooling;
 import lineage.network.packet.ClientBasePacket;
 import lineage.network.packet.server.S_Html;
-import lineage.network.packet.server.S_ObjectHeading;
 import lineage.network.packet.server.S_ShopBuy;
 import lineage.network.packet.server.S_ShopSell;
 import lineage.share.Lineage;
-import lineage.util.Util;
 import lineage.world.controller.KingdomController;
+import lineage.world.controller.NpcTalkHeading;
 import lineage.world.object.instance.ItemInstance;
 import lineage.world.object.instance.PcInstance;
 import lineage.world.object.instance.ShopInstance;
@@ -36,10 +35,8 @@ public class Momo extends ShopInstance {
 
 	@Override
 	public void toTalk(PcInstance pc, ClientBasePacket cbp){
-		// pc 쪽으로 방향 전환.
-		setHeading(Util.calcheading(this, pc.getX(), pc.getY()));
-		toSender(S_ObjectHeading.clone(BasePacketPooling.getPool(S_ObjectHeading.class), this), false);
-		
+		super.toTalk(pc, cbp);
+		NpcTalkHeading.legacyFacePlayerWhenDbOff(this, pc);
 		if(pc.getLawful()<Lineage.NEUTRAL) {
 			pc.toSender(S_Html.clone(BasePacketPooling.getPool(S_Html.class), this, "momo2"));
 		} else {
@@ -49,6 +46,7 @@ public class Momo extends ShopInstance {
 	
 	@Override
 	public void toTalk(PcInstance pc, String action, String type, ClientBasePacket cbp) {
+		NpcTalkHeading.apply(this, pc);
 		if (action.equalsIgnoreCase("buy")) {
 			pc.toSender(S_ShopBuy.clone(BasePacketPooling.getPool(S_ShopBuy.class), this));
 		} else if (action.equalsIgnoreCase("sell")) {

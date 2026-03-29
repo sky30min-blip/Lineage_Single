@@ -3,6 +3,7 @@ package lineage.database;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.util.List;
 
 import lineage.bean.database.Item;
@@ -11,6 +12,17 @@ import lineage.bean.database.Shop;
 import lineage.share.TimeLine;
 
 public final class NpcShopDatabase {
+
+	/** DB에 shop_enabled 가 있고 0이면 해당 상점 행은 NPC 목록에 넣지 않음. */
+	static private boolean isShopLineEnabled(ResultSet rs) throws java.sql.SQLException {
+		ResultSetMetaData md = rs.getMetaData();
+		for (int i = 1; i <= md.getColumnCount(); i++) {
+			if ("shop_enabled".equalsIgnoreCase(md.getColumnLabel(i))) {
+				return rs.getInt("shop_enabled") != 0;
+			}
+		}
+		return true;
+	}
 
 	static public void init(Connection con){
 		TimeLine.start("NpcShopDatabase..");
@@ -21,6 +33,8 @@ public final class NpcShopDatabase {
 			st = con.prepareStatement("SELECT * FROM npc_shop ORDER BY uid");
 			rs = st.executeQuery();
 			while(rs.next()){
+				if (!isShopLineEnabled(rs))
+					continue;
 				Npc n = NpcDatabase.find( rs.getString("name") );
 				Item i = ItemDatabase.find( rs.getString("itemname") );
 				if(n!=null && i!=null){
@@ -70,6 +84,8 @@ public final class NpcShopDatabase {
 			rs = st.executeQuery();
 			
 			while(rs.next()){
+				if (!isShopLineEnabled(rs))
+					continue;
 				Npc n = NpcDatabase.find( rs.getString("name") );
 				Item i = ItemDatabase.find( rs.getString("itemname") );
 				

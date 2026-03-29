@@ -10,11 +10,13 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import lineage.bean.database.Monster;
 import lineage.bean.database.TeamBattleTime;
 import lineage.database.MonsterDatabase;
 import lineage.database.MonsterSpawnlistDatabase;
 import lineage.database.ServerDatabase;
 import lineage.share.Lineage;
+import lineage.share.System;
 import lineage.share.TimeLine;
 import lineage.thread.AiThread;
 import lineage.util.Util;
@@ -55,7 +57,8 @@ public class DollRaceController2 {
         int hour = date.getHours();
         int min = date.getMinutes();
         int sec = date.getSeconds();
-        String bossName = GmEventSettings.getMonsterName(GmEventSettings.DOLLRACE, "데스나이트");
+        // 데스나이트는 monster_spawnlist_boss(본토 던 5~7층) 전용 — 이벤트 맵과 분리
+        String bossName = GmEventSettings.getMonsterName(GmEventSettings.DOLLRACE, "킹 버그베어");
 
         for (TeamBattleTime teamTime : Lineage.bug_list) {
 
@@ -127,14 +130,21 @@ public class DollRaceController2 {
             }
 
             scheduler.schedule(() -> {
-                MonsterInstance boss = MonsterSpawnlistDatabase.newInstance(MonsterDatabase.find(bossName));
+                Monster mon = MonsterDatabase.find(bossName);
+                if (mon == null) {
+                    System.println("[DollRaceController2] gm_event_settings/dollrace 몬스터 없음: " + bossName);
+                    return;
+                }
+                MonsterInstance boss = MonsterSpawnlistDatabase.newInstance(mon);
+                if (boss == null) {
+                    System.println("[DollRaceController2] 몬스터 인스턴스 생성 실패: " + bossName);
+                    return;
+                }
                 boss.setHomeX(32828);
                 boss.setHomeY(33148);
                 boss.setHomeMap(508);
-                boss.setBoss(true);
 
                 AiThread.append(boss);
-                BossController.appendBossList(boss);
                 boss.toTeleport(boss.getHomeX(), boss.getHomeY(), boss.getHomeMap(), false);
             }, 10, TimeUnit.SECONDS);
         }

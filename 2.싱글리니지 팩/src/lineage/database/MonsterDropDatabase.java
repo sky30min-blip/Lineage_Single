@@ -3,6 +3,7 @@ package lineage.database;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -14,6 +15,17 @@ public final class MonsterDropDatabase {
 	// 전체 드랍리스트
 	static private List<Drop> drop_list;
 
+	/** DB에 drop_enabled 컬럼이 있고 0이면 해당 행은 드랍 목록에 넣지 않음. */
+	static private boolean isDropEnabledRow(ResultSet rs) throws java.sql.SQLException {
+		ResultSetMetaData md = rs.getMetaData();
+		for (int i = 1; i <= md.getColumnCount(); i++) {
+			if ("drop_enabled".equalsIgnoreCase(md.getColumnLabel(i))) {
+				return rs.getInt("drop_enabled") != 0;
+			}
+		}
+		return true;
+	}
+
 	static public void init(Connection con) {
 		TimeLine.start("MonsterDropDatabase..");
 
@@ -24,6 +36,8 @@ public final class MonsterDropDatabase {
 			st = con.prepareStatement("SELECT * FROM monster_drop");
 			rs = st.executeQuery();
 			while (rs.next()) {
+				if (!isDropEnabledRow(rs))
+					continue;
 				Monster m = MonsterDatabase.find(rs.getString("monster_name"));
 				if (m != null) {
 					Drop d = new Drop();
@@ -78,6 +92,8 @@ public final class MonsterDropDatabase {
 				st = con.prepareStatement("SELECT * FROM monster_drop");
 				rs = st.executeQuery();
 				while (rs.next()) {
+					if (!isDropEnabledRow(rs))
+						continue;
 					Monster m = MonsterDatabase.find(rs.getString("monster_name"));
 					if (m != null) {
 						Drop d = new Drop();

@@ -3,10 +3,9 @@ package lineage.world.object.npc;
 import lineage.network.packet.BasePacketPooling;
 import lineage.network.packet.ClientBasePacket;
 import lineage.network.packet.server.S_Html;
-import lineage.network.packet.server.S_ObjectHeading;
 import lineage.share.Lineage;
-import lineage.util.Util;
 import lineage.world.controller.ChattingController;
+import lineage.world.controller.NpcTalkHeading;
 import lineage.world.controller.SkillController;
 import lineage.world.object.object;
 import lineage.world.object.instance.PcInstance;
@@ -15,9 +14,8 @@ public class Ellyonne extends object {
 
 	@Override
 	public void toTalk(PcInstance pc, ClientBasePacket cbp){
-		setHeading(Util.calcheading(this, pc.getX(), pc.getY()));
-		toSender(S_ObjectHeading.clone(BasePacketPooling.getPool(S_ObjectHeading.class), this), false);
-		
+		super.toTalk(pc, cbp);
+		NpcTalkHeading.legacyFacePlayerWhenDbOff(this, pc);
 		if(pc.getClassType() == Lineage.LINEAGE_CLASS_ELF)
 			pc.toSender(S_Html.clone(BasePacketPooling.getPool(S_Html.class), this, "ellyonne4"));
 		else
@@ -26,6 +24,7 @@ public class Ellyonne extends object {
 
 	@Override
 	public void toTalk(PcInstance pc, String action, String type, ClientBasePacket cbp){
+		NpcTalkHeading.apply(this, pc);
 		if(pc.getLevel()<30 || pc.getClassType()!=Lineage.LINEAGE_CLASS_ELF){
 			// 정령이 튕겨졌습니다.
 			ChattingController.toChatting(pc, "30레벨 이상 속성을 선택 가능합니다.", Lineage.CHATTING_MODE_MESSAGE);

@@ -250,15 +250,20 @@ public class PowerballController {
 			st = con.prepareStatement("SELECT 1 FROM powerball_reward_run WHERE reward_date=? LIMIT 1");
 			st.setDate(1, rewardDate);
 			rs = st.executeQuery();
-			if (rs.next())
+			if (rs.next()) {
+				// 이미 정산됨 (GM 수동·이전 자동 등). 매분 스킵되므로 로그는 남기지 않음.
 				return;
+			}
 			DatabaseConnection.close(null, st, rs);
 			st = null;
 			rs = null;
 
 			long serverProfit = getServerProfitByKstDate(con, rewardDate);
 			if (serverProfit <= 0) {
-				insertRewardRun(con, rewardDate, serverProfit, 0L, 0L, "AUTO_0005_NEGATIVE_OR_ZERO");
+				// 원장을 넣지 않음: 예전에는 AUTO_0005_NEGATIVE_OR_ZERO 행이 남아 GM 수동 정산이 막히는 문제가 있었음.
+				lineage.share.System.printf(
+					"[파워볼 자동정산] 순이익 없음 — 스킵 reward_date=%s profit=%,d (원장 미기록, 익일 GM 수동 정산 가능)\r\n",
+					rewardDate.toString(), serverProfit);
 				return;
 			}
 
@@ -267,8 +272,8 @@ public class PowerballController {
 			long[] fourAmounts = splitByRank(poolFour);
 			long[] royalAmounts = splitByRank(poolRoyal);
 
-			// 기사/요정/마법사 top3 (class 1,2,3)
-			List<RewardTarget> fourTargets = getTopTargetsByClass(con, "1,2,3", 3);
+			// 기사/요정/마법사/다크엘프 레벨 상위 3명 (class 1,2,3,4 병합 — GM 툴 네직업 풀과 동일 범위)
+			List<RewardTarget> fourTargets = getTopTargetsByClass(con, "1,2,3,4", 3);
 			// 군주 top3 (class 0)
 			List<RewardTarget> royalTargets = getTopTargetsByClass(con, "0", 3);
 
@@ -280,6 +285,9 @@ public class PowerballController {
 			insertRewardRun(con, rewardDate, serverProfit, poolFour, poolRoyal, "AUTO_0005_DONE");
 			con.commit();
 			con.setAutoCommit(true);
+			lineage.share.System.printf(
+				"[파워볼 자동정산] 완료 reward_date=%s profit=%,d poolFour=%,d poolRoyal=%,d fourTargets=%d royalTargets=%d\r\n",
+				rewardDate.toString(), serverProfit, poolFour, poolRoyal, fourTargets.size(), royalTargets.size());
 		} catch (Exception e) {
 			try {
 				if (con != null)
@@ -387,6 +395,7 @@ public class PowerballController {
 		try {
 			String sql = String.format(
 				"SELECT objID, name, class FROM characters WHERE class IN (%s) AND block_date='0000-00-00 00:00:00' " +
+				"AND COALESCE(gm,0)=0 " +
 				"ORDER BY level DESC, exp DESC LIMIT ?", classCsv);
 			st = con.prepareStatement(sql);
 			st.setInt(1, limit);
@@ -425,34 +434,30 @@ public class PowerballController {
 		PreparedStatement st = null;
 		ResultSet rs = null;
 		try {
+			// en/bress 조건은 실제 인벤(축복/인챈트 등)과 안 맞으면 UPDATE 0건 → 예외·전체 롤백이 잦음.
+			// GM 툴과 동일하게 cha_objId+이름으로 첫 아데나 스택에 합산.
 			st = con.prepareStatement(
-				"SELECT count FROM characters_inventory WHERE cha_objId=? AND name=? AND en=0 AND bress=1 LIMIT 1");
-			st.setInt(1, chaObjId);
-			st.setString(2, "아데나");
-			rs = st.executeQuery();
-			if (rs.next()) {
-				long current = rs.getLong(1);
-				DatabaseConnection.close(null, st, rs);
-				st = con.prepareStatement(
-					"UPDATE characters_inventory SET count=? WHERE cha_objId=? AND name=? AND en=0 AND bress=1");
-				st.setLong(1, current + amount);
-				st.setInt(2, chaObjId);
-				st.setString(3, "아데나");
-				st.executeUpdate();
-			} else {
-				DatabaseConnection.close(null, st, rs);
-				Item aden = ItemDatabase.find("아데나");
-				st = con.prepareStatement(
-					"INSERT INTO characters_inventory SET objId=?, cha_objId=?, cha_name=?, name=?, count=?, en=0, definite=1, bress=1, 구분1=?, 구분2=?");
-				st.setLong(1, ServerDatabase.nextItemObjId());
-				st.setInt(2, chaObjId);
-				st.setString(3, chaName);
-				st.setString(4, "아데나");
-				st.setLong(5, amount);
-				st.setString(6, aden == null ? "etc" : aden.getType1());
-				st.setString(7, aden == null ? "etc" : aden.getType2());
-				st.executeUpdate();
-			}
+				"UPDATE characters_inventory SET count=count+? WHERE cha_objId=? AND name=? ORDER BY objId ASC LIMIT 1");
+			st.setLong(1, amount);
+			st.setInt(2, chaObjId);
+			st.setString(3, "아데나");
+			int n = st.executeUpdate();
+			DatabaseConnection.close(null, st, rs);
+			st = null;
+			if (n > 0)
+				return;
+
+			Item aden = ItemDatabase.find("아데나");
+			st = con.prepareStatement(
+				"INSERT INTO characters_inventory SET objId=?, cha_objId=?, cha_name=?, name=?, count=?, en=0, definite=1, bress=1, 구분1=?, 구분2=?");
+			st.setLong(1, ServerDatabase.nextItemObjId());
+			st.setInt(2, chaObjId);
+			st.setString(3, chaName);
+			st.setString(4, "아데나");
+			st.setLong(5, amount);
+			st.setString(6, aden == null ? "etc" : aden.getType1());
+			st.setString(7, aden == null ? "etc" : aden.getType2());
+			st.executeUpdate();
 		} finally {
 			DatabaseConnection.close(null, st, rs);
 		}
@@ -506,7 +511,7 @@ public class PowerballController {
 		sb.append("(다음날 00:05초에 자동지급)\r\n");
 
 		if (serverProfit <= 0) {
-			sb.append("*기사, 요정, 마법사\r\n");
+			sb.append("*기사, 요정, 마법사, 다크엘프 (통합 TOP3)\r\n");
 			sb.append("현재 정산금은 없습니다.\r\n");
 			sb.append("*군주\r\n");
 			sb.append("현재 정산금은 없습니다.\r\n");
@@ -518,7 +523,7 @@ public class PowerballController {
 		long[] fourAmounts = splitByRank(poolFour);
 		long[] royalAmounts = splitByRank(poolRoyal);
 
-		sb.append(String.format("*기사, 요정, 마법사 (풀 %d%%)\r\n", POOL_FOUR_CLASS_PERCENT));
+		sb.append(String.format("*기사·요정·마법사·다크엘프 통합 TOP3 (풀 %d%%)\r\n", POOL_FOUR_CLASS_PERCENT));
 		appendRankAmountLines(sb, fourAmounts);
 		sb.append(String.format("*군주 (풀 %d%%)\r\n", POOL_ROYAL_PERCENT));
 		appendRankAmountLines(sb, royalAmounts);
