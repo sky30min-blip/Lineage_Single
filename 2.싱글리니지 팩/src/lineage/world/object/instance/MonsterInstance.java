@@ -1601,6 +1601,10 @@ public class MonsterInstance extends Character {
 				msg = Util.getMapName(this) + " " + getMonster().getName();
 			}
 
+			try {
+				BossController.onBossKilled(this, o, getAttackList());
+			} catch (Exception ignore) {
+			}
 			BossController.toWorldOut(this);
 			World.toSender(S_Message.clone(BasePacketPooling.getPool(S_Message.class), 781, msg));
 		}
@@ -1777,6 +1781,10 @@ public class MonsterInstance extends Character {
 					name = ((SummonInstance) o).getOwnName();
 			}
 
+			try {
+				BossController.onBossKilled(this, o, list);
+			} catch (Exception ignore) {
+			}
 			World.toSender(S_ObjectChatting.clone(BasePacketPooling.getPool(S_ObjectChatting.class), String.format("사망: %s", getMonster().getName())));
 		}
 

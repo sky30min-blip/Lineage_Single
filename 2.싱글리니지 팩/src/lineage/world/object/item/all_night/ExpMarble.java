@@ -19,6 +19,10 @@ public class ExpMarble extends ItemInstance {
 	@Override
 	public void toClick(Character cha, ClientBasePacket cbp) {
 		if (isClickState(cha)) {
+			if (!Lineage.is_exp_marble_system) {
+				ChattingController.toChatting(cha, "현재 경험치 구슬 시스템이 비활성화되어 있습니다.", Lineage.CHATTING_MODE_MESSAGE);
+				return;
+			}
 			if (Lineage.exp_marble_use_count < 1) {
 				ChattingController.toChatting(cha, "현재 아이템 사용이 불가능합니다.", Lineage.CHATTING_MODE_MESSAGE);
 				return;

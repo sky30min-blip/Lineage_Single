@@ -428,6 +428,54 @@ public class PowerballController {
 		}
 	}
 
+	/**
+	 * 접속 중 캐릭터에게 DB 반영만으로는 인벤이 갱신되지 않으므로 GmDeliveryController 가 읽는 큐에 넣는다.
+	 * (gm_adena_delivery: new_count = 첫 아데나 스택 수량, gm_item_delivery: 신규 행 objId 동기화)
+	 */
+	private static void tryEnqueueGmAdenaDelivery(Connection con, int chaObjId) {
+		PreparedStatement st = null;
+		ResultSet rs = null;
+		long total = 0L;
+		try {
+			st = con.prepareStatement(
+				"SELECT count FROM characters_inventory WHERE cha_objId=? AND name=? ORDER BY objId ASC LIMIT 1");
+			st.setInt(1, chaObjId);
+			st.setString(2, "아데나");
+			rs = st.executeQuery();
+			if (rs.next())
+				total = rs.getLong(1);
+		} catch (Exception ignore) {
+			return;
+		} finally {
+			DatabaseConnection.close(null, st, rs);
+			st = null;
+			rs = null;
+		}
+		try {
+			st = con.prepareStatement("INSERT INTO gm_adena_delivery (cha_objId, new_count, delivered) VALUES (?, ?, 0)");
+			st.setInt(1, chaObjId);
+			st.setLong(2, total);
+			st.executeUpdate();
+		} catch (Exception ignore) {
+			// 테이블 없음 등
+		} finally {
+			DatabaseConnection.close(null, st);
+		}
+	}
+
+	private static void tryEnqueueGmItemDelivery(Connection con, int chaObjId, long objId) {
+		PreparedStatement st = null;
+		try {
+			st = con.prepareStatement("INSERT INTO gm_item_delivery (cha_objId, objId, delivered) VALUES (?, ?, 0)");
+			st.setLong(1, chaObjId);
+			st.setLong(2, objId);
+			st.executeUpdate();
+		} catch (Exception ignore) {
+		} finally {
+			DatabaseConnection.close(null, st);
+		}
+	}
+
 	private static void giveAdenaOffline(Connection con, int chaObjId, String chaName, long amount) throws Exception {
 		if (amount <= 0)
 			return;
@@ -444,13 +492,16 @@ public class PowerballController {
 			int n = st.executeUpdate();
 			DatabaseConnection.close(null, st, rs);
 			st = null;
-			if (n > 0)
+			if (n > 0) {
+				tryEnqueueGmAdenaDelivery(con, chaObjId);
 				return;
+			}
 
 			Item aden = ItemDatabase.find("아데나");
+			long newObjId = ServerDatabase.nextItemObjId();
 			st = con.prepareStatement(
 				"INSERT INTO characters_inventory SET objId=?, cha_objId=?, cha_name=?, name=?, count=?, en=0, definite=1, bress=1, 구분1=?, 구분2=?");
-			st.setLong(1, ServerDatabase.nextItemObjId());
+			st.setLong(1, newObjId);
 			st.setInt(2, chaObjId);
 			st.setString(3, chaName);
 			st.setString(4, "아데나");
@@ -458,6 +509,10 @@ public class PowerballController {
 			st.setString(6, aden == null ? "etc" : aden.getType1());
 			st.setString(7, aden == null ? "etc" : aden.getType2());
 			st.executeUpdate();
+			DatabaseConnection.close(null, st, rs);
+			st = null;
+			tryEnqueueGmItemDelivery(con, chaObjId, newObjId);
+			tryEnqueueGmAdenaDelivery(con, chaObjId);
 		} finally {
 			DatabaseConnection.close(null, st, rs);
 		}

@@ -1494,6 +1494,8 @@ public final class Lineage {
 	
 	// 바포메트 시스템 적용 여부.
 	static public boolean is_batpomet_system;
+	// 경험치 저장 구슬 / 경험치 구슬 사용 허용 (lineage.conf is_exp_marble_system, 기본 false).
+	static public boolean is_exp_marble_system;
 	// 화둥 랜덤텔레포트 여부.
 	static public boolean is_fire_nest_teleport;
 	// 오렌 랜덤텔레포트 여부.
@@ -3398,6 +3400,8 @@ public final class Lineage {
 						attackAndMagic_delay = Integer.valueOf(value);
 					else if (key.equalsIgnoreCase("is_batpomet_system"))
 						is_batpomet_system = value.equalsIgnoreCase("true");
+					else if (key.equalsIgnoreCase("is_exp_marble_system"))
+						is_exp_marble_system = value.equalsIgnoreCase("true");
 					else if (key.equalsIgnoreCase("is_fire_nest_teleport"))
 						is_fire_nest_teleport = value.equalsIgnoreCase("true");
 					else if (key.equalsIgnoreCase("is_oren_teleport"))
