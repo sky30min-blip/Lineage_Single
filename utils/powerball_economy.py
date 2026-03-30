@@ -899,13 +899,48 @@ def repay_adena_from_saved_reward_lines(db, d: date) -> tuple[bool, str]:
     return True, f"원장 {len(lines)}건 기준 아데나 지급을 반영했습니다."
 
 
+def _enqueue_gm_adena_delivery(db, char_obj_id: int) -> None:
+    """
+    접속 중 캐릭터 인벤 동기화: 서버 GmDeliveryController 가 폴링하는 gm_adena_delivery.
+    new_count 는 DB 상 첫 아데나 스택 수량(캐릭터관리 아데나 지급과 동일).
+    """
+    if char_obj_id <= 0:
+        return
+    row = db.fetch_one(
+        """
+        SELECT `count` FROM characters_inventory
+        WHERE cha_objId = %s AND `name` = %s
+        ORDER BY objId ASC
+        LIMIT 1
+        """,
+        (char_obj_id, "아데나"),
+    )
+    if not row:
+        return
+    new_total = int(row.get("count") or 0)
+    try:
+        db._ensure_connection()
+        with db.connection.cursor() as cur:
+            cur.execute(
+                "INSERT INTO gm_adena_delivery (cha_objId, new_count, delivered) VALUES (%s, %s, 0)",
+                (char_obj_id, new_total),
+            )
+        db.connection.commit()
+    except Exception:
+        try:
+            db.connection.rollback()
+        except Exception:
+            pass
+
+
 def add_adena_inventory_delta(
     db, char_name: str, char_obj_id: int, delta: int
 ) -> tuple[bool, str]:
     """
     접속 여부와 무관하게 DB `characters_inventory`에 반영 (오프라인도 다음 접속 시 그대로 보임).
-    기존 아데나 스택이 있으면 합산, 없으면 새 행 INSERT. 접속 중 캐릭터 동기화를 위해
-    신규 INSERT 시 `gm_item_delivery`가 있으면 한 줄 넣어 시도한다.
+    기존 아데나 스택이 있으면 합산, 없으면 새 행 INSERT.
+    접속 중 동기화: UPDATE/INSERT 후 `gm_adena_delivery`(첫 스택 수량)를 넣어 서버 GmDeliveryController 가 메모리 인벤을 맞춘다.
+    신규 INSERT 시 `gm_item_delivery`도 함께 시도한다.
 
     UPDATE는 **cha_objId** 기준(이름만 쓰면 동명·SQL_SAFE_UPDATES 등으로 실패하기 쉬움).
     """
@@ -925,6 +960,7 @@ def add_adena_inventory_delta(
             )
             if cur.rowcount:
                 db.connection.commit()
+                _enqueue_gm_adena_delivery(db, char_obj_id)
                 return True, ""
 
             cur.execute(
@@ -948,6 +984,7 @@ def add_adena_inventory_delta(
             except Exception:
                 pass
             db.connection.commit()
+            _enqueue_gm_adena_delivery(db, char_obj_id)
         return True, ""
     except Exception as e:
         try:

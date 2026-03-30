@@ -9,6 +9,9 @@ REQUIRED_TABLES = [
     'gm_item_delivery',
     'gm_adena_delivery',
     'gm_location_delivery',
+    'gm_boss_status',
+    'gm_boss_kill_log',
+    'gm_boss_kill_participant',
     'gm_chat_log',
     'gm_chat_send',
     'gm_server_command',
@@ -74,6 +77,56 @@ TABLE_CREATION_SQLS = {
           KEY `idx_delivered` (`delivered`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         COMMENT='GM 툴 좌표 이동 즉시 반영(서버가 폴링)';
+    """,
+    'gm_boss_status': """
+        CREATE TABLE IF NOT EXISTS `gm_boss_status` (
+          `boss_name` VARCHAR(64) NOT NULL,
+          `monster_name` VARCHAR(64) NOT NULL DEFAULT '',
+          `map` INT NOT NULL DEFAULT 0,
+          `x` INT NOT NULL DEFAULT 0,
+          `y` INT NOT NULL DEFAULT 0,
+          `alive` TINYINT NOT NULL DEFAULT 0 COMMENT '1=생존, 0=사망/미스폰',
+          `last_spawn_at` DATETIME(3) NULL,
+          `last_dead_at` DATETIME(3) NULL,
+          `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+          `note` VARCHAR(64) NOT NULL DEFAULT '',
+          PRIMARY KEY (`boss_name`),
+          KEY `idx_alive` (`alive`),
+          KEY `idx_updated` (`updated_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        COMMENT='서버가 주기적으로 기록하는 보스 생존 현황(GM툴 조회용)';
+    """,
+    'gm_boss_kill_log': """
+        CREATE TABLE IF NOT EXISTS `gm_boss_kill_log` (
+          `id` BIGINT NOT NULL AUTO_INCREMENT,
+          `boss_name` VARCHAR(64) NOT NULL,
+          `map` INT NOT NULL DEFAULT 0,
+          `x` INT NOT NULL DEFAULT 0,
+          `y` INT NOT NULL DEFAULT 0,
+          `map_name` VARCHAR(128) NOT NULL DEFAULT '',
+          `killer_name` VARCHAR(64) NOT NULL DEFAULT '',
+          `killer_clan` VARCHAR(64) NOT NULL DEFAULT '',
+          `participant_count` INT NOT NULL DEFAULT 0,
+          `killed_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+          PRIMARY KEY (`id`),
+          KEY `idx_boss_time` (`boss_name`, `killed_at`),
+          KEY `idx_killed_at` (`killed_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        COMMENT='보스 처치 로그(킬러/좌표/시간)';
+    """,
+    'gm_boss_kill_participant': """
+        CREATE TABLE IF NOT EXISTS `gm_boss_kill_participant` (
+          `id` BIGINT NOT NULL AUTO_INCREMENT,
+          `kill_id` BIGINT NOT NULL,
+          `char_obj_id` BIGINT NOT NULL,
+          `char_name` VARCHAR(64) NOT NULL DEFAULT '',
+          `clan_name` VARCHAR(64) NOT NULL DEFAULT '',
+          `is_killer` TINYINT NOT NULL DEFAULT 0,
+          PRIMARY KEY (`id`),
+          KEY `idx_kill_id` (`kill_id`),
+          KEY `idx_char_obj_id` (`char_obj_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        COMMENT='보스 처치 참여자(레이드 참여 캐릭터 목록)';
     """,
     'gm_chat_log': """
         CREATE TABLE IF NOT EXISTS `gm_chat_log` (

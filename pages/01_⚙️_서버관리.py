@@ -473,6 +473,26 @@ if _sv_ti == 0:
         else:
             st.error(err)
     st.caption("효과: 라우풀 1~3단계 AC·MR 보너스 / 카오틱 1~3단계 추가대미지·SP 보너스")
+
+    st.write("**경험치 저장·구슬 시스템** — `lineage.conf`의 `is_exp_marble_system` 입니다. **저장 구슬**과 **경험치 구슬** 사용을 한꺼번에 켜거나 끕니다. 수정 후 **서버 재시작** 시 적용.")
+    exp_marble_current = _read_conf_bool("is_exp_marble_system", False)
+    exp_marble_on = st.checkbox(
+        "경험치 저장·구슬 시스템 사용",
+        value=exp_marble_current,
+        key="exp_marble_system",
+        help="끄면 두 아이템 클릭 시 비활성 안내만 나옵니다. 나중에 업데이트로 켤 때 여기서 true 로 저장하세요.",
+    )
+    if exp_marble_on != exp_marble_current:
+        st.caption("변경 사항이 있습니다. 아래 저장 후 서버를 재시작하세요.")
+    if st.button("💾 경험치 구슬 설정 저장", key="btn_exp_marble_system_save"):
+        ok_em, err_em = _write_conf_key_values({"is_exp_marble_system": "true" if exp_marble_on else "false"})
+        if ok_em:
+            queue_feedback("success", "✅ 저장되었습니다. **서버를 재시작**한 뒤 적용됩니다.")
+            st.rerun()
+        else:
+            st.error(err_em)
+    st.caption("기본은 **꺼짐** — 업데이트 전까지 비활성으로 두려면 체크 해제 상태로 저장하세요.")
+
     st.write("---")
 
     c_wait = st.checkbox("서버 오픈대기 실행 확인", key="c_sv_wait", help="배율·레벨 제한 적용됨")

@@ -899,6 +899,109 @@ else:
     if not has_boss_spawn:
         st.warning("monster_spawnlist_boss 테이블이 없습니다. DB 스키마를 확인하세요.")
     else:
+        st.markdown("### 🧟‍♂️ 보스 생존/처치 현황 (서버 구동 중)")
+        st.caption(
+            "`BossController`가 서버에서 주기적으로 `gm_boss_status`에 보스 생존 상태를 기록하면 여기서 확인할 수 있습니다. "
+            "표가 비어 있으면 **(1) 서버 빌드/재시작 미적용**, **(2) `gm_boss_status` 테이블 미생성**, **(3) 서버가 아직 1분 주기 갱신 전**일 수 있습니다."
+        )
+        if "gm_boss_status" not in (tables or []):
+            st.warning("`gm_boss_status` 테이블이 없습니다. `DB관리`에서 누락 테이블 생성으로 추가하세요.")
+        else:
+            try:
+                only_alive = st.checkbox("생존(Alive=1)만 보기", value=True, key="boss_status_only_alive")
+                sql = (
+                    "SELECT boss_name, monster_name, alive, map, x, y, last_spawn_at, last_dead_at, updated_at, note "
+                    "FROM gm_boss_status "
+                    + ("WHERE alive=1 " if only_alive else "")
+                    + "ORDER BY alive DESC, updated_at DESC"
+                )
+                srows = db.fetch_all(sql, ())
+                if srows:
+                    sdf = pd.DataFrame(srows)
+                    # 가독성용 컬럼명
+                    sdf = sdf.rename(
+                        columns={
+                            "boss_name": "보스",
+                            "monster_name": "몬스터",
+                            "alive": "생존",
+                            "map": "맵",
+                            "x": "X",
+                            "y": "Y",
+                            "last_spawn_at": "최근스폰",
+                            "last_dead_at": "최근처치/소멸",
+                            "updated_at": "갱신시각",
+                            "note": "비고",
+                        }
+                    )
+                    sdf["생존"] = sdf["생존"].map(lambda v: "✅" if int(v or 0) == 1 else "☠️")
+                    st.dataframe(sdf, width="stretch", height=min(420, 40 + len(sdf) * 35))
+                    st.caption(f"총 {len(sdf)}건")
+                else:
+                    st.info("표시할 보스 상태가 없습니다. (서버가 아직 기록하지 않았거나, 갱신 전입니다.)")
+            except Exception as e:
+                st.error(f"보스 상태 조회 실패: {e}")
+
+        st.markdown("### ⚔️ 보스 처치 로그 / 레이드 참여자")
+        has_kill_log = "gm_boss_kill_log" in (tables or [])
+        has_kill_part = "gm_boss_kill_participant" in (tables or [])
+        if not has_kill_log or not has_kill_part:
+            st.warning("`gm_boss_kill_log`, `gm_boss_kill_participant` 테이블이 없습니다. `DB관리`에서 누락 테이블 생성을 먼저 해주세요.")
+        else:
+            try:
+                max_rows = st.number_input("최근 로그 표시 개수", min_value=10, max_value=300, value=50, step=10, key="boss_kill_log_limit")
+                logs = db.fetch_all(
+                    """
+                    SELECT id, boss_name, map_name, map, x, y, killer_name, killer_clan, participant_count, killed_at
+                    FROM gm_boss_kill_log
+                    ORDER BY id DESC
+                    LIMIT %s
+                    """,
+                    (int(max_rows),),
+                ) or []
+                if logs:
+                    ldf = pd.DataFrame(logs).rename(
+                        columns={
+                            "id": "로그ID",
+                            "boss_name": "보스",
+                            "map_name": "맵이름",
+                            "map": "맵",
+                            "x": "X",
+                            "y": "Y",
+                            "killer_name": "막타캐릭터",
+                            "killer_clan": "막타클랜",
+                            "participant_count": "참여인원",
+                            "killed_at": "처치시각",
+                        }
+                    )
+                    st.dataframe(ldf, width="stretch", height=min(360, 40 + len(ldf) * 35))
+                    picked = st.selectbox(
+                        "참여자 보기 (로그ID 선택)",
+                        options=[int(r["id"]) for r in logs],
+                        key="boss_kill_log_pick_id",
+                    )
+                    parts = db.fetch_all(
+                        """
+                        SELECT char_name, clan_name, is_killer
+                        FROM gm_boss_kill_participant
+                        WHERE kill_id = %s
+                        ORDER BY is_killer DESC, char_name ASC
+                        """,
+                        (int(picked),),
+                    ) or []
+                    if parts:
+                        pdf = pd.DataFrame(parts).rename(
+                            columns={"char_name": "캐릭터", "clan_name": "클랜", "is_killer": "막타"}
+                        )
+                        pdf["막타"] = pdf["막타"].map(lambda v: "⭐" if int(v or 0) == 1 else "")
+                        st.dataframe(pdf, width="stretch", height=min(280, 40 + len(pdf) * 35))
+                    else:
+                        st.info("선택한 로그의 참여자 기록이 없습니다.")
+                else:
+                    st.info("아직 기록된 보스 처치 로그가 없습니다.")
+            except Exception as e:
+                st.error(f"보스 처치 로그 조회 실패: {e}")
+
+        st.divider()
         if not ensure_spawn_enabled_column(db):
             st.warning(
                 "⚠️ `spawn_enabled` 컬럼을 자동 추가하지 못했습니다. "
